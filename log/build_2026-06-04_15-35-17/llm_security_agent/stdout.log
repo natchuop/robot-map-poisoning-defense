@@ -1,0 +1,30 @@
+running egg_info
+creating ../../build/llm_security_agent/llm_security_agent.egg-info
+writing ../../build/llm_security_agent/llm_security_agent.egg-info/PKG-INFO
+writing dependency_links to ../../build/llm_security_agent/llm_security_agent.egg-info/dependency_links.txt
+writing requirements to ../../build/llm_security_agent/llm_security_agent.egg-info/requires.txt
+writing top-level names to ../../build/llm_security_agent/llm_security_agent.egg-info/top_level.txt
+writing manifest file '../../build/llm_security_agent/llm_security_agent.egg-info/SOURCES.txt'
+reading manifest file '../../build/llm_security_agent/llm_security_agent.egg-info/SOURCES.txt'
+writing manifest file '../../build/llm_security_agent/llm_security_agent.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/natch/projects/robot-map-poisoning-defense/build/llm_security_agent/build
+creating /home/natch/projects/robot-map-poisoning-defense/build/llm_security_agent/build/lib
+creating /home/natch/projects/robot-map-poisoning-defense/build/llm_security_agent/build/lib/llm_security_agent
+copying llm_security_agent/__init__.py -> /home/natch/projects/robot-map-poisoning-defense/build/llm_security_agent/build/lib/llm_security_agent
+running install
+running install_lib
+creating /home/natch/projects/robot-map-poisoning-defense/install/llm_security_agent/lib/python3.12/site-packages/llm_security_agent
+copying /home/natch/projects/robot-map-poisoning-defense/build/llm_security_agent/build/lib/llm_security_agent/__init__.py -> /home/natch/projects/robot-map-poisoning-defense/install/llm_security_agent/lib/python3.12/site-packages/llm_security_agent
+byte-compiling /home/natch/projects/robot-map-poisoning-defense/install/llm_security_agent/lib/python3.12/site-packages/llm_security_agent/__init__.py to __init__.cpython-312.pyc
+running install_data
+creating /home/natch/projects/robot-map-poisoning-defense/install/llm_security_agent/share/ament_index
+creating /home/natch/projects/robot-map-poisoning-defense/install/llm_security_agent/share/ament_index/resource_index
+creating /home/natch/projects/robot-map-poisoning-defense/install/llm_security_agent/share/ament_index/resource_index/packages
+copying resource/llm_security_agent -> /home/natch/projects/robot-map-poisoning-defense/install/llm_security_agent/share/ament_index/resource_index/packages
+copying package.xml -> /home/natch/projects/robot-map-poisoning-defense/install/llm_security_agent/share/llm_security_agent
+running install_egg_info
+Copying ../../build/llm_security_agent/llm_security_agent.egg-info to /home/natch/projects/robot-map-poisoning-defense/install/llm_security_agent/lib/python3.12/site-packages/llm_security_agent-0.0.0-py3.12.egg-info
+running install_scripts
+writing list of installed files to '/home/natch/projects/robot-map-poisoning-defense/build/llm_security_agent/install.log'

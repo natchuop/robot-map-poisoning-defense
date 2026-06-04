@@ -1,0 +1,30 @@
+running egg_info
+creating ../../build/attack_node/attack_node.egg-info
+writing ../../build/attack_node/attack_node.egg-info/PKG-INFO
+writing dependency_links to ../../build/attack_node/attack_node.egg-info/dependency_links.txt
+writing requirements to ../../build/attack_node/attack_node.egg-info/requires.txt
+writing top-level names to ../../build/attack_node/attack_node.egg-info/top_level.txt
+writing manifest file '../../build/attack_node/attack_node.egg-info/SOURCES.txt'
+reading manifest file '../../build/attack_node/attack_node.egg-info/SOURCES.txt'
+writing manifest file '../../build/attack_node/attack_node.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/natch/projects/robot-map-poisoning-defense/build/attack_node/build
+creating /home/natch/projects/robot-map-poisoning-defense/build/attack_node/build/lib
+creating /home/natch/projects/robot-map-poisoning-defense/build/attack_node/build/lib/attack_node
+copying attack_node/__init__.py -> /home/natch/projects/robot-map-poisoning-defense/build/attack_node/build/lib/attack_node
+running install
+running install_lib
+creating /home/natch/projects/robot-map-poisoning-defense/install/attack_node/lib/python3.12/site-packages/attack_node
+copying /home/natch/projects/robot-map-poisoning-defense/build/attack_node/build/lib/attack_node/__init__.py -> /home/natch/projects/robot-map-poisoning-defense/install/attack_node/lib/python3.12/site-packages/attack_node
+byte-compiling /home/natch/projects/robot-map-poisoning-defense/install/attack_node/lib/python3.12/site-packages/attack_node/__init__.py to __init__.cpython-312.pyc
+running install_data
+creating /home/natch/projects/robot-map-poisoning-defense/install/attack_node/share/ament_index
+creating /home/natch/projects/robot-map-poisoning-defense/install/attack_node/share/ament_index/resource_index
+creating /home/natch/projects/robot-map-poisoning-defense/install/attack_node/share/ament_index/resource_index/packages
+copying resource/attack_node -> /home/natch/projects/robot-map-poisoning-defense/install/attack_node/share/ament_index/resource_index/packages
+copying package.xml -> /home/natch/projects/robot-map-poisoning-defense/install/attack_node/share/attack_node
+running install_egg_info
+Copying ../../build/attack_node/attack_node.egg-info to /home/natch/projects/robot-map-poisoning-defense/install/attack_node/lib/python3.12/site-packages/attack_node-0.0.0-py3.12.egg-info
+running install_scripts
+writing list of installed files to '/home/natch/projects/robot-map-poisoning-defense/build/attack_node/install.log'
