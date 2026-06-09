@@ -1,13 +1,7 @@
 build/
 install/
 log/
-
+logs/
+.vscode/
 __pycache__/
 *.pyc
-*.pyo
-
-.vscode/
-.idea/
-
-.DS_Store
-Thumbs.db
