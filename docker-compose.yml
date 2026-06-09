@@ -1,0 +1,10 @@
+services:
+  ros2:
+    build: .
+    container_name: robot-map-poisoning-defense
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    stdin_open: true
+    tty: true
+    command: bash
