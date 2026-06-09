@@ -6,6 +6,9 @@ logs/
 .vscode/
 __pycache__/
 *.pyc
+*.log
+*.exit
+*.out
 
 *.swp
 *.tmp

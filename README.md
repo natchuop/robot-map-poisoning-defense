@@ -1,25 +1,126 @@
 # Robot Map Poisoning Defense
 
-A ROS2-based cooperative multi-robot cybersecurity project focused on detecting and containing robot-to-robot map poisoning.
+A ROS 2 cooperative multi-robot cybersecurity simulation. Robots share map data; a compromised robot injects false updates. Defense nodes detect and contain poisoning using trust scores and multi-robot verification. An LLM acts as a security analyst — classifying attacks and recommending quarantine.
 
-Robots share map and route information with each other. One robot may become compromised and send false map updates, such as fake obstacles, blocked routes, or false route clearing messages. Defense nodes will evaluate shared updates using trust scores, confidence scores, and multi-robot verification.
+**Repo:** [github.com/natchuop/robot-map-poisoning-defense](https://github.com/natchuop/robot-map-poisoning-defense)
 
-## Project Goals
+---
 
-- Simulate robot-to-robot map sharing
-- Inject malicious or false map updates
-- Detect suspicious robot behavior
-- Reduce trust in compromised robots
-- Quarantine suspicious robots
-- Use an LLM security agent to explain suspicious behavior and recommend actions
+## Project Overview
+
+**Attacks being simulated:** fake obstacles, false blocked/cleared routes, robot-to-robot misinformation, and future: MITM, unauthorized publishers, DoS.
+
+**Defenses:** per-robot trust scores, per-object confidence scores, multi-robot verification, quarantine.
+
+**LLM role (analyst, not controller):**
+```
+Robot_2 repeatedly reports obstacles that no other robot confirms.
+→ classify map poisoning → recommend quarantine → generate explanation
+```
+
+---
 
 ## Current Status
 
-The repository currently contains a ROS2 Jazzy workspace with the following packages:
+Infrastructure is fully verified. A fresh clone builds and runs cleanly inside Docker.
 
-```text
-attack_node
-defense_node
-llm_security_agent
-map_sharing_msgs
-robot_patrol_node
+| Package | Purpose |
+|---------|---------|
+| `attack_node` | Inject false map/route updates |
+| `defense_node` | Trust scoring, verification, quarantine |
+| `llm_security_agent` | Analyze events, recommend actions |
+| `map_sharing_msgs` | Custom message definitions |
+| `robot_patrol_node` | Normal patrol and map sharing |
+
+- All packages build successfully
+- No custom messages or executables implemented yet — added incrementally
+- Docker image includes ROS 2, RViz, and `webots_ros2`
+- Webots app installed locally; ROS bridge not wired up yet
+
+---
+
+## Quick Start
+
+Full install steps (Git, Docker, Webots, SSH) are in **[SETUP.md](SETUP.md)**.
+
+**1. Clone**
+```bash
+git clone git@github.com:natchuop/robot-map-poisoning-defense.git
+cd robot-map-poisoning-defense
+```
+
+**2. Build image and enter container**
+```bash
+docker compose build
+docker compose run --rm ros2
+```
+Windows: enable WSL integration in Docker Desktop first.
+
+**3. Build workspace** (inside container — ROS 2 is auto-sourced)
+```bash
+colcon build && source install/setup.bash
+```
+
+**4. Verify pub/sub** (see [SETUP.md](SETUP.md) §7 for full steps)
+
+From the repo root — `cd` into the project first:
+```bash
+cd ~/projects/robot-map-poisoning-defense
+docker compose run --name ros2_dev ros2
+# inside container:
+ros2 run demo_nodes_cpp talker
+```
+
+Second terminal:
+```bash
+docker exec -it ros2_dev bash
+source /opt/ros/jazzy/setup.bash
+ros2 run demo_nodes_py listener
+```
+
+**5. Run the verify script**
+```bash
+bash scripts/verify.sh
+```
+Expected: `Results: 7 passed, 0 failed`
+
+---
+
+## Repo Structure
+
+```
+src/        ROS 2 packages
+worlds/     Webots simulation worlds (future)
+launch/     Launch files (future)
+config/     Node parameters (future)
+docs/       Design notes (future)
+scripts/    Helper scripts
+```
+
+`build/`, `install/`, `log/`, `logs/` are generated locally and not tracked in Git.
+
+---
+
+## Daily Workflow
+
+Each time you work on the project:
+
+1. Open **Ubuntu** (Windows) or **Terminal** (Mac) — not PowerShell
+2. Start **Docker Desktop**
+3. `cd ~/projects/robot-map-poisoning-defense`
+4. `git pull` (if teammates may have pushed)
+5. `docker compose run --rm ros2`
+6. `colcon build && source install/setup.bash` (if code changed)
+7. Work inside the container; type `exit` when done
+
+Full step-by-step with troubleshooting: **[SETUP.md § Daily workflow](SETUP.md#daily-workflow)**
+
+---
+
+## Next Steps
+
+1. Define messages in `map_sharing_msgs`
+2. Implement nodes: `robot_patrol_node` → `attack_node` → `defense_node` → `llm_security_agent`
+3. Add Webots world and launch files
+
+**Help:** [SETUP.md](SETUP.md) · [ROS 2 Jazzy docs](https://docs.ros.org/en/jazzy/)
