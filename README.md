@@ -1,20 +1,25 @@
 # Robot Map Poisoning Defense
 
-## Setup
+A ROS2-based cooperative multi-robot cybersecurity project focused on detecting and containing robot-to-robot map poisoning.
 
-```bash
-git clone git@github.com:natchuop/robot-map-poisoning-defense.git
-cd robot-map-poisoning-defense
-source /opt/ros/jazzy/setup.bash
-colcon build
-source install/setup.bash
-```
+Robots share map and route information with each other. One robot may become compromised and send false map updates, such as fake obstacles, blocked routes, or false route clearing messages. Defense nodes will evaluate shared updates using trust scores, confidence scores, and multi-robot verification.
 
+## Project Goals
 
-## Docker Setup
+- Simulate robot-to-robot map sharing
+- Inject malicious or false map updates
+- Detect suspicious robot behavior
+- Reduce trust in compromised robots
+- Quarantine suspicious robots
+- Use an LLM security agent to explain suspicious behavior and recommend actions
 
-Build the shared ROS2 environment:
+## Current Status
 
-```bash
-docker compose build
-```
+The repository currently contains a ROS2 Jazzy workspace with the following packages:
+
+```text
+attack_node
+defense_node
+llm_security_agent
+map_sharing_msgs
+robot_patrol_node
