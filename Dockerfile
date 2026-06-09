@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     git \
     nano \
+    ros-jazzy-demo-nodes-cpp \
+    ros-jazzy-demo-nodes-py \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
