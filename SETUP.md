@@ -127,6 +127,20 @@ This downloads Ubuntu 24.04 + ROS 2 Jazzy and installs: `colcon`, `RViz`, `webot
 
 ---
 
+Use plain `docker compose build` for normal work. Do **not** use `--no-cache` unless:
+
+- a previous Docker build failed partway through
+- you changed the package install layer in `Dockerfile`
+- Docker cache seems corrupted
+
+If Docker storage gets too large and you want a clean reset first:
+
+```bash
+docker system prune -a --volumes -f
+docker builder prune -a -f
+docker compose build
+```
+
 ## 6. Enter the container and build the workspace
 
 ```bash
