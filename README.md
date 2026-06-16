@@ -68,7 +68,16 @@ git clone git@github.com:natchuop/robot-map-poisoning-defense.git
 cd robot-map-poisoning-defense
 ```
 
-**2. Build image and enter container**
+**2. Clean old Docker data if needed, then build**
+If you are recovering from a broken build or Docker is taking too much space, run this first:
+
+```bash
+docker system prune -a --volumes -f
+docker builder prune -a -f
+```
+
+Then build and enter the container:
+
 ```bash
 docker compose build
 docker compose run --rm ros2
@@ -107,7 +116,7 @@ Expected: `Results: 10 passed, 0 failed`
 
 ## If Docker gets bloated
 
-To clear old Docker images, cache, and unused volumes before a clean rebuild:
+Run the prune step first:
 
 ```bash
 docker system prune -a --volumes -f

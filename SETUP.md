@@ -118,6 +118,15 @@ git clone https://github.com/natchuop/robot-map-poisoning-defense.git
 
 From the **repo root** (`~/projects/robot-map-poisoning-defense`):
 
+If you are recovering from a broken build or want to reclaim Docker space, run the prune step first:
+
+```bash
+docker system prune -a --volumes -f
+docker builder prune -a -f
+```
+
+Then build:
+
 ```bash
 cd ~/projects/robot-map-poisoning-defense
 docker compose build
@@ -133,7 +142,7 @@ Use plain `docker compose build` for normal work. Do **not** use `--no-cache` un
 - you changed the package install layer in `Dockerfile`
 - Docker cache seems corrupted
 
-If Docker storage gets too large and you want a clean reset first:
+If Docker storage gets too large and you want a clean reset, always run prune first:
 
 ```bash
 docker system prune -a --volumes -f

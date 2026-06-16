@@ -42,6 +42,20 @@ Run the script:
 - before pushing setup changes to GitHub
 - when a teammate says their container is missing packages
 
+If you are doing a clean rebuild because Docker is bloated or a build failed, run prune first:
+
+```bash
+docker system prune -a --volumes -f
+docker builder prune -a -f
+```
+
+Then rebuild and verify:
+
+```bash
+docker compose build
+bash scripts/verify.sh
+```
+
 ---
 
 ## Notes
