@@ -1,0 +1,102 @@
+Panels:
+  - Class: rviz_common/Displays
+    Help Height: 78
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Map1
+        - /LaserScan1
+        - /TF1
+      Splitter Ratio: 0.5
+    Tree Height: 0
+  - Class: rviz_common/Views
+    Help Height: 78
+    Name: Views
+    Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.7
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 160
+      Enabled: true
+      Line Style:
+        Line Width: 0.03
+        Value: Lines
+      Name: Grid
+      Plane: XY
+      Plane Cell Count: 10
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic:
+        Value: /map
+      Unreliable: false
+      Use Timestamp: false
+    - Class: rviz_default_plugins/LaserScan
+      Color: 255; 255; 0
+      Enabled: true
+      Name: LaserScan
+      Topic:
+        Value: /scan
+      Unreliable: false
+      Use Fixed Frame: true
+      Use Timestamp: false
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+    - Class: rviz_default_plugins/SetInitialPose
+    - Class: rviz_default_plugins/SetGoal
+    - Class: rviz_default_plugins/PublishPoint
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+Views:
+  Current:
+    Class: rviz_default_plugins/Orbit
+    Distance: 10
+    Enable Stereo Rendering:
+      Value: false
+    Focal Point:
+      X: 0
+      Y: 0
+      Z: 0
+    Focal Shape Fixed Size: true
+    Invert Z Axis: false
+    Name: Current View
+    Near Clip Distance: 0.01
+    Pitch: 0.785398
+    Target Frame: map
+    Yaw: 0.785398
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 900
+  Hide Left Dock: false
+  Hide Right Dock: false
+  QMainWindow State: 000000ff00000000fd00000003000000000000000000000000fc0200000001fb000000120044006900730070006c0061007900730100000000000000000000000000fb0000000a005600690065007700730100000000000000000000000000000000000000000100000004000000040000000800000008fc00000000
+  Width: 1600
+  X: 50
+  Y: 50

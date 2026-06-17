@@ -1,0 +1,5 @@
+services:
+  ros2:
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /mnt/wslg:/mnt/wslg

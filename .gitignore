@@ -5,6 +5,7 @@ logs/
 
 .vscode/
 __pycache__/
+**/__pycache__/
 *.pyc
 *.log
 *.exit

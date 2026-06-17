@@ -1,155 +1,198 @@
-#!/bin/bash
-# Verification script for robot-map-poisoning-defense
-# Run this from the repo root inside WSL (not PowerShell):
+#!/usr/bin/env bash
+# Verification script for robot-map-poisoning-defense.
+#
+# Run from the repo root on macOS Terminal or Windows WSL Ubuntu:
 #   bash scripts/verify.sh
 #
-# Checks: Docker image, colcon build, ROS 2 pub/sub, project packages,
-# Webots packages, Nav2/TurtleBot3 stack, Python deps, and rviz2.
+# This validates the Docker ROS 2 workspace and the Webots bridge path used by
+# the project: host TCP -> Docker bridge -> /robot_pose + /scan -> /map.
 
 set -uo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-IMAGE="robot-map-poisoning-defense-ros2"
+PROJECT_NAME="rmpd_verify"
+CONTAINER="rmpd_verify_$RANDOM"
+HOST_PORT="${RMPD_VERIFY_PORT:-15005}"
 PASS=0
 FAIL=0
 
-green() { echo -e "\e[32m[PASS]\e[0m $1"; PASS=$((PASS + 1)); }
-red()   { echo -e "\e[31m[FAIL]\e[0m $1"; FAIL=$((FAIL + 1)); }
-info()  { echo -e "\e[34m[....]\e[0m $1"; }
+green() { printf '\033[32m[PASS]\033[0m %s\n' "$1"; PASS=$((PASS + 1)); }
+red()   { printf '\033[31m[FAIL]\033[0m %s\n' "$1"; FAIL=$((FAIL + 1)); }
+info()  { printf '\033[34m[....]\033[0m %s\n' "$1"; }
+
+cleanup() {
+    docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+run_check() {
+    local label="$1"
+    shift
+    info "$label"
+    if "$@"; then
+        green "$label"
+    else
+        red "$label"
+    fi
+}
+
+check_docker() {
+    docker info >/dev/null 2>&1
+}
+
+check_python3() {
+    command -v python3 >/dev/null 2>&1
+}
+
+docker_compose() {
+    docker compose -p "$PROJECT_NAME" -f "$REPO_DIR/docker-compose.yml" "$@"
+}
+
+container_exec() {
+    docker exec "$CONTAINER" bash -lc "$1"
+}
+
+wait_for_log() {
+    local pattern="$1"
+    local timeout_seconds="${2:-60}"
+    local elapsed=0
+
+    while [ "$elapsed" -lt "$timeout_seconds" ]; do
+        if docker logs "$CONTAINER" 2>&1 | grep -q "$pattern"; then
+            return 0
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    docker logs "$CONTAINER" 2>&1 | tail -80
+    return 1
+}
+
+topic_has_message() {
+    local outfile="$1"
+    [ -s "$outfile" ] && ! grep -qiE 'error|failed|timeout|Traceback' "$outfile"
+}
 
 echo ""
 echo "========================================"
 echo " Robot Map Poisoning Defense - Verify"
 echo "========================================"
 echo ""
+echo "Repo: $REPO_DIR"
+echo "Temporary container: $CONTAINER"
+echo "Temporary host TCP port: $HOST_PORT"
+echo ""
 
-info "Checking Docker..."
-if docker info > /dev/null 2>&1; then
-    green "Docker is running"
+run_check "Docker daemon is running" check_docker
+run_check "Host python3 is available" check_python3
+
+info "Building Docker image"
+if docker_compose build; then
+    green "Docker image builds"
 else
-    red "Docker is not running - start Docker Desktop and retry"
+    red "Docker image builds"
     exit 1
 fi
 
-info "Checking image '$IMAGE'..."
-if docker image inspect "$IMAGE" > /dev/null 2>&1; then
-    SIZE=$(docker image inspect "$IMAGE" --format='{{.Size}}' | awk '{printf "%.1f GB", $1/1073741824}')
-    green "Image exists ($SIZE)"
+info "Checking Python syntax"
+if python3 -m py_compile \
+    "$REPO_DIR/scripts/send_test_bridge_packet.py" \
+    "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/map_builder_node.py" \
+    "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/udp_bridge_node.py" \
+    "$REPO_DIR/webots/controllers/testRvizMap/testRvizMap.py"; then
+    green "Python files compile"
 else
-    info "Image not found - building now (this takes 5-15 min first time)..."
-    docker compose -f "$REPO_DIR/docker-compose.yml" build
-    green "Image built"
+    red "Python files compile"
 fi
 
-info "Running colcon build..."
-BUILD_OUT=$(docker run --rm \
-    -v "$REPO_DIR:/workspace" \
-    -w /workspace \
-    "$IMAGE" \
-    bash -lc "source /opt/ros/jazzy/setup.bash && colcon build 2>&1 | tail -3" 2>&1) || true
-
-echo "$BUILD_OUT"
-if echo "$BUILD_OUT" | grep -q "Summary: 5 packages finished"; then
-    green "colcon build - 5 packages finished"
+info "Building ROS 2 workspace in Docker"
+if docker_compose run --rm ros2 bash -lc \
+    'source /opt/ros/jazzy/setup.bash && colcon build --symlink-install'; then
+    green "colcon build succeeds"
 else
-    red "colcon build failed or wrong package count"
+    red "colcon build succeeds"
+    exit 1
 fi
 
-info "Testing ROS 2 pub/sub (talker + listener)..."
-PUBSUB_OUT=$(docker run --rm "$IMAGE" bash -lc \
-    "source /opt/ros/jazzy/setup.bash && \
-     ros2 run demo_nodes_cpp talker & sleep 3 && \
-     ros2 run demo_nodes_py listener & sleep 4 && \
-     kill %1 %2 2>/dev/null; true" 2>&1) || true
-
-echo "$PUBSUB_OUT" | grep -E "Hello World|Publishing" | head -5 || true
-if echo "$PUBSUB_OUT" | grep -q "Hello World"; then
-    green "ROS 2 pub/sub - Hello World messages confirmed"
+cleanup
+info "Starting temporary mapping stack"
+if docker_compose run --rm -d \
+    --name "$CONTAINER" \
+    -p "127.0.0.1:${HOST_PORT}:5005/tcp" \
+    ros2 bash -lc 'bash scripts/start_ros2_stack.sh'; then
+    green "temporary mapping stack container starts"
 else
-    red "ROS 2 pub/sub - no Hello World output detected"
+    red "temporary mapping stack container starts"
+    exit 1
 fi
 
-info "Checking project packages..."
-PKG_OUT=$(docker run --rm \
-    -v "$REPO_DIR:/workspace" \
-    -w /workspace \
-    "$IMAGE" \
-    bash -lc "source /opt/ros/jazzy/setup.bash && source install/setup.bash 2>/dev/null && \
-              ros2 pkg list | grep -E 'attack_node|defense_node|llm_security_agent|map_sharing_msgs|robot_patrol_node'" 2>&1) || true
+run_check "bridge reports listening on TCP/UDP" wait_for_log 'Listening for Webots packets' 90
+run_check "map builder reports ready" wait_for_log 'Map builder ready' 90
 
-FOUND=$(echo "$PKG_OUT" | grep -c '.' || true)
-echo "$PKG_OUT"
-if [ "$FOUND" -eq 5 ]; then
-    green "Project packages - all 5 found"
+info "Allowing the ROS graph to settle"
+sleep 5
+
+info "Starting topic watchers"
+container_exec 'bash /workspace/scripts/watch_topic.sh /robot_pose /tmp/verify_robot_pose.out' &
+POSE_WATCH_PID=$!
+container_exec 'bash /workspace/scripts/watch_topic.sh /scan /tmp/verify_scan.out' &
+SCAN_WATCH_PID=$!
+container_exec 'bash /workspace/scripts/watch_topic.sh /map /tmp/verify_map.out' &
+MAP_WATCH_PID=$!
+
+sleep 2
+
+info "Sending fake Webots bridge packets from host to Docker"
+if python3 "$REPO_DIR/scripts/send_test_bridge_packet.py" \
+    --host 127.0.0.1 \
+    --port "$HOST_PORT" \
+    --count 30 \
+    --delay 0.05; then
+    green "host can send bridge packets to Docker"
 else
-    red "Project packages - expected 5, found $FOUND"
+    red "host can send bridge packets to Docker"
 fi
 
-info "Checking webots_ros2 packages..."
-WEBOTS_OUT=$(docker run --rm "$IMAGE" bash -lc \
-    "source /opt/ros/jazzy/setup.bash && ros2 pkg list | grep webots_ros2" 2>&1) || true
+info "Allowing packets to propagate through ROS"
+sleep 5
 
-WEBOTS_COUNT=$(echo "$WEBOTS_OUT" | grep -c "webots" || true)
-echo "$WEBOTS_OUT"
-if [ "$WEBOTS_COUNT" -ge 5 ]; then
-    green "webots_ros2 - $WEBOTS_COUNT packages found"
+wait "$POSE_WATCH_PID" >/dev/null 2>&1 || true
+wait "$SCAN_WATCH_PID" >/dev/null 2>&1 || true
+wait "$MAP_WATCH_PID" >/dev/null 2>&1 || true
+
+container_exec 'cat /tmp/verify_robot_pose.out 2>/dev/null || true' > /tmp/rmpd_verify_robot_pose.out
+container_exec 'cat /tmp/verify_scan.out 2>/dev/null || true' > /tmp/rmpd_verify_scan.out
+container_exec 'cat /tmp/verify_map.out 2>/dev/null || true' > /tmp/rmpd_verify_map.out
+
+if topic_has_message /tmp/rmpd_verify_robot_pose.out && grep -q 'theta:' /tmp/rmpd_verify_robot_pose.out; then
+    green "/robot_pose receives bridge data"
 else
-    red "webots_ros2 - expected at least 5 packages, found $WEBOTS_COUNT"
+    red "/robot_pose receives bridge data"
+    cat /tmp/rmpd_verify_robot_pose.out
 fi
 
-info "Checking Nav2 and localization packages..."
-NAV_OUT=$(docker run --rm "$IMAGE" bash -lc \
-    "source /opt/ros/jazzy/setup.bash && \
-     ros2 pkg list | grep -E '^(navigation2|nav2_bringup|nav2_simple_commander|robot_localization|tf2_ros|tf2_tools)$'" 2>&1) || true
-
-NAV_COUNT=$(echo "$NAV_OUT" | grep -c '.' || true)
-echo "$NAV_OUT"
-if [ "$NAV_COUNT" -eq 5 ]; then
-    green "Nav2/localization stack - all 5 packages found"
-elif [ "$NAV_COUNT" -eq 6 ]; then
-    green "Nav2/localization stack - all 6 packages found"
+if topic_has_message /tmp/rmpd_verify_scan.out && grep -q 'ranges:' /tmp/rmpd_verify_scan.out; then
+    green "/scan receives bridge data"
 else
-    red "Nav2/localization stack - expected 5 or 6, found $NAV_COUNT"
+    red "/scan receives bridge data"
+    cat /tmp/rmpd_verify_scan.out
 fi
 
-info "Checking TurtleBot3 packages..."
-TB3_OUT=$(docker run --rm "$IMAGE" bash -lc \
-    "source /opt/ros/jazzy/setup.bash && \
-     ros2 pkg list | grep -E '^(turtlebot3|turtlebot3_msgs|turtlebot3_navigation2)$'" 2>&1) || true
-
-TB3_COUNT=$(echo "$TB3_OUT" | grep -c '.' || true)
-echo "$TB3_OUT"
-if [ "$TB3_COUNT" -eq 3 ]; then
-    green "TurtleBot3 stack - all 3 packages found"
+if topic_has_message /tmp/rmpd_verify_map.out && grep -q 'OccupancyGrid\|info:' /tmp/rmpd_verify_map.out; then
+    green "/map publishes an occupancy grid"
 else
-    red "TurtleBot3 stack - expected 3, found $TB3_COUNT"
+    red "/map publishes an occupancy grid"
+    cat /tmp/rmpd_verify_map.out
 fi
 
-info "Checking Python dependencies..."
-PY_OUT=$(docker run --rm "$IMAGE" bash -lc \
-    "python3 - <<'PY'
-import numpy
-import scipy
-print('numpy', numpy.__version__)
-print('scipy', scipy.__version__)
-PY" 2>&1) || true
-
-echo "$PY_OUT"
-if echo "$PY_OUT" | grep -q "^numpy " && echo "$PY_OUT" | grep -q "^scipy "; then
-    green "Python dependencies - numpy and scipy import successfully"
-else
-    red "Python dependencies - numpy/scipy import failed"
-fi
-
-info "Checking rviz2..."
-RVIZ_OUT=$(docker run --rm "$IMAGE" bash -lc \
-    "source /opt/ros/jazzy/setup.bash && which rviz2" 2>&1) || true
-
+info "Checking RViz binary in Docker"
+RVIZ_OUT="$(docker_compose run --rm ros2 bash -lc 'source /opt/ros/jazzy/setup.bash && command -v rviz2' 2>&1 || true)"
 echo "$RVIZ_OUT"
-if echo "$RVIZ_OUT" | grep -q "rviz2"; then
-    green "rviz2 - found at $RVIZ_OUT"
+if echo "$RVIZ_OUT" | grep -q 'rviz2'; then
+    green "rviz2 is installed"
 else
-    red "rviz2 - not found"
+    red "rviz2 is installed"
 fi
 
 echo ""
@@ -159,7 +202,9 @@ echo "========================================"
 echo ""
 
 if [ "$FAIL" -eq 0 ]; then
-    echo "All checks passed. Environment is ready."
-else
-    echo "Some checks failed. See output above and check docs/VERIFICATION.md."
+    echo "All checks passed. Teammates can build, run the bridge, and visualize /map in RViz."
+    exit 0
 fi
+
+echo "Some checks failed. Review the output above, then see docs/VERIFICATION.md."
+exit 1
