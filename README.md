@@ -66,14 +66,6 @@ If you make dependency changes later or need to recover from a broken Docker cac
 docker compose build --no-cache
 ```
 
-If ROS package mirrors are temporarily failing with hash mismatch or `apt` exit code `100`, wait and rebuild first. If you only need a minimal container to check Docker, Python, and core ROS 2 while the mirrors recover, build without the optional full stack:
-
-```bash
-RMPD_INSTALL_FULL_STACK=false docker compose build --no-cache
-```
-
-That fallback image does not include Nav2, RViz, Webots ROS packages, or TurtleBot3 packages, so `quick_test.sh` and full verification are expected to fail until you rebuild with `RMPD_INSTALL_FULL_STACK=true`.
-
 `docker compose build` creates an image for your current computer's CPU architecture. That is right for local development. If you want to publish an image that other laptops can pull from GitHub Container Registry or Docker Hub, build and push a multi-architecture image instead:
 
 ```bash
