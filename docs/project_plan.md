@@ -254,15 +254,18 @@ Map accuracy should compare each robot’s map with the Webots ground truth.
 8. Add verification of received reports
 9. Add trust scores, decay, and quarantine
 
-## Current ROS 2 / RViz Direction
+## Current ROS 2 / RViz / Nav2 Direction
 
 Recommended path:
 
-- ROS 2 Humble
+- ROS 2 Jazzy in Docker
 - `rviz2`
 - `sensor_msgs`
 - `geometry_msgs`
 - `webots_ros2`
+- Known static map
+- AMCL localization
+- Nav2 checkpoint navigation
 
 Run Webots from a ROS-sourced terminal.
 
@@ -272,6 +275,22 @@ Current mapping loop:
 - publish `/robot_pose` as `geometry_msgs/Pose2D`
 - build `/map` as `nav_msgs/OccupancyGrid`
 - visualize in RViz with fixed frame `map`
+
+Navigation direction:
+
+- Use a known occupancy-grid map for the planned Webots world
+- Put checkpoint poses on that known map
+- Use AMCL to localize each robot on the known map from LiDAR plus robot motion
+- Use Nav2 to move robots from checkpoint to checkpoint
+- Use RViz2 for visualization, initial pose setting, goal debugging, maps, paths, TF, and costmaps
+- Do not use SLAM for the main implementation path
+
+Why no SLAM for the main path:
+
+- The experiment uses a known map and predefined patrol checkpoints
+- SLAM would add map-building complexity that is not central to the map-poisoning defense question
+- AMCL keeps localization separate from the trust and map-sharing experiments
+- Nav2 still provides navigation either way, so SLAM is not a replacement for Nav2
 
 ## Current Controller / Bridge Notes
 

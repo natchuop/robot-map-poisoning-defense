@@ -2,6 +2,8 @@
 
 This project is a ROS 2 + Webots simulation for studying robot-to-robot map poisoning attacks and defenses. The current demo runs a TurtleBot3 Burger Robot in Webots, reads GPS + IMU + LiDAR, sends pose and scan data into ROS 2 running in Docker, builds an accumulating occupancy grid, and visualizes it in RViz.
 
+The planned navigation stack is **known map + AMCL + Nav2**. The robots will navigate between predefined checkpoints on a known Webots map. AMCL handles localization on that known map, Nav2 handles path planning and motion to checkpoints, and RViz2 is used for visualization and debugging. SLAM is intentionally not part of the main implementation path because the project is focused on poisoned map updates and trust strategies, not online map construction.
+
 The research goal is to understand how compromised robots can spread false map information through shared updates, and how trust strategies like decay, verification, and quarantine can reduce the damage. The long-term system is intentionally simple: multi-robot mapping, shared map messages, and trust-based acceptance or rejection of updates.
 
 Repo: `github.com/natchuop/robot-map-poisoning-defense`
@@ -87,7 +89,29 @@ If verification fails, the most common causes are:
 
 ## Quick ROS 2 + Webots + RViz Test
 
-This is the smallest useful end-to-end test for the current project.
+Run the whole test with one command from the repo root:
+
+```bash
+bash scripts/quick_test.sh
+```
+
+By default, this now runs an AMCL-based localization smoke test:
+
+- launches the ROS 2 Docker stack
+- generates a simple known map for the Webots arena
+- mirrors the Webots pose into a temporary `odom` frame for testing
+- starts `map_server` and `amcl`
+- publishes an initial pose automatically
+- opens RViz
+- launches `webots/worlds/testRvizMap/turtlebot3_burger.wbt`
+
+This is a localization test, not full Nav2 waypoint navigation yet. The odom source is a test harness that mirrors the Webots ground-truth pose, so AMCL can start automatically without you having to click `2D Pose Estimate` in RViz.
+
+If you want the older live mapping demo instead, run `RMPD_TEST_MODE=mapping bash scripts/quick_test.sh`.
+
+If Webots is not on your `PATH`, set `WEBOTS_CMD` to its executable path before running the script.
+
+If you want the old manual terminal-by-terminal flow, keep reading.
 
 ### Terminal 1
 
@@ -311,6 +335,7 @@ ros2 launch robot_patrol_node rviz.launch.py
 - The current controller is C and uses obstacle avoidance.
 - GPS, IMU, and LiDAR are already working in Webots.
 - The main mapping direction is occupancy grids, not object classification.
+- The main navigation direction is known map + AMCL + Nav2, not SLAM.
 - The project should eventually move toward Python controllers when deeper ROS 2 integration is needed.
 - The research focus is trust management for poisoned shared maps, not SLAM-first mapping.
 

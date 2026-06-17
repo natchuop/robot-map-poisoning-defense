@@ -29,8 +29,9 @@ Use macOS Terminal on macOS. Use WSL Ubuntu on Windows, not PowerShell.
 - `/robot_pose` receives bridge data
 - `/scan` receives bridge data
 - `/map` publishes an occupancy grid
-- Nav2 is installed in Docker via `nav2_bringup`
-- SLAM Toolbox is installed in Docker via `slam_toolbox`
+- Nav2 controller, planner, map server, and waypoint follower packages are installed in Docker
+- AMCL is installed in Docker via `nav2_amcl`
+- AMCL's `amcl` executable is discoverable in Docker
 - `rviz2` is installed in Docker
 
 The verifier uses a temporary container and maps host port `15005` to container port `5005`, so it will not conflict with the normal Webots port unless `15005` is already busy.
