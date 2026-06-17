@@ -8,6 +8,8 @@ from controller import Robot
 
 TIME_STEP = 64
 BASE_SPEED = 1.5
+ROBOT_ID = os.environ.get('WEBOTS_ROBOT_ID', os.environ.get('ROBOT_NAME', 'robot_1'))
+MAP_ID = os.environ.get('WEBOTS_MAP_ID', '').strip()
 BRIDGE_PROTOCOL = os.environ.get('WEBOTS_BRIDGE_PROTOCOL', 'tcp').strip().lower()
 BRIDGE_TARGETS = [
     target.strip()
@@ -127,7 +129,7 @@ def main():
     robot = Robot()
     timestep = int(robot.getBasicTimeStep()) or TIME_STEP
 
-    print('testRvizMap starting', flush=True)
+    print(f'patrol_robot starting robot_id={ROBOT_ID} map_id={MAP_ID or "unknown"}', flush=True)
 
     try:
         gps = robot.getDevice('gps')

@@ -8,8 +8,10 @@ This is the main context file for future AI work on the project.
 - 360-degree LDS-01 LiDAR works
 - GPS works
 - IMU works
-- Current controller is C and does obstacle avoidance
+- Current controller is Python and does obstacle avoidance
 - Controller can print robot `x`, `y`, and heading (`yaw`)
+- `bash scripts/quick_test.sh` runs the default AMCL localization smoke test
+- RViz opens with `amcl.rviz` and fixed frame `map`
 
 ## Project Goal
 
@@ -267,7 +269,11 @@ Recommended path:
 - AMCL localization
 - Nav2 checkpoint navigation
 
-Run Webots from a ROS-sourced terminal.
+Run the current one-command smoke test from WSL or macOS Terminal:
+
+```bash
+bash scripts/quick_test.sh
+```
 
 Current mapping loop:
 
@@ -275,6 +281,15 @@ Current mapping loop:
 - publish `/robot_pose` as `geometry_msgs/Pose2D`
 - build `/map` as `nav_msgs/OccupancyGrid`
 - visualize in RViz with fixed frame `map`
+
+Current AMCL quick-test loop:
+
+- generate or refresh `webots/worlds/testRvizMap/amcl_map/arena.yaml`
+- start `udp_bridge`, `pose_to_odom`, `map_server`, AMCL, lifecycle manager, and initial pose publisher
+- publish `/robot_pose` and `/scan` from Webots packets
+- mirror Webots pose into `/odom` for the test harness
+- publish test-harness TF for `map -> odom`, `odom -> base_link`, and `base_link -> laser`
+- visualize `/map`, `/scan`, AMCL particles, and TF in RViz through `amcl.rviz`
 
 Navigation direction:
 
@@ -296,7 +311,7 @@ Why no SLAM for the main path:
 
 Preferred controller for ROS integration:
 
-`webots/controllers/testRvizMap/testRvizMap.py`
+`webots/controllers/patrol_robot/patrol_robot.py`
 
 The Webots controller sends packets over TCP by default; the ROS bridge listens on both UDP and TCP on port `5005`.
 
@@ -312,6 +327,14 @@ World file:
 
 `webots/worlds/testRvizMap/turtlebot3_burger.wbt`
 
+Known AMCL map for that world:
+
+`webots/worlds/testRvizMap/amcl_map/arena.yaml`
+
+`webots/worlds/testRvizMap/amcl_map/arena.pgm`
+
+This map is generated from the known `testRvizMap` world geometry in `scripts/quick_test.sh`: circle arena size, wooden box positions, origin, and resolution. It is not automatically parsed from the `.wbt` file yet.
+
 If the robot frame or sensor offset differs, pass mapper parameters such as:
 
 ```bash
@@ -321,6 +344,6 @@ laser_y:=0.00
 laser_yaw:=0.00
 ```
 
-## First Useful AI Task
+## Next Useful AI Task
 
-Help connect Webots to ROS 2 by publishing `/scan` and `/robot_pose`, then use the `robot_patrol_node` mapper to build and visualize an accumulating occupancy grid in RViz.
+Build on the AMCL smoke test by adding real Nav2 waypoint navigation against `webots/worlds/testRvizMap/amcl_map/arena.yaml`, then define checkpoint patrol routes for trust and map-poisoning experiments.

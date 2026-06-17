@@ -5,11 +5,12 @@ TOPIC="${1:-/robot_pose}"
 TYPE_NAME="${2:-}"
 OUTFILE="${3:-/tmp/topic_watch.log}"
 TIMEOUT_SECONDS="${4:-30}"
+CONTAINER_WORKSPACE="${RMPD_CONTAINER_WORKSPACE:-/workspace}"
 
 set +u
 source /opt/ros/jazzy/setup.bash
-if [ -f /workspace/install/setup.bash ]; then
-  source /workspace/install/setup.bash
+if [ -f "$CONTAINER_WORKSPACE/install/setup.bash" ]; then
+  source "$CONTAINER_WORKSPACE/install/setup.bash"
 fi
 set -u
 

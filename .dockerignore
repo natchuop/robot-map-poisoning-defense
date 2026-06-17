@@ -2,6 +2,7 @@ build/
 install/
 log/
 logs/
+.generated/
 .git/
 .vscode/
 __pycache__/
@@ -10,3 +11,4 @@ __pycache__/
 *.log
 *.out
 *.exit
+verify.exit

@@ -1,5 +1,10 @@
 services:
   ros2:
+    environment:
+      XDG_RUNTIME_DIR: ${RMPD_XDG_RUNTIME_DIR:-/mnt/wslg/runtime-dir}
+      QT_QPA_PLATFORM: ${RMPD_QT_QPA_PLATFORM:-wayland;xcb}
+      QT_XCB_GL_INTEGRATION: ${RMPD_QT_XCB_GL_INTEGRATION:-none}
+      LIBGL_ALWAYS_SOFTWARE: ${RMPD_LIBGL_ALWAYS_SOFTWARE:-1}
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      - /mnt/wslg:/mnt/wslg
+      - ${RMPD_X11_SOCKET:-/tmp/.X11-unix}:/tmp/.X11-unix
+      - ${RMPD_WSLG_RUNTIME:-/mnt/wslg}:/mnt/wslg

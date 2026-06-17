@@ -13,6 +13,9 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_NAME="rmpd_verify"
 CONTAINER="rmpd_verify_$RANDOM"
 HOST_PORT="${RMPD_VERIFY_PORT:-15005}"
+CONTAINER_WORKSPACE="${RMPD_CONTAINER_WORKSPACE:-/workspace}"
+export RMPD_CONTAINER_WORKSPACE="$CONTAINER_WORKSPACE"
+export RMPD_INSTALL_FULL_STACK=true
 PASS=0
 FAIL=0
 
@@ -93,6 +96,7 @@ echo ""
 echo "Repo: $REPO_DIR"
 echo "Temporary container: $CONTAINER"
 echo "Temporary host TCP port: $HOST_PORT"
+echo "Container workspace: $CONTAINER_WORKSPACE"
 echo ""
 
 run_check "Docker daemon is running" check_docker
@@ -111,7 +115,8 @@ if python3 -m py_compile \
     "$REPO_DIR/scripts/send_test_bridge_packet.py" \
     "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/map_builder_node.py" \
     "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/udp_bridge_node.py" \
-    "$REPO_DIR/webots/controllers/testRvizMap/testRvizMap.py"; then
+    "$REPO_DIR/webots/controllers/patrol_robot/patrol_robot.py" \
+    "$REPO_DIR/webots/worlds/controllers/patrol_robot/patrol_robot.py"; then
     green "Python files compile"
 else
     red "Python files compile"
@@ -145,11 +150,11 @@ info "Allowing the ROS graph to settle"
 sleep 5
 
 info "Starting topic watchers"
-container_exec 'bash /workspace/scripts/watch_topic.sh /robot_pose geometry_msgs/msg/Pose2D /tmp/verify_robot_pose.out' &
+container_exec 'bash "${RMPD_CONTAINER_WORKSPACE:-/workspace}/scripts/watch_topic.sh" /robot_pose geometry_msgs/msg/Pose2D /tmp/verify_robot_pose.out' &
 POSE_WATCH_PID=$!
-container_exec 'bash /workspace/scripts/watch_topic.sh /scan sensor_msgs/msg/LaserScan /tmp/verify_scan.out' &
+container_exec 'bash "${RMPD_CONTAINER_WORKSPACE:-/workspace}/scripts/watch_topic.sh" /scan sensor_msgs/msg/LaserScan /tmp/verify_scan.out' &
 SCAN_WATCH_PID=$!
-container_exec 'bash /workspace/scripts/watch_topic.sh /map nav_msgs/msg/OccupancyGrid /tmp/verify_map.out 60' &
+container_exec 'bash "${RMPD_CONTAINER_WORKSPACE:-/workspace}/scripts/watch_topic.sh" /map nav_msgs/msg/OccupancyGrid /tmp/verify_map.out 60' &
 MAP_WATCH_PID=$!
 
 sleep 6

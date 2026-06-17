@@ -5,9 +5,10 @@ set +u
 source /opt/ros/jazzy/setup.bash
 set -u
 
-if [ -f /workspace/install/setup.bash ]; then
+CONTAINER_WORKSPACE="${RMPD_CONTAINER_WORKSPACE:-/workspace}"
+if [ -f "$CONTAINER_WORKSPACE/install/setup.bash" ]; then
   set +u
-  source /workspace/install/setup.bash
+  source "$CONTAINER_WORKSPACE/install/setup.bash"
   set -u
 fi
 

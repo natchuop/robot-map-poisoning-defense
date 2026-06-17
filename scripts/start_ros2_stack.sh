@@ -1,7 +1,8 @@
 #!/bin/bash
 set -eo pipefail
 
-cd /workspace
+CONTAINER_WORKSPACE="${RMPD_CONTAINER_WORKSPACE:-/workspace}"
+cd "$CONTAINER_WORKSPACE"
 set +u
 source /opt/ros/jazzy/setup.bash
 set -u

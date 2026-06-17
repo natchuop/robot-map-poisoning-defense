@@ -12,19 +12,41 @@ Open this world in Webots:
 webots/worlds/testRvizMap/turtlebot3_burger.wbt
 ```
 
+The matching known AMCL map for this world is kept beside it:
+
+```text
+webots/worlds/testRvizMap/amcl_map/arena.yaml
+webots/worlds/testRvizMap/amcl_map/arena.pgm
+```
+
+`scripts/quick_test.sh` refreshes this map from the known geometry in the world: the circular arena, the wooden box positions, the map origin, and the resolution. It is not automatically parsed from the `.wbt` file, so world geometry changes should be reflected in the generator logic or the map files.
+
 Controller used by the TurtleBot3:
 
 ```text
-webots/controllers/testRvizMap/testRvizMap.py
+webots/controllers/patrol_robot/patrol_robot.py
 ```
 
-Webots looks for the runnable controller under the world-local path:
+The world file references it with `controller "patrol_robot"`. Keep behavior code in `webots/controllers/`; only lightweight forwarding wrappers should live under `webots/worlds/controllers/`.
+
+Because the current worlds are nested under `webots/worlds/<world_name>/`, Webots also needs a tiny runnable wrapper here:
 
 ```text
-webots/worlds/controllers/testRvizMap/testRvizMap.py
+webots/worlds/controllers/patrol_robot/patrol_robot.py
 ```
 
-That wrapper forwards to the real controller code above.
+That wrapper only forwards to the real shared controller. Do not put behavior logic there.
+
+For multiple worlds, keep worlds and controllers as siblings:
+
+```text
+webots/
+  worlds/
+    testRvizMap/
+    anotherMap/
+  controllers/
+    patrol_robot/
+```
 
 The controller:
 
@@ -33,6 +55,8 @@ The controller:
 - reads LDS-01 LiDAR ranges
 - moves the TurtleBot3 with simple obstacle avoidance
 - sends newline-delimited JSON packets to the ROS 2 bridge over TCP by default
+
+For future multi-map tests, reuse `patrol_robot.py` and vary behavior with map/robot configuration instead of copying controller code per world.
 
 Default bridge target:
 
@@ -60,11 +84,20 @@ Expected robot devices:
 
 Run order:
 
-1. Start Docker with `docker compose run --rm --service-ports --name ros2_dev ros2`.
-2. Inside Docker, run `bash scripts/start_ros2_stack.sh`.
-3. Open the Webots world.
-4. Press Play.
-5. In another Docker shell, run `ros2 launch robot_patrol_node rviz.launch.py` to open RViz with the saved displays.
+```bash
+bash scripts/quick_test.sh
+```
+
+The quick test starts Docker, builds/sources the ROS 2 workspace, launches the AMCL localization stack, opens this Webots world, waits for bridge packets and TF, then opens RViz with `amcl.rviz`.
+
+The AMCL test publishes:
+
+- `/robot_pose`
+- `/scan`
+- `/map`
+- `/odom`
+- `/tf`
+- `/tf_static`
 
 Expected Webots console output:
 
@@ -72,3 +105,4 @@ Expected Webots console output:
 connected to ROS bridge at tcp://172.28.64.1:5005
 sent bridge packet
 ```
+

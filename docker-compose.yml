@@ -1,17 +1,23 @@
 services:
   ros2:
-    build: .
-    working_dir: /workspace
+    image: ${RMPD_IMAGE:-robot-map-poisoning-defense:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        RMPD_INSTALL_FULL_STACK: ${RMPD_INSTALL_FULL_STACK:-true}
+    working_dir: ${RMPD_CONTAINER_WORKSPACE:-/workspace}
     environment:
       DISPLAY: ${DISPLAY:-}
       WAYLAND_DISPLAY: ${WAYLAND_DISPLAY:-}
       XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR:-}
       PULSE_SERVER: ${PULSE_SERVER:-}
+      RMPD_CONTAINER_WORKSPACE: ${RMPD_CONTAINER_WORKSPACE:-/workspace}
     volumes:
-      - .:/workspace
+      - .:${RMPD_CONTAINER_WORKSPACE:-/workspace}
     ports:
-      - "5005:5005/udp"
-      - "5005:5005/tcp"
+      - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT:-5005}:5005/udp"
+      - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT:-5005}:5005/tcp"
     stdin_open: true
     tty: true
     command: bash

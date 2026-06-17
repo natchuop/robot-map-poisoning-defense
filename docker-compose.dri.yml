@@ -1,0 +1,4 @@
+services:
+  ros2:
+    devices:
+      - /dev/dri:/dev/dri
