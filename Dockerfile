@@ -13,19 +13,28 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     git \
     less \
     nano \
-    ros-jazzy-navigation2 \
-    ros-jazzy-nav2-bringup \
+    ros-jazzy-nav2-amcl \
+    ros-jazzy-nav2-behaviors \
+    ros-jazzy-nav2-bt-navigator \
+    ros-jazzy-nav2-controller \
+    ros-jazzy-nav2-costmap-2d \
+    ros-jazzy-nav2-dwb-controller \
+    ros-jazzy-nav2-lifecycle-manager \
+    ros-jazzy-nav2-map-server \
+    ros-jazzy-nav2-msgs \
+    ros-jazzy-nav2-navfn-planner \
+    ros-jazzy-nav2-planner \
+    ros-jazzy-nav2-rviz-plugins \
     ros-jazzy-nav2-simple-commander \
+    ros-jazzy-nav2-velocity-smoother \
+    ros-jazzy-nav2-waypoint-follower \
     ros-jazzy-robot-localization \
     ros-jazzy-demo-nodes-cpp \
     ros-jazzy-demo-nodes-py \
-    ros-jazzy-slam-toolbox \
     ros-jazzy-rviz2 \
     ros-jazzy-tf2-ros \
     ros-jazzy-tf2-tools \
-    ros-jazzy-turtlebot3 \
     ros-jazzy-turtlebot3-msgs \
-    ros-jazzy-turtlebot3-navigation2 \
     ros-jazzy-webots-ros2 \
     ros-jazzy-webots-ros2-driver \
     ros-jazzy-webots-ros2-turtlebot \

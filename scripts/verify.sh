@@ -58,6 +58,11 @@ check_ros2_pkg() {
         "source /opt/ros/jazzy/setup.bash && ros2 pkg prefix $pkg >/dev/null"
 }
 
+check_amcl_executable() {
+    docker_compose run --rm ros2 bash -lc \
+        "source /opt/ros/jazzy/setup.bash && ros2 pkg executables nav2_amcl | grep -q 'nav2_amcl amcl'"
+}
+
 wait_for_log() {
     local pattern="$1"
     local timeout_seconds="${2:-60}"
@@ -140,14 +145,14 @@ info "Allowing the ROS graph to settle"
 sleep 5
 
 info "Starting topic watchers"
-container_exec 'bash /workspace/scripts/watch_topic.sh /robot_pose /tmp/verify_robot_pose.out' &
+container_exec 'bash /workspace/scripts/watch_topic.sh /robot_pose geometry_msgs/msg/Pose2D /tmp/verify_robot_pose.out' &
 POSE_WATCH_PID=$!
-container_exec 'bash /workspace/scripts/watch_topic.sh /scan /tmp/verify_scan.out' &
+container_exec 'bash /workspace/scripts/watch_topic.sh /scan sensor_msgs/msg/LaserScan /tmp/verify_scan.out' &
 SCAN_WATCH_PID=$!
-container_exec 'bash /workspace/scripts/watch_topic.sh /map /tmp/verify_map.out' &
+container_exec 'bash /workspace/scripts/watch_topic.sh /map nav_msgs/msg/OccupancyGrid /tmp/verify_map.out 60' &
 MAP_WATCH_PID=$!
 
-sleep 2
+sleep 6
 
 info "Sending fake Webots bridge packets from host to Docker"
 if python3 "$REPO_DIR/scripts/send_test_bridge_packet.py" \
@@ -161,7 +166,7 @@ else
 fi
 
 info "Allowing packets to propagate through ROS"
-sleep 5
+sleep 8
 
 wait "$POSE_WATCH_PID" >/dev/null 2>&1 || true
 wait "$SCAN_WATCH_PID" >/dev/null 2>&1 || true
@@ -201,8 +206,12 @@ else
     red "rviz2 is installed"
 fi
 
-run_check "Nav2 is installed in Docker" check_ros2_pkg nav2_bringup
-run_check "SLAM toolbox is installed in Docker" check_ros2_pkg slam_toolbox
+run_check "Nav2 controller is installed in Docker" check_ros2_pkg nav2_controller
+run_check "Nav2 planner is installed in Docker" check_ros2_pkg nav2_planner
+run_check "Nav2 map server is installed in Docker" check_ros2_pkg nav2_map_server
+run_check "Nav2 waypoint follower is installed in Docker" check_ros2_pkg nav2_waypoint_follower
+run_check "AMCL is installed in Docker" check_ros2_pkg nav2_amcl
+run_check "AMCL executable is available in Docker" check_amcl_executable
 
 echo ""
 echo "========================================"

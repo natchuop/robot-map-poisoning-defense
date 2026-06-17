@@ -10,9 +10,11 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/launch', ['launch/amcl_stack.launch.py']),
         ('share/' + package_name + '/launch', ['launch/map_builder.launch.py']),
         ('share/' + package_name + '/launch', ['launch/mapping_stack.launch.py']),
         ('share/' + package_name + '/launch', ['launch/rviz.launch.py']),
+        ('share/' + package_name + '/config', ['config/amcl.rviz']),
         ('share/' + package_name + '/config', ['config/default.rviz']),
     ],
     install_requires=['setuptools'],
@@ -23,7 +25,9 @@ setup(
     license='TODO: License declaration',
     entry_points={
         'console_scripts': [
+            'initial_pose_publisher = robot_patrol_node.initial_pose_publisher_node:main',
             'map_builder = robot_patrol_node.map_builder_node:main',
+            'pose_to_odom = robot_patrol_node.pose_to_odom_node:main',
             'udp_bridge = robot_patrol_node.udp_bridge_node:main',
         ],
     },
