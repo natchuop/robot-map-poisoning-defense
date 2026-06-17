@@ -52,6 +52,12 @@ container_exec() {
     docker exec "$CONTAINER" bash -lc "$1"
 }
 
+check_ros2_pkg() {
+    local pkg="$1"
+    docker_compose run --rm ros2 bash -lc \
+        "source /opt/ros/jazzy/setup.bash && ros2 pkg prefix $pkg >/dev/null"
+}
+
 wait_for_log() {
     local pattern="$1"
     local timeout_seconds="${2:-60}"
@@ -194,6 +200,9 @@ if echo "$RVIZ_OUT" | grep -q 'rviz2'; then
 else
     red "rviz2 is installed"
 fi
+
+run_check "Nav2 is installed in Docker" check_ros2_pkg nav2_bringup
+run_check "SLAM toolbox is installed in Docker" check_ros2_pkg slam_toolbox
 
 echo ""
 echo "========================================"

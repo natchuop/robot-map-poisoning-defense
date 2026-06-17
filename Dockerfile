@@ -19,6 +19,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ros-jazzy-robot-localization \
     ros-jazzy-demo-nodes-cpp \
     ros-jazzy-demo-nodes-py \
+    ros-jazzy-slam-toolbox \
     ros-jazzy-rviz2 \
     ros-jazzy-tf2-ros \
     ros-jazzy-tf2-tools \
