@@ -1,5 +1,11 @@
 # Webots Project
 
+For AI-facing instructions on creating new worlds and wiring them into Docker, ROS 2, and RViz, see:
+
+```text
+webots/set_up_webots_world.md
+```
+
 Open this world in Webots:
 
 ```text

@@ -15,14 +15,14 @@ Windows:
 - Windows 11 recommended
 - WSL2 with Ubuntu 24.04
 - Docker Desktop with WSL integration enabled and running before you start the stack
-- Webots installed on Windows
+- Webots R2025a installed on Windows
 - Git inside WSL
 
 macOS:
 
 - macOS
 - Docker Desktop
-- Webots installed on macOS
+- Webots R2025a installed on macOS
 - Git
 - Python 3
 
@@ -58,7 +58,7 @@ Then build the image:
 docker compose build
 ```
 
-If you make dependency changes later, rebuild with:
+If you make dependency changes later or need to recover from a broken Docker cache, rebuild with:
 
 ```bash
 docker compose build --no-cache
@@ -85,49 +85,90 @@ If verification fails, the most common causes are:
 - an old container is still holding port `5005`
 - the Docker image needs a clean rebuild
 
-Useful checks:
-
-```bash
-docker info
-docker ps
-docker rm -f ros2_dev
-```
-
 ## Quick ROS 2 + Webots + RViz Test
 
 This is the smallest useful end-to-end test for the current project.
 
-1. On the host terminal, remove any old `ros2_dev` container:
+### Terminal 1
+
+Use `Terminal 1` to start Docker and run the ROS stack.
+
+If `Terminal 1` is already printing logs like `[udp_bridge-1] ... Received TCP packet`, leave it running and skip to the Webots step.
+
+Windows:
 
 ```bash
 docker rm -f ros2_dev
+docker compose -f docker-compose.yml -f docker-compose.wslg.yml run --rm --service-ports --name ros2_dev ros2
 ```
 
-1. Start the Docker container from the host, `Terminal 1`:
+macOS:
 
 ```bash
+docker rm -f ros2_dev
 docker compose run --rm --service-ports --name ros2_dev ros2
 ```
 
-1. Inside the container, start the ROS stack and leave it running:
+Both: When `Terminal 1` shows a prompt like `root@...:/workspace#`, run:
 
 ```bash
 bash scripts/start_ros2_stack.sh
 ```
 
-1. In Webots, open:
+Leave `Terminal 1` running.
+
+### Webots
+
+Open this world in Webots by clicking on this file, found in this repository:
 
 `webots/worlds/testRvizMap/turtlebot3_burger.wbt`
 
-1. Press Play in Webots.
+Press Play.
 
-The host terminal should start printing out that TCP packets are being received.
+`Terminal 1` should now print logs like:
 
-1. In a SECOND terminal, check the ROS topics:
+```text
+[udp_bridge-1] [INFO] ... Received TCP packet #20 with keys: ['pose', 'scan']
+```
+
+### Terminal 2
+
+Use `Terminal 2` to launch RViz.
+
+If `Terminal 2` is currently running `ros2 topic echo`, press `Ctrl-C` first.
 
 ```bash
 docker exec -it ros2_dev bash
 ```
+
+When `Terminal 2` shows a prompt like `root@...:/workspace#`, run:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+cd /workspace
+colcon build --packages-select robot_patrol_node --symlink-install
+source install/setup.bash
+ros2 launch robot_patrol_node rviz.launch.py
+```
+
+RViz should open with these displays already loaded:
+
+- Fixed Frame: `map`
+- `Map` on `/map`
+- `LaserScan` on `/scan`
+- `TF`
+
+If RViz opens but shows an empty grid, the GUI is working but no data is arriving yet.
+
+### Terminal 3 (Can Skip)
+
+Use `Terminal 3` only if you want to check live ROS topic data while RViz stays open.
+
+```bash
+docker exec -it ros2_dev bash
+```
+
+When `Terminal 3` shows a prompt like `root@...:/workspace#`, run:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -135,9 +176,9 @@ source /workspace/install/setup.bash
 ros2 topic echo /robot_pose
 ```
 
-It should start printing out something like this:  
+It should print something like:
 
-```
+```text
 x: -1.2346312975669118
 
 y: 0.15221876841530446
@@ -153,7 +194,7 @@ y: 0.15221876954357397
 theta: 2.1870170408605967
 ```
 
-Optional checks:
+Other useful checks from `Terminal 3`:
 
 ```bash
 ros2 topic echo /scan
@@ -162,75 +203,14 @@ ros2 topic list
 ros2 node list
 ```
 
-1. If on Windows, go back to `Terminal 1`, press `Ctrl-C` then type `exit`, and run the following commands:
-
-```bash
-docker rm -f ros2_dev
-docker compose -f docker-compose.yml -f docker-compose.wslg.yml run --rm --service-ports --name ros2_dev ros2
-```
-
-If on macOS, do not use the WSLg overlay. Start the plain container from `Terminal 1` instead:
-
-```bash
-docker rm -f ros2_dev
-docker compose run --rm --service-ports --name ros2_dev ros2
-```
-
-That command opens a fresh container shell. In that shell, start the mapping stack and leave it running:
-
-```bash
-bash scripts/start_ros2_stack.sh
-```
-
-You need a second shell into the same container for RViz because the mapping stack stays in the first shell.
-
-Open `Terminal 3` into the same container and launch RViz there:
-
-```bash
-docker exec -it ros2_dev bash
-```
-
-```bash
-source /opt/ros/jazzy/setup.bash
-cd /workspace
-colcon build --packages-select robot_patrol_node --symlink-install
-source install/setup.bash
-ros2 launch robot_patrol_node rviz.launch.py
-```
-
-RViz opens with these displays already loaded:
-
-- Fixed Frame: `map`
-- `Map` on `/map`
-- `LaserScan` on `/scan`
-- `TF`
-
-If RViz opens but shows an empty grid, that usually means the visualization is working but the data is not flowing yet.
-
-To finish the test:
-
-1. Make sure Webots is open and the TurtleBot3 is playing.
-2. Keep `Terminal 2` running with `bash scripts/start_ros2_stack.sh` while you use `Terminal 3` for RViz.
-3. If you want a live topic check while RViz is open, open a third shell into the same container and run:
-
-```bash
-docker exec -it ros2_dev bash
-source /opt/ros/jazzy/setup.bash
-source /workspace/install/setup.bash
-ros2 topic echo /robot_pose
-ros2 topic echo /scan
-ros2 topic echo /map
-```
-
-If you do not need a live topic check, you can skip that extra shell.
-
 If `/robot_pose`, `/scan`, and `/map` all show data, RViz should eventually draw the map as the robot explores.
 
 Notes:
 
-- `docker compose ...` runs on the host terminal, not inside the container.
-- The mapping stack and RViz each need their own container shell because both run in the foreground.
-- `ros2 launch robot_patrol_node rviz.launch.py` runs inside the container after sourcing ROS and the workspace.
+- `Terminal 1` runs the stack and must stay open.
+- `Terminal 2` runs RViz and must stay open while using RViz.
+- `Terminal 3` is optional for live topic checks.
+- Do not run `docker rm -f ros2_dev` while `Terminal 1` is running unless you want to stop the stack.
 - If `rviz.launch.py` is missing, rebuild the package in `/workspace` and source `install/setup.bash` again.
 - On macOS, GUI forwarding may require XQuartz or another X11 setup.
 
@@ -259,31 +239,72 @@ In both cases:
 
 Use this when you are returning to the project and want to get moving quickly.
 
+1. Open Docker Desktop.
+
+2. In `Terminal 1`, update and verify the repo:
+
 ```bash
 cd ~/projects/robot-map-poisoning-defense
 git pull
 bash scripts/verify.sh
 ```
 
-If the repo changed in a way that affects dependencies or the container image, rebuild:
+3. If Docker is taking too much space, optionally clean unused Docker data:
+
+```bash
+docker rm -f ros2_dev
+docker compose down --remove-orphans
+docker builder prune -f
+docker image prune -f
+docker container prune -f
+```
+
+If the local ROS build folders are stuck because Docker created them as root, remove them from the repo root with:
+
+```bash
+sudo rm -rf build install log
+```
+
+4. If the repo changed in a way that affects dependencies or the container image, rebuild:
 
 ```bash
 docker compose build
 ```
 
-Then start the working stack:
+5. Start the working stack in `Terminal 1`.
+
+Windows:
 
 ```bash
+docker rm -f ros2_dev
+docker compose -f docker-compose.yml -f docker-compose.wslg.yml run --rm --service-ports --name ros2_dev ros2
+```
+
+macOS:
+
+```bash
+docker rm -f ros2_dev
 docker compose run --rm --service-ports --name ros2_dev ros2
 ```
 
-Inside Docker:
+6. When `Terminal 1` shows `root@...:/workspace#`, run:
 
 ```bash
 bash scripts/start_ros2_stack.sh
 ```
 
-Then open Webots, load the TurtleBot3 world, and press Play.
+7. Open Webots, load `webots/worlds/testRvizMap/turtlebot3_burger.wbt`, and press Play.
+
+8. Use `Terminal 2` for RViz:
+
+```bash
+docker exec -it ros2_dev bash
+source /opt/ros/jazzy/setup.bash
+cd /workspace
+colcon build --packages-select robot_patrol_node --symlink-install
+source install/setup.bash
+ros2 launch robot_patrol_node rviz.launch.py
+```
 
 ## Current Project Notes
 
@@ -338,3 +359,4 @@ bash scripts/verify.sh
 
 - `[docs/project_plan.md](/home/natch/projects/robot-map-poisoning-defense/docs/project_plan.md)`
 - `[docs/VERIFICATION.md](/home/natch/projects/robot-map-poisoning-defense/docs/VERIFICATION.md)`
+- `[webots/set_up_webots_world.md](/home/natch/projects/robot-map-poisoning-defense/webots/set_up_webots_world.md)`
