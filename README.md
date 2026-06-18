@@ -66,18 +66,6 @@ If you make dependency changes later or need to recover from a broken Docker cac
 docker compose build --no-cache
 ```
 
-`docker compose build` creates an image for your current computer's CPU architecture. That is right for local development. If you want to publish an image that other laptops can pull from GitHub Container Registry or Docker Hub, build and push a multi-architecture image instead:
-
-```bash
-docker buildx create --use --name rmpd-builder
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/natchuop/robot-map-poisoning-defense:latest \
-  --push .
-```
-
-Replace the `ghcr.io/...` tag with your registry and image name.
-
 ### Docker Portability Rules
 
 Use these rules when changing Docker files or scripts that run inside Docker:
