@@ -8,7 +8,8 @@ This repo currently uses a TurtleBot3 Burger world in Webots and a ROS 2 bridge 
 - Additional world: `webots/worlds/office/office.wbt`
 - Known AMCL map: `webots/worlds/testRvizMap/amcl_map/arena.yaml` and `arena.pgm`
 - Office AMCL map: `webots/worlds/office/amcl_map/office.yaml` and `office.pgm`
-- Shared controller: `webots/controllers/patrol_robot/patrol_robot.py`
+- Shared patrol controller: `webots/controllers/patrol_robot/patrol_robot.py`
+- User-controlled controller: `webots/controllers/patrol_robot/user_controlled_robot.py`
 - Webots wrapper: `webots/worlds/controllers/patrol_robot/patrol_robot.py`
 
 The office map is built from the world walls and floor bounds only. Furniture and other movable objects are left out so AMCL keys off the room structure.
@@ -52,7 +53,7 @@ bash scripts/runTestBuildingMapForRobot.sh
 
 To launch the office world, point `RMPD_WEBOTS_WORLD` at `webots/worlds/office/office.wbt` before running the script.
 
-For convenience, `bash runOffice.sh` launches the office world with its office-specific AMCL map and startup pose.
+For convenience, `bash runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, and WASD user-controlled robot.
 
 Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes against the known map.
 

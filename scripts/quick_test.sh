@@ -362,20 +362,35 @@ width = max(1, int(math.ceil(floor_size[0] / resolution)))
 height = max(1, int(math.ceil(floor_size[1] / resolution)))
 grid = [[254 for _ in range(width)] for _ in range(height)]
 inflate = resolution / 2.0
+fixed_obstacle_defaults = {
+    'Cabinet': (1.6, 0.45),
+    'RoundTable': (1.0, 1.0),
+    'Fridge': (0.8, 0.8),
+    'Sink': (1.1, 0.7),
+}
 
 def mark_cell(ix, iy):
     if 0 <= ix < width and 0 <= iy < height:
         grid[iy][ix] = 0
 
-for block in extract_blocks('Wall'):
-    tx, ty, _ = parse_vector(block, 'translation')
-    sx, sy, _ = parse_vector(block, 'size')
-    _, _, axis_z, angle = parse_rotation(block)
-    theta = angle if axis_z >= 0 else -angle
+
+def parse_size_2d(block, default=None):
+    match_3d = re.search(rf'^\s*size\s+({number})\s+({number})\s+({number})\s*$', block, re.M)
+    if match_3d:
+        return tuple(float(value) for value in match_3d.groups()[:2])
+
+    match_2d = re.search(rf'^\s*size\s+({number})\s+({number})\s*$', block, re.M)
+    if match_2d:
+        return tuple(float(value) for value in match_2d.groups())
+
+    return default
+
+
+def mark_rotated_rect(tx, ty, sx, sy, theta, extra_inflate=inflate):
     cos_t = math.cos(theta)
     sin_t = math.sin(theta)
-    half_x = abs(sx) / 2.0 + inflate
-    half_y = abs(sy) / 2.0 + inflate
+    half_x = abs(sx) / 2.0 + extra_inflate
+    half_y = abs(sy) / 2.0 + extra_inflate
     span_x = abs(half_x * cos_t) + abs(half_y * sin_t)
     span_y = abs(half_x * sin_t) + abs(half_y * cos_t)
     min_x = max(0, int(math.floor((tx - span_x - origin_x) / resolution)))
@@ -393,6 +408,32 @@ for block in extract_blocks('Wall'):
             local_y = -dx * sin_t + dy * cos_t
             if abs(local_x) <= half_x and abs(local_y) <= half_y:
                 mark_cell(ix, iy)
+
+
+def yaw_from_block(block):
+    _, _, axis_z, angle = parse_rotation(block)
+    return angle if axis_z >= 0 else -angle
+
+
+wall_count = 0
+fixed_obstacle_count = 0
+
+for block in extract_blocks('Wall'):
+    tx, ty, _ = parse_vector(block, 'translation')
+    size = parse_size_2d(block)
+    if size is None:
+        continue
+    mark_rotated_rect(tx, ty, size[0], size[1], yaw_from_block(block))
+    wall_count += 1
+
+for kind in ['Window', 'Cabinet', 'Table', 'RoundTable', 'Fridge', 'Sink']:
+    for block in extract_blocks(kind):
+        tx, ty, _ = parse_vector(block, 'translation')
+        size = parse_size_2d(block, fixed_obstacle_defaults.get(kind))
+        if size is None:
+            continue
+        mark_rotated_rect(tx, ty, size[0], size[1], yaw_from_block(block), extra_inflate=0.0)
+        fixed_obstacle_count += 1
 
 pgm_path = outdir / f'{map_name}.pgm'
 with pgm_path.open('w', encoding='ascii') as handle:
@@ -419,7 +460,10 @@ yaml_path.write_text(
     encoding='ascii',
 )
 
-print(f'Generated {map_name}.yaml from {world_path.name} with {len(extract_blocks("Wall"))} walls')
+print(
+    f'Generated {map_name}.yaml from {world_path.name} with '
+    f'{wall_count} walls and {fixed_obstacle_count} fixed obstacles'
+)
 PY
 }
 

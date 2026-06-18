@@ -1207,7 +1207,7 @@ Wall {
 TurtleBot3Burger {
   translation -4.35 -5.35 0
   rotation 0 0 1 0.004641574238792719
-  controller "patrol_robot"
+  controller "user_controlled_robot"
   extensionSlot [
     GPS {
     }
