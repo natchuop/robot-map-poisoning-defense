@@ -4,7 +4,7 @@
   <name>robot_patrol_node</name>
   <version>0.0.0</version>
   <description>Robot patrol and mapping node for Webots + ROS 2</description>
-  <maintainer email="natch@todo.todo">natch</maintainer>
+  <maintainer email="maintainer@example.com">robot_map_poisoning_defense</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>

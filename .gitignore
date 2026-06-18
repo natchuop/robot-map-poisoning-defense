@@ -2,8 +2,10 @@ build/
 install/
 log/
 logs/
+.env
 
 .vscode/
+.generated/
 __pycache__/
 **/__pycache__/
 *.pyc

@@ -1,6 +1,6 @@
 # Verification
 
-Last updated: 2026-06-17.
+Last updated: 2026-06-18.
 
 Run verification from the repo root:
 
@@ -97,7 +97,7 @@ RMPD_VERIFY_PORT=16005 bash scripts/verify.sh
 Build cache is stale:
 
 ```bash
-docker compose build --no-cache
+docker compose -f docker/compose.yml build --no-cache
 bash scripts/verify.sh
 ```
 
@@ -146,7 +146,7 @@ The map is generated from known `testRvizMap` geometry by `scripts/quick_test.sh
 
 The verifier checks that `rviz2` is installed, but it does not launch the GUI. The GUI quick test is `bash scripts/quick_test.sh`. GUI forwarding is platform-specific:
 
-- Windows WSL: use `docker-compose.wslg.yml`.
+- Windows WSL: use `docker/compose.wslg.yml`.
 - macOS: use XQuartz or another X11 setup if you want RViz inside Docker.
 - Without RViz, topic echo and TF checks still prove the ROS side is running.
 

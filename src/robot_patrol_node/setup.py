@@ -19,8 +19,8 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='natch',
-    maintainer_email='natch@todo.todo',
+    maintainer='robot_map_poisoning_defense',
+    maintainer_email='maintainer@example.com',
     description='Robot patrol and mapping node for Webots + ROS 2',
     license='TODO: License declaration',
     entry_points={

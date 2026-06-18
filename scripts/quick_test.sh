@@ -50,7 +50,7 @@ RVIZ_CHECK_SECONDS="${RMPD_RVIZ_CHECK_SECONDS:-10}"
 RVIZ_MODE="${RMPD_QUICK_TEST_RVIZ:-$DEFAULT_RVIZ_MODE}"
 HOST_BRIDGE_PORT="${RMPD_BRIDGE_PORT:-$DEFAULT_BRIDGE_PORT}"
 HOST_BRIDGE_TARGETS="${WEBOTS_BRIDGE_TARGETS:-}"
-RVIZ_HOST_LOG="$REPO_DIR/.generated/rmpd_rviz.log"
+RVIZ_HOST_LOG="${TMPDIR:-/tmp}/rmpd/quick_test/rmpd_rviz.log"
 export RMPD_INSTALL_FULL_STACK=true
 
 find_default_world() {
@@ -98,13 +98,13 @@ AMCL_MAP_DIR="$(abs_path "$AMCL_MAP_DIR")"
 AMCL_MAP_YAML="$AMCL_MAP_DIR/arena.yaml"
 AMCL_MAP_YAML_IN_CONTAINER="$(container_path_for_host_path "$AMCL_MAP_YAML")"
 
-COMPOSE_FILES=("-f" "$REPO_DIR/docker-compose.yml")
-if [[ -n "${WSL_DISTRO_NAME:-}" && -f "$REPO_DIR/docker-compose.wslg.yml" ]]; then
-  COMPOSE_FILES+=("-f" "$REPO_DIR/docker-compose.wslg.yml")
+COMPOSE_FILES=("-f" "$REPO_DIR/docker/compose.yml")
+if [[ -n "${WSL_DISTRO_NAME:-}" && -f "$REPO_DIR/docker/compose.wslg.yml" ]]; then
+  COMPOSE_FILES+=("-f" "$REPO_DIR/docker/compose.wslg.yml")
 fi
-if [[ "$(uname -s)" = "Darwin" && -f "$REPO_DIR/docker-compose.xquartz.yml" ]]; then
+if [[ "$(uname -s)" = "Darwin" && -f "$REPO_DIR/docker/compose.xquartz.yml" ]]; then
   if [ -n "${DISPLAY:-}" ] || [[ "$RVIZ_MODE" =~ ^(1|true|yes|on)$ ]]; then
-    COMPOSE_FILES+=("-f" "$REPO_DIR/docker-compose.xquartz.yml")
+    COMPOSE_FILES+=("-f" "$REPO_DIR/docker/compose.xquartz.yml")
   fi
 fi
 

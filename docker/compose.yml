@@ -2,8 +2,8 @@ services:
   ros2:
     image: ${RMPD_IMAGE:-robot-map-poisoning-defense:local}
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
       args:
         RMPD_INSTALL_FULL_STACK: ${RMPD_INSTALL_FULL_STACK:-true}
     working_dir: ${RMPD_CONTAINER_WORKSPACE:-/workspace}
@@ -14,7 +14,7 @@ services:
       PULSE_SERVER: ${PULSE_SERVER:-}
       RMPD_CONTAINER_WORKSPACE: ${RMPD_CONTAINER_WORKSPACE:-/workspace}
     volumes:
-      - .:${RMPD_CONTAINER_WORKSPACE:-/workspace}
+      - ..:${RMPD_CONTAINER_WORKSPACE:-/workspace}
     ports:
       - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT:-5005}:5005/udp"
       - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT:-5005}:5005/tcp"

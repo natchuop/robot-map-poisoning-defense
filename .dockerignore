@@ -2,6 +2,7 @@ build/
 install/
 log/
 logs/
+.env
 .generated/
 .git/
 .vscode/

@@ -48,7 +48,7 @@ check_python3() {
 }
 
 docker_compose() {
-    docker compose -p "$PROJECT_NAME" -f "$REPO_DIR/docker-compose.yml" "$@"
+    docker compose -p "$PROJECT_NAME" -f "$REPO_DIR/docker/compose.yml" "$@"
 }
 
 container_exec() {
