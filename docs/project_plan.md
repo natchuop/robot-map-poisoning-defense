@@ -10,7 +10,7 @@ This is the main context file for future AI work on the project.
 - IMU works
 - Current controller is Python and does obstacle avoidance
 - Controller can print robot `x`, `y`, and heading (`yaw`)
-- `bash scripts/quick_test.sh` runs the default AMCL localization smoke test
+- `bash scripts/quick_test.sh` runs the default AMCL + Nav2 checkpoint patrol smoke test
 - RViz opens with `amcl.rviz` and fixed frame `map`
 
 ## Project Goal
@@ -282,10 +282,10 @@ Current mapping loop:
 - build `/map` as `nav_msgs/OccupancyGrid`
 - visualize in RViz with fixed frame `map`
 
-Current AMCL quick-test loop:
+Current AMCL + Nav2 quick-test loop:
 
 - generate or refresh `webots/worlds/testRvizMap/amcl_map/arena.yaml`
-- start `udp_bridge`, `pose_to_odom`, `map_server`, AMCL, lifecycle manager, and initial pose publisher
+- start `udp_bridge`, `pose_to_odom`, `map_server`, AMCL, lifecycle manager, initial pose publisher, Nav2, and the checkpoint patrol node
 - publish `/robot_pose` and `/scan` from Webots packets
 - mirror Webots pose into `/odom` for the test harness
 - publish test-harness TF for `map -> odom`, `odom -> base_link`, and `base_link -> laser`

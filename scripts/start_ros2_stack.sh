@@ -19,9 +19,12 @@ if [ "${RMPD_TEST_MODE:-mapping}" = "amcl" ]; then
         echo "RMPD_AMCL_MAP_YAML is required when RMPD_TEST_MODE=amcl" >&2
         exit 1
     fi
-    echo "Launching AMCL localization stack with map: $RMPD_AMCL_MAP_YAML"
-    exec ros2 launch robot_patrol_node amcl_stack.launch.py map_yaml:="$RMPD_AMCL_MAP_YAML"
+    START_CHECKPOINT_PATROL="${RMPD_START_CHECKPOINT_PATROL:-true}"
+    echo "Launching AMCL + Nav2 stack with Webots GPS/IMU odom + LiDAR + static map: $RMPD_AMCL_MAP_YAML"
+    exec ros2 launch robot_patrol_node nav2_with_amcl.launch.py \
+        map_yaml:="$RMPD_AMCL_MAP_YAML" \
+        start_checkpoint_patrol:="$START_CHECKPOINT_PATROL"
 fi
 
-echo "Launching live mapping stack"
+echo "Launching live mapping stack (Webots GPS/IMU pose + LiDAR, no AMCL)"
 exec ros2 launch robot_patrol_node mapping_stack.launch.py

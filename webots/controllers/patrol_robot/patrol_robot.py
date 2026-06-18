@@ -2,14 +2,16 @@ import json
 import math
 import os
 import socket
+import time
 
 from controller import Robot
 
 
 TIME_STEP = 64
-BASE_SPEED = 1.5
+
 ROBOT_ID = os.environ.get('WEBOTS_ROBOT_ID', os.environ.get('ROBOT_NAME', 'robot_1'))
 MAP_ID = os.environ.get('WEBOTS_MAP_ID', '').strip()
+
 BRIDGE_PROTOCOL = os.environ.get('WEBOTS_BRIDGE_PROTOCOL', 'tcp').strip().lower()
 BRIDGE_TARGETS = [
     target.strip()
@@ -21,15 +23,28 @@ BRIDGE_TARGETS = [
 ]
 BRIDGE_PORT = int(os.environ.get('WEBOTS_BRIDGE_PORT', '5005'))
 
+WHEEL_RADIUS = float(os.environ.get('WEBOTS_WHEEL_RADIUS', '0.033'))
+WHEEL_BASE = float(os.environ.get('WEBOTS_WHEEL_BASE', '0.16'))
+MAX_WHEEL_SPEED = float(os.environ.get('WEBOTS_MAX_WHEEL_SPEED', '6.28'))
+CMD_TIMEOUT_SEC = float(os.environ.get('WEBOTS_CMD_TIMEOUT_SEC', '1.0'))
 
-def gaussian(x, mu, sigma):
-    return (1.0 / (sigma * math.sqrt(2.0 * math.pi))) * math.exp(
-        -((x - mu) * (x - mu)) / (2.0 * sigma * sigma)
-    )
+
+def clamp(value, low, high):
+    return max(low, min(high, value))
+
+
+def cmd_vel_to_wheel_speeds(linear_x, angular_z):
+    left_speed = (linear_x - angular_z * WHEEL_BASE / 2.0) / WHEEL_RADIUS
+    right_speed = (linear_x + angular_z * WHEEL_BASE / 2.0) / WHEEL_RADIUS
+
+    left_speed = clamp(left_speed, -MAX_WHEEL_SPEED, MAX_WHEEL_SPEED)
+    right_speed = clamp(right_speed, -MAX_WHEEL_SPEED, MAX_WHEEL_SPEED)
+
+    return left_speed, right_speed
 
 
 class BridgeSender:
-    """Send newline-delimited JSON packets to the ROS 2 bridge."""
+    """Send sensor packets to ROS and receive cmd_vel packets from ROS."""
 
     def __init__(self, targets, port):
         self.targets = targets
@@ -40,6 +55,7 @@ class BridgeSender:
         self.protocol = BRIDGE_PROTOCOL
         self._udp_socket = None
         self._udp_connected = False
+        self._recv_buffer = b''
 
     def _rotate_failed_target(self, target):
         if target in self.targets and len(self.targets) > 1:
@@ -52,8 +68,11 @@ class BridgeSender:
                 self.sock.close()
             except OSError:
                 pass
+
         self.sock = None
         self.connected_target = None
+        self._recv_buffer = b''
+
         self._udp_connected = False
         if self._udp_socket is not None:
             try:
@@ -65,12 +84,15 @@ class BridgeSender:
     def _ensure_udp_socket(self):
         if self._udp_socket is None:
             self._udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self._udp_socket.setblocking(False)
         return self._udp_socket
 
     def _connect(self):
         if self.protocol == 'udp':
             if self._udp_socket is None:
                 self._udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                self._udp_socket.setblocking(False)
+
             self.connected_target = self.targets[0] if self.targets else '127.0.0.1'
             if not self._udp_connected:
                 print(
@@ -81,16 +103,18 @@ class BridgeSender:
             return True
 
         self.close()
+
         for target in self.targets:
             try:
                 sock = socket.create_connection((target, self.port), timeout=0.2)
-                sock.settimeout(0.2)
+                sock.settimeout(0.0)
                 self.sock = sock
                 self.connected_target = target
                 print(f'connected to ROS bridge at tcp://{target}:{self.port}', flush=True)
                 return True
             except OSError:
                 continue
+
         return False
 
     def send(self, payload):
@@ -98,11 +122,17 @@ class BridgeSender:
             try:
                 if not self._udp_connected:
                     self._connect()
-                self._ensure_udp_socket().sendto(payload + b'\n', (self.connected_target, self.port))
+                self._ensure_udp_socket().sendto(
+                    payload + b'\n',
+                    (self.connected_target, self.port),
+                )
                 self.failure_count = 0
                 return True
             except OSError as exc:
-                print(f'ROS bridge send failed ({self.connected_target}:{self.port}): {exc}', flush=True)
+                print(
+                    f'ROS bridge send failed ({self.connected_target}:{self.port}): {exc}',
+                    flush=True,
+                )
                 self._rotate_failed_target(self.connected_target)
                 self.close()
                 return False
@@ -119,10 +149,79 @@ class BridgeSender:
             self.failure_count = 0
             return True
         except OSError as exc:
-            print(f'ROS bridge send failed ({self.connected_target}:{self.port}): {exc}', flush=True)
+            print(
+                f'ROS bridge send failed ({self.connected_target}:{self.port}): {exc}',
+                flush=True,
+            )
             self._rotate_failed_target(self.connected_target)
             self.close()
             return False
+
+    def receive_commands(self):
+        commands = []
+
+        if self.protocol == 'udp':
+            if self._udp_socket is None:
+                return commands
+
+            while True:
+                try:
+                    data, _addr = self._udp_socket.recvfrom(65535)
+                except BlockingIOError:
+                    break
+                except OSError:
+                    break
+
+                for line in data.splitlines():
+                    command = self._decode_command(line)
+                    if command is not None:
+                        commands.append(command)
+
+            return commands
+
+        if self.sock is None:
+            return commands
+
+        while True:
+            try:
+                chunk = self.sock.recv(65535)
+            except BlockingIOError:
+                break
+            except OSError:
+                self.close()
+                break
+
+            if not chunk:
+                self.close()
+                break
+
+            self._recv_buffer += chunk
+
+            while b'\n' in self._recv_buffer:
+                line, self._recv_buffer = self._recv_buffer.split(b'\n', 1)
+                command = self._decode_command(line)
+                if command is not None:
+                    commands.append(command)
+
+        return commands
+
+    def _decode_command(self, line):
+        if not line:
+            return None
+
+        try:
+            packet = json.loads(line.decode('utf-8'))
+        except json.JSONDecodeError:
+            return None
+
+        cmd_vel = packet.get('cmd_vel')
+        if not isinstance(cmd_vel, dict):
+            return None
+
+        return {
+            'linear_x': float(cmd_vel.get('linear_x', 0.0)),
+            'angular_z': float(cmd_vel.get('angular_z', 0.0)),
+        }
 
 
 def main():
@@ -159,20 +258,40 @@ def main():
         lidar_width = lidar.getHorizontalResolution()
         lidar_max_range = lidar.getMaxRange()
 
-        braitenberg_coefficients = [6.0 * gaussian(i, lidar_width / 4.0, lidar_width / 12.0) for i in range(lidar_width)]
-
         sender = BridgeSender(BRIDGE_TARGETS, BRIDGE_PORT)
         counter = 0
 
-        print(f'ROS bridge targets {", ".join(f"tcp://{target}:{BRIDGE_PORT}" for target in BRIDGE_TARGETS)}', flush=True)
-        print('GPS, IMU, and LiDAR initialized', flush=True)
+        current_linear_x = 0.0
+        current_angular_z = 0.0
+        last_cmd_time = 0.0
+
+        print(
+            f'ROS bridge targets {", ".join(f"tcp://{target}:{BRIDGE_PORT}" for target in BRIDGE_TARGETS)}',
+            flush=True,
+        )
+        print('GPS, IMU, LiDAR, and cmd_vel motor control initialized', flush=True)
+
     except Exception as exc:
         print(f'controller startup failed: {exc}', flush=True)
         raise
 
     while robot.step(timestep) != -1:
-        left_speed = BASE_SPEED
-        right_speed = BASE_SPEED
+        for command in sender.receive_commands():
+            current_linear_x = command['linear_x']
+            current_angular_z = command['angular_z']
+            last_cmd_time = time.time()
+
+        if time.time() - last_cmd_time > CMD_TIMEOUT_SEC:
+            current_linear_x = 0.0
+            current_angular_z = 0.0
+
+        left_speed, right_speed = cmd_vel_to_wheel_speeds(
+            current_linear_x,
+            current_angular_z,
+        )
+
+        left_motor.setVelocity(left_speed)
+        right_motor.setVelocity(right_speed)
 
         gps_values = gps.getValues()
         robot_x = gps_values[0]
@@ -182,7 +301,11 @@ def main():
         robot_heading = rpy[2]
 
         if counter % 20 == 0:
-            print(f'pose -> x: {robot_x:.2f} y: {robot_y:.2f} heading: {robot_heading:.2f}')
+            print(
+                f'pose -> x: {robot_x:.2f} y: {robot_y:.2f} heading: {robot_heading:.2f} '
+                f'cmd_vel -> linear_x: {current_linear_x:.2f} angular_z: {current_angular_z:.2f}',
+                flush=True,
+            )
 
         lidar_values = lidar.getRangeImage()
         ranges = []
@@ -191,26 +314,6 @@ def main():
                 ranges.append(float(lidar_max_range))
             else:
                 ranges.append(float(value))
-
-        for i in range(int(0.25 * lidar_width), int(0.5 * lidar_width)):
-            j = lidar_width - i - 1
-            k = i - int(0.25 * lidar_width)
-
-            if (
-                lidar_values[i] != float('inf')
-                and not math.isnan(lidar_values[i])
-                and lidar_values[j] != float('inf')
-                and not math.isnan(lidar_values[j])
-            ):
-                left_speed += braitenberg_coefficients[k] * (
-                    (1.0 - lidar_values[i] / lidar_max_range) - (1.0 - lidar_values[j] / lidar_max_range)
-                )
-                right_speed += braitenberg_coefficients[k] * (
-                    (1.0 - lidar_values[j] / lidar_max_range) - (1.0 - lidar_values[i] / lidar_max_range)
-                )
-
-        left_motor.setVelocity(left_speed)
-        right_motor.setVelocity(right_speed)
 
         packet = {
             'pose': {
@@ -231,8 +334,10 @@ def main():
 
         payload = json.dumps(packet, separators=(',', ':')).encode('utf-8')
         sent = sender.send(payload)
+
         if sent and counter % 20 == 0:
             print('sent bridge packet', flush=True)
+
         counter += 1
 
 

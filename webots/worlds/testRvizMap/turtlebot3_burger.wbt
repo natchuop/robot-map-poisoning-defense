@@ -1,4 +1,4 @@
-#VRML_SIM R2025a utf8
+﻿#VRML_SIM R2025a utf8
 
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
@@ -72,6 +72,82 @@ WoodenBox {
   translation -1.0974 -1.8598 0.15
   name "wooden box(6)"
   size 0.3 0.3 0.3
+}
+Solid {
+  translation -1.49882 1.84407 0.03
+  name "checkpoint_A"
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.2 0.2
+          emissiveColor 0.45 0.05 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation 1.5267 -0.221987 0.03
+  name "checkpoint_B"
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.2 0.8 0.2
+          emissiveColor 0.05 0.35 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation -0.416565 -1.35783 0.03
+  name "checkpoint_C"
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.2 0.35 0.95
+          emissiveColor 0.05 0.1 0.45
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation -2.63149 -0.778393 0.03
+  name "checkpoint_D"
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.8 0.2
+          emissiveColor 0.45 0.35 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
 }
 TurtleBot3Burger {
   translation 0 0 0

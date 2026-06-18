@@ -1,0 +1,44 @@
+Robot Map Poisoning Defense Summary
+
+What was done:
+- Integrated Nav2 into the patrol flow for the Webots robot.
+- Kept the patrol checkpoints hardcoded with the original positions:
+  - A, B, C, D, then back to A.
+- Updated the patrol node so it sends waypoint goals in order and uses position-only goals.
+- Changed the patrol node to print a message when each checkpoint is reached, including:
+  - checkpoint number in the route
+  - checkpoint name
+- Added the needed ROS dependency for the new checkpoint status logging.
+- Tuned Nav2 parameters so the robot actually moves instead of getting stuck in collision-abort behavior.
+- Fixed the Nav2 BT navigator launch so it uses the correct behavior tree XML paths.
+- Simplified startup so there is now one easy launch path that brings up:
+  - Webots
+  - Nav2
+  - RViz
+- Verified the robot now publishes forward motion and the patrol advances in simulation.
+
+Key files touched:
+- scripts/quick_test.sh
+- scripts/launch_everything.sh
+- src/robot_patrol_node/robot_patrol_node/checkpoint_patrol_node.py
+- src/robot_patrol_node/config/nav2_params.yaml
+- src/robot_patrol_node/launch/nav2_stack.launch.py
+- src/robot_patrol_node/launch/nav2_with_amcl.launch.py
+- src/robot_patrol_node/package.xml
+- src/robot_patrol_node/launch/rviz.launch.py
+- Dockerfile
+
+How to launch:
+- Run: bash scripts/launch_everything.sh
+- The stack will start the ROS container, Webots, Nav2, and RViz together.
+
+Behavior notes:
+- The patrol checkpoints are still hardcoded, as requested.
+- The robot now reports each checkpoint arrival in the terminal/logs.
+- AMCL still shows a small initial pose timing warning sometimes, but it did not stop the patrol from moving.
+
+Verification:
+- The robot now produces nonzero cmd_vel commands.
+- The robot pose changes in simulation.
+- The robot patrol action goals are accepted by Nav2.
+- The package builds successfully with colcon.

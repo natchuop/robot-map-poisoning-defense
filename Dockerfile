@@ -35,6 +35,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         ros-jazzy-nav2-controller \
         ros-jazzy-nav2-costmap-2d \
         ros-jazzy-nav2-dwb-controller \
+        ros-jazzy-nav2-regulated-pure-pursuit-controller \
         ros-jazzy-nav2-lifecycle-manager \
         ros-jazzy-nav2-map-server \
         ros-jazzy-nav2-msgs \

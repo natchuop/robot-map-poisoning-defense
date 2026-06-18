@@ -123,12 +123,12 @@ Run the whole test with one command from the repo root:
 bash scripts/quick_test.sh
 ```
 
-By default, this now runs an AMCL-based localization smoke test:
+By default, this now runs an AMCL + Nav2 checkpoint patrol smoke test:
 
 - launches the ROS 2 Docker stack
 - generates or refreshes the known map for the `testRvizMap` Webots arena
 - mirrors the Webots pose into a temporary `odom` frame for testing
-- starts `map_server` and `amcl`
+- starts `map_server`, `amcl`, Nav2, and the checkpoint patrol node
 - publishes an initial pose automatically
 - opens RViz when Docker can see a GUI display, or verifies `rviz2` is installed and skips GUI startup when no display is available
 - launches `webots/worlds/testRvizMap/turtlebot3_burger.wbt`
@@ -142,7 +142,7 @@ webots/worlds/testRvizMap/amcl_map/arena.pgm
 
 That map is generated from the known geometry in `webots/worlds/testRvizMap/turtlebot3_burger.wbt`: the circular arena size, box positions, map origin, and resolution. It is not parsed automatically from the `.wbt` file yet, so if the Webots world changes, update the generator in `scripts/quick_test.sh` or replace the AMCL map files to match.
 
-This is a localization test, not full Nav2 waypoint navigation yet. The odom source is a test harness that mirrors the Webots ground-truth pose, and the AMCL launch publishes test-harness `map -> odom`, `odom -> base_link`, and `base_link -> laser` transforms so RViz has a stable `map` fixed frame.
+This smoke test now brings up Nav2 checkpoint patrol as well. The odom source is still a test harness that mirrors the Webots ground-truth pose, and the AMCL launch publishes test-harness `map -> odom`, `odom -> base_link`, and `base_link -> laser` transforms so RViz has a stable `map` fixed frame.
 
 If you want the older live mapping demo instead, run `RMPD_TEST_MODE=mapping bash scripts/quick_test.sh`.
 
