@@ -93,10 +93,27 @@ WORLD_PATH="${RMPD_WEBOTS_WORLD:-$(find_default_world)}"
 if [ -n "$WORLD_PATH" ]; then
   WORLD_PATH="$(abs_path "$WORLD_PATH")"
 fi
+WORLD_BASENAME="$(basename "$WORLD_PATH")"
+world_amcl_defaults() {
+  case "$WORLD_BASENAME" in
+    office.wbt)
+      printf '%s %s %s %s\n' 'office' '-4.35' '-5.35' '0.004641574238792719'
+      ;;
+    *)
+      printf '%s %s %s %s\n' 'arena' '0.0' '0.0' '0.0'
+      ;;
+  esac
+}
+
+read -r DEFAULT_AMCL_MAP_BASENAME DEFAULT_AMCL_INITIAL_POSE_X DEFAULT_AMCL_INITIAL_POSE_Y DEFAULT_AMCL_INITIAL_POSE_YAW < <(world_amcl_defaults)
+AMCL_MAP_BASENAME="${RMPD_AMCL_MAP_NAME:-$DEFAULT_AMCL_MAP_BASENAME}"
 AMCL_MAP_DIR="${RMPD_AMCL_MAP_DIR:-$(dirname "$WORLD_PATH")/amcl_map}"
 AMCL_MAP_DIR="$(abs_path "$AMCL_MAP_DIR")"
-AMCL_MAP_YAML="$AMCL_MAP_DIR/arena.yaml"
+AMCL_MAP_YAML="$AMCL_MAP_DIR/$AMCL_MAP_BASENAME.yaml"
 AMCL_MAP_YAML_IN_CONTAINER="$(container_path_for_host_path "$AMCL_MAP_YAML")"
+AMCL_INITIAL_POSE_X="${RMPD_AMCL_INITIAL_POSE_X:-$DEFAULT_AMCL_INITIAL_POSE_X}"
+AMCL_INITIAL_POSE_Y="${RMPD_AMCL_INITIAL_POSE_Y:-$DEFAULT_AMCL_INITIAL_POSE_Y}"
+AMCL_INITIAL_POSE_YAW="${RMPD_AMCL_INITIAL_POSE_YAW:-$DEFAULT_AMCL_INITIAL_POSE_YAW}"
 
 COMPOSE_FILES=("-f" "$REPO_DIR/docker/compose.yml")
 if [[ -n "${WSL_DISTRO_NAME:-}" && -f "$REPO_DIR/docker/compose.wslg.yml" ]]; then
@@ -192,12 +209,13 @@ generate_amcl_map() {
   fi
 
   mkdir -p "$AMCL_MAP_DIR"
-  python3 - "$AMCL_MAP_DIR" <<'PY'
+  python3 - "$AMCL_MAP_DIR" "$AMCL_MAP_BASENAME" <<'PY'
 from pathlib import Path
 import math
 import sys
 
 outdir = Path(sys.argv[1])
+map_name = sys.argv[2]
 width = 160
 height = 160
 resolution = 0.05
@@ -242,7 +260,7 @@ for world_x, world_y in [
 ]:
     mark_box(world_x, world_y)
 
-pgm_path = outdir / 'arena.pgm'
+pgm_path = outdir / f'{map_name}.pgm'
 with pgm_path.open('w', encoding='ascii') as handle:
     handle.write('P2\n')
     handle.write(f'{width} {height}\n')
@@ -251,11 +269,11 @@ with pgm_path.open('w', encoding='ascii') as handle:
         handle.write(' '.join(str(value) for value in row))
         handle.write('\n')
 
-yaml_path = outdir / 'arena.yaml'
+yaml_path = outdir / f'{map_name}.yaml'
 yaml_path.write_text(
     '\n'.join(
         [
-            'image: arena.pgm',
+            f'image: {map_name}.pgm',
             f'resolution: {resolution}',
             f'origin: [{origin_x}, {origin_y}, 0.0]',
             'negate: 0',
@@ -266,6 +284,142 @@ yaml_path.write_text(
     + '\n',
     encoding='ascii',
 )
+PY
+}
+
+generate_office_amcl_map() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "python3 is required to generate the office AMCL map." >&2
+    exit 1
+  fi
+
+  mkdir -p "$AMCL_MAP_DIR"
+  python3 - "$WORLD_PATH" "$AMCL_MAP_DIR" "$AMCL_MAP_BASENAME" <<'PY'
+from pathlib import Path
+import math
+import re
+import sys
+
+world_path = Path(sys.argv[1])
+outdir = Path(sys.argv[2])
+map_name = sys.argv[3]
+text = world_path.read_text(encoding='utf-8')
+
+number = r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
+
+def extract_blocks(kind):
+    blocks = []
+    needle = f'{kind} {{'
+    cursor = 0
+    while True:
+        start = text.find(needle, cursor)
+        if start < 0:
+            return blocks
+
+        depth = 0
+        for index in range(start, len(text)):
+            if text[index] == '{':
+                depth += 1
+            elif text[index] == '}':
+                depth -= 1
+                if depth == 0:
+                    blocks.append(text[start:index + 1])
+                    cursor = index + 1
+                    break
+        else:
+            return blocks
+
+
+def parse_vector(block, label, default=(0.0, 0.0, 0.0)):
+    match = re.search(rf'^\s*{label}\s+({number})\s+({number})\s+({number})\s*$', block, re.M)
+    if not match:
+        return default
+    return tuple(float(value) for value in match.groups())
+
+
+def parse_rotation(block, default=(0.0, 0.0, 1.0, 0.0)):
+    match = re.search(rf'^\s*rotation\s+({number})\s+({number})\s+({number})\s+({number})\s*$', block, re.M)
+    if not match:
+        return default
+    return tuple(float(value) for value in match.groups())
+
+
+floor_blocks = extract_blocks('Floor')
+if not floor_blocks:
+    raise SystemExit('No Floor blocks found in office world.')
+
+preferred_floor = next((block for block in floor_blocks if 'name "floor(1)"' in block), floor_blocks[-1])
+floor_translation = parse_vector(preferred_floor, 'translation')
+floor_size_match = re.search(rf'^\s*size\s+({number})\s+({number})\s*$', preferred_floor, re.M)
+if not floor_size_match:
+    raise SystemExit('No floor size found in office world.')
+floor_size = tuple(float(value) for value in floor_size_match.groups())
+
+resolution = 0.05
+origin_x = floor_translation[0] - floor_size[0] / 2.0
+origin_y = floor_translation[1] - floor_size[1] / 2.0
+width = max(1, int(math.ceil(floor_size[0] / resolution)))
+height = max(1, int(math.ceil(floor_size[1] / resolution)))
+grid = [[254 for _ in range(width)] for _ in range(height)]
+inflate = resolution / 2.0
+
+def mark_cell(ix, iy):
+    if 0 <= ix < width and 0 <= iy < height:
+        grid[iy][ix] = 0
+
+for block in extract_blocks('Wall'):
+    tx, ty, _ = parse_vector(block, 'translation')
+    sx, sy, _ = parse_vector(block, 'size')
+    _, _, axis_z, angle = parse_rotation(block)
+    theta = angle if axis_z >= 0 else -angle
+    cos_t = math.cos(theta)
+    sin_t = math.sin(theta)
+    half_x = abs(sx) / 2.0 + inflate
+    half_y = abs(sy) / 2.0 + inflate
+    span_x = abs(half_x * cos_t) + abs(half_y * sin_t)
+    span_y = abs(half_x * sin_t) + abs(half_y * cos_t)
+    min_x = max(0, int(math.floor((tx - span_x - origin_x) / resolution)))
+    max_x = min(width - 1, int(math.ceil((tx + span_x - origin_x) / resolution)))
+    min_y = max(0, int(math.floor((ty - span_y - origin_y) / resolution)))
+    max_y = min(height - 1, int(math.ceil((ty + span_y - origin_y) / resolution)))
+
+    for iy in range(min_y, max_y + 1):
+        cy = origin_y + (iy + 0.5) * resolution
+        dy = cy - ty
+        for ix in range(min_x, max_x + 1):
+            cx = origin_x + (ix + 0.5) * resolution
+            dx = cx - tx
+            local_x = dx * cos_t + dy * sin_t
+            local_y = -dx * sin_t + dy * cos_t
+            if abs(local_x) <= half_x and abs(local_y) <= half_y:
+                mark_cell(ix, iy)
+
+pgm_path = outdir / f'{map_name}.pgm'
+with pgm_path.open('w', encoding='ascii') as handle:
+    handle.write('P2\n')
+    handle.write(f'{width} {height}\n')
+    handle.write('255\n')
+    for row in reversed(grid):
+        handle.write(' '.join(str(value) for value in row))
+        handle.write('\n')
+
+yaml_path = outdir / f'{map_name}.yaml'
+yaml_path.write_text(
+    '\n'.join(
+        [
+            f'image: {map_name}.pgm',
+            f'resolution: {resolution}',
+            f'origin: [{origin_x}, {origin_y}, 0.0]',
+            'negate: 0',
+            'occupied_thresh: 0.65',
+            'free_thresh: 0.2',
+        ]
+    )
+    + '\n',
+    encoding='ascii',
+)
+
+print(f'Generated {map_name}.yaml from {world_path.name} with {len(extract_blocks("Wall"))} walls')
 PY
 }
 
@@ -369,8 +523,13 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 if [ "$TEST_MODE" = "amcl" ]; then
-  log_step "Generating the AMCL test map"
-  generate_amcl_map
+  if [ "$WORLD_BASENAME" = "office.wbt" ]; then
+    log_step "Generating the office AMCL map"
+    generate_office_amcl_map
+  else
+    log_step "Generating the AMCL test map"
+    generate_amcl_map
+  fi
   if [ ! -f "$AMCL_MAP_YAML" ]; then
     echo "Failed to generate AMCL map at $AMCL_MAP_YAML" >&2
     exit 1
@@ -404,6 +563,9 @@ if [ "$TEST_MODE" = "amcl" ]; then
     -e RMPD_CONTAINER_WORKSPACE="$CONTAINER_WORKSPACE" \
     -e RMPD_TEST_MODE="$TEST_MODE" \
     -e RMPD_AMCL_MAP_YAML="$AMCL_MAP_YAML_IN_CONTAINER" \
+    -e RMPD_AMCL_INITIAL_POSE_X="$AMCL_INITIAL_POSE_X" \
+    -e RMPD_AMCL_INITIAL_POSE_Y="$AMCL_INITIAL_POSE_Y" \
+    -e RMPD_AMCL_INITIAL_POSE_YAW="$AMCL_INITIAL_POSE_YAW" \
     ros2 bash -lc 'bash scripts/start_ros2_stack.sh' >/dev/null
 else
   docker_compose run -d \
@@ -493,7 +655,9 @@ if should_launch_rviz; then
     exit 1
   fi
 
-  if grep -Eqi 'rviz2-[0-9]+.*process has died|GLSL link result|Invalid parentWindowHandle|Unable to create the rendering window|Qt.*could not connect to display|Could not load the Qt platform plugin|Aborted|segmentation fault|core dumped' "$RVIZ_HOST_LOG" 2>/dev/null; then
+  # RViz's Map display can emit a known GLSL shader warning under WSLg/Docker
+  # even when the process stays alive and the map continues to render.
+  if grep -Eqi 'rviz2-[0-9]+.*process has died|Invalid parentWindowHandle|Unable to create the rendering window|Qt.*could not connect to display|Could not load the Qt platform plugin|Aborted|segmentation fault|core dumped' "$RVIZ_HOST_LOG" 2>/dev/null; then
     echo "RViz appears to have failed during startup. RViz log:" >&2
     tail -120 "$RVIZ_HOST_LOG" >&2 || true
     exit 1

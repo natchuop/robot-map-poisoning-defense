@@ -2,12 +2,14 @@ import json
 import math
 import os
 import socket
+import traceback
 
-from controller import Robot
+from controller import Keyboard, Robot
 
 
 TIME_STEP = 64
-BASE_SPEED = float(os.environ.get('WEBOTS_BASE_SPEED', '1.5'))
+DRIVE_SPEED = float(os.environ.get('WEBOTS_DRIVE_SPEED', '1.8'))
+TURN_SPEED = float(os.environ.get('WEBOTS_TURN_SPEED', '1.2'))
 ROBOT_ID = os.environ.get('WEBOTS_ROBOT_ID', os.environ.get('ROBOT_NAME', 'robot_1'))
 MAP_ID = os.environ.get('WEBOTS_MAP_ID', '').strip()
 BRIDGE_PROTOCOL = os.environ.get('WEBOTS_BRIDGE_PROTOCOL', 'tcp').strip().lower()
@@ -24,6 +26,7 @@ HEADING_SIGN = float(os.environ.get('WEBOTS_HEADING_SIGN', '1.0'))
 HEADING_OFFSET = float(os.environ.get('WEBOTS_HEADING_OFFSET', '0.0'))
 FORWARD_AXIS = os.environ.get('WEBOTS_FORWARD_AXIS', 'x').strip().lower()
 HEADING_SOURCE = os.environ.get('WEBOTS_HEADING_SOURCE', 'rpy_z').strip().lower()
+DEBUG_FRAME = os.environ.get('WEBOTS_DEBUG_FRAME', '').strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
 def normalize_angle(angle):
@@ -74,10 +77,20 @@ def planar_heading_from_imu(imu, rpy):
     return normalize_angle((HEADING_SIGN * float(rpy[2])) + HEADING_OFFSET)
 
 
-def gaussian(x, mu, sigma):
-    return (1.0 / (sigma * math.sqrt(2.0 * math.pi))) * math.exp(
-        -((x - mu) * (x - mu)) / (2.0 * sigma * sigma)
-    )
+def candidate_headings(quaternion):
+    headings = {}
+    for axis in ('x', '-x', 'z', '-z'):
+        forward_x, _forward_y, forward_z = rotate_vector_by_quaternion(
+            {
+                'x': (1.0, 0.0, 0.0),
+                '-x': (-1.0, 0.0, 0.0),
+                'z': (0.0, 0.0, 1.0),
+                '-z': (0.0, 0.0, -1.0),
+            }[axis],
+            quaternion,
+        )
+        headings[axis] = normalize_angle(math.atan2(forward_z, forward_x))
+    return headings
 
 
 class BridgeSender:
@@ -181,7 +194,7 @@ def main():
     robot = Robot()
     timestep = int(robot.getBasicTimeStep()) or TIME_STEP
 
-    print(f'patrol_robot starting robot_id={ROBOT_ID} map_id={MAP_ID or "unknown"}', flush=True)
+    print(f'user_controlled_robot starting robot_id={ROBOT_ID} map_id={MAP_ID or "unknown"}', flush=True)
 
     try:
         gps = robot.getDevice('gps')
@@ -208,89 +221,127 @@ def main():
         right_motor.setVelocity(0.0)
         left_motor.setVelocity(0.0)
 
+        keyboard = Keyboard()
+        keyboard.enable(timestep)
+
         lidar_width = lidar.getHorizontalResolution()
         lidar_fov = float(lidar.getFov())
         lidar_max_range = lidar.getMaxRange()
-
-        braitenberg_coefficients = [6.0 * gaussian(i, lidar_width / 4.0, lidar_width / 12.0) for i in range(lidar_width)]
 
         sender = BridgeSender(BRIDGE_TARGETS, BRIDGE_PORT)
         counter = 0
 
         print(f'ROS bridge targets {", ".join(f"tcp://{target}:{BRIDGE_PORT}" for target in BRIDGE_TARGETS)}', flush=True)
-        print('GPS, IMU, and LiDAR initialized', flush=True)
+        print('GPS, IMU, LiDAR, and keyboard initialized', flush=True)
+        print('keyboard teleop ready: W forward, S backward, A left, D right', flush=True)
     except Exception as exc:
         print(f'controller startup failed: {exc}', flush=True)
         raise
 
     while robot.step(timestep) != -1:
-        left_speed = BASE_SPEED
-        right_speed = BASE_SPEED
+        try:
+            pressed_keys = set()
+            key = keyboard.getKey()
+            while key != -1:
+                pressed_keys.add(key)
+                key = keyboard.getKey()
 
-        gps_values = gps.getValues()
-        robot_x = gps_values[0]
-        robot_y = gps_values[1]
+            forward = ord('W') in pressed_keys or ord('w') in pressed_keys
+            backward = ord('S') in pressed_keys or ord('s') in pressed_keys
+            turn_left = ord('A') in pressed_keys or ord('a') in pressed_keys
+            turn_right = ord('D') in pressed_keys or ord('d') in pressed_keys
 
-        rpy = imu.getRollPitchYaw()
-        robot_heading = planar_heading_from_imu(imu, rpy)
+            linear = 0.0
+            angular = 0.0
 
-        if counter % 20 == 0:
-            print(
-                f'pose -> x: {robot_x:.2f} y: {robot_y:.2f} heading: {robot_heading:.2f} '
-                f'imu_rpy: {rpy[0]:.2f}, {rpy[1]:.2f}, {rpy[2]:.2f}',
-                flush=True,
-            )
+            if forward and not backward:
+                linear += DRIVE_SPEED
+            elif backward and not forward:
+                linear -= DRIVE_SPEED
 
-        lidar_values = lidar.getRangeImage()
-        ranges = []
-        for value in reversed(lidar_values):
-            if math.isinf(value) or math.isnan(value):
-                ranges.append(float(lidar_max_range))
-            else:
-                ranges.append(float(value))
+            if turn_left and not turn_right:
+                angular += TURN_SPEED
+            elif turn_right and not turn_left:
+                angular -= TURN_SPEED
 
-        for i in range(int(0.25 * lidar_width), int(0.5 * lidar_width)):
-            j = lidar_width - i - 1
-            k = i - int(0.25 * lidar_width)
+            left_speed = linear - angular
+            right_speed = linear + angular
 
-            if (
-                lidar_values[i] != float('inf')
-                and not math.isnan(lidar_values[i])
-                and lidar_values[j] != float('inf')
-                and not math.isnan(lidar_values[j])
-            ):
-                left_speed += braitenberg_coefficients[k] * (
-                    (1.0 - lidar_values[i] / lidar_max_range) - (1.0 - lidar_values[j] / lidar_max_range)
+            gps_values = gps.getValues()
+            robot_x = gps_values[0]
+            robot_y = gps_values[1]
+
+            rpy = imu.getRollPitchYaw()
+            quaternion = imu.getQuaternion()
+            robot_heading = planar_heading_from_imu(imu, rpy)
+
+            if counter % 20 == 0:
+                print(
+                    f'pose -> x: {robot_x:.2f} y: {robot_y:.2f} heading: {robot_heading:.2f} '
+                    f'imu_rpy: {rpy[0]:.2f}, {rpy[1]:.2f}, {rpy[2]:.2f}',
+                    flush=True,
                 )
-                right_speed += braitenberg_coefficients[k] * (
-                    (1.0 - lidar_values[j] / lidar_max_range) - (1.0 - lidar_values[i] / lidar_max_range)
+
+            lidar_values = lidar.getRangeImage()
+            ranges = []
+            for value in reversed(lidar_values):
+                if math.isinf(value) or math.isnan(value):
+                    ranges.append(float(lidar_max_range))
+                else:
+                    ranges.append(float(value))
+
+            if DEBUG_FRAME and counter % 20 == 0:
+                finite_ranges = [
+                    (index, value)
+                    for index, value in enumerate(ranges)
+                    if math.isfinite(value) and not math.isnan(value)
+                ]
+                closest_index, closest_range = min(finite_ranges, key=lambda item: item[1], default=(-1, float('nan')))
+                closest_angle = (-lidar_fov / 2.0) + (
+                    closest_index * (lidar_fov / float(max(lidar_width - 1, 1)))
+                )
+                headings = candidate_headings(quaternion)
+                heading_text = ' '.join(f'{axis}:{value:.2f}' for axis, value in headings.items())
+                print(
+                    'frame_debug -> '
+                    f'keys={sorted(pressed_keys)} source={HEADING_SOURCE} selected_axis={FORWARD_AXIS} '
+                    f'sign={HEADING_SIGN:.1f} '
+                    f'quat=({quaternion[0]:.3f},{quaternion[1]:.3f},{quaternion[2]:.3f},{quaternion[3]:.3f}) '
+                    f'headings={heading_text} closest_scan_index={closest_index} '
+                    f'closest_scan_angle={closest_angle:.2f} closest_range={closest_range:.2f}',
+                    flush=True,
                 )
 
-        left_motor.setVelocity(left_speed)
-        right_motor.setVelocity(right_speed)
+            left_motor.setVelocity(left_speed)
+            right_motor.setVelocity(right_speed)
 
-        packet = {
-            'pose': {
-                'x': float(robot_x),
-                'y': float(robot_y),
-                'theta': float(robot_heading),
-            },
-            'scan': {
-                'angle_min': -lidar_fov / 2.0,
-                'angle_max': lidar_fov / 2.0,
-                'angle_increment': lidar_fov / float(max(lidar_width - 1, 1)),
-                'range_min': float(lidar.getMinRange()),
-                'range_max': float(lidar_max_range),
-                'scan_time': timestep / 1000.0,
-                'ranges': ranges,
-            },
-        }
+            packet = {
+                'pose': {
+                    'x': float(robot_x),
+                    'y': float(robot_y),
+                    'theta': float(robot_heading),
+                },
+                'scan': {
+                    'angle_min': -lidar_fov / 2.0,
+                    'angle_max': lidar_fov / 2.0,
+                    'angle_increment': lidar_fov / float(max(lidar_width - 1, 1)),
+                    'range_min': float(lidar.getMinRange()),
+                    'range_max': float(lidar_max_range),
+                    'scan_time': timestep / 1000.0,
+                    'ranges': ranges,
+                },
+            }
 
-        payload = json.dumps(packet, separators=(',', ':')).encode('utf-8')
-        sent = sender.send(payload)
-        if sent and counter % 20 == 0:
-            print('sent bridge packet', flush=True)
-        counter += 1
+            payload = json.dumps(packet, separators=(',', ':')).encode('utf-8')
+            sent = sender.send(payload)
+            if sent and counter % 20 == 0:
+                print('sent bridge packet', flush=True)
+            counter += 1
+        except Exception as exc:
+            print(f'user_controlled_robot step failed: {exc}', flush=True)
+            print(traceback.format_exc(), flush=True)
+            left_motor.setVelocity(0.0)
+            right_motor.setVelocity(0.0)
 
 
 if __name__ == '__main__':

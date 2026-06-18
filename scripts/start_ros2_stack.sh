@@ -19,8 +19,15 @@ if [ "${RMPD_TEST_MODE:-mapping}" = "amcl" ]; then
         echo "RMPD_AMCL_MAP_YAML is required when RMPD_TEST_MODE=amcl" >&2
         exit 1
     fi
+    INITIAL_POSE_X="${RMPD_AMCL_INITIAL_POSE_X:-0.0}"
+    INITIAL_POSE_Y="${RMPD_AMCL_INITIAL_POSE_Y:-0.0}"
+    INITIAL_POSE_YAW="${RMPD_AMCL_INITIAL_POSE_YAW:-0.0}"
     echo "Launching AMCL localization stack with map: $RMPD_AMCL_MAP_YAML"
-    exec ros2 launch robot_patrol_node amcl_stack.launch.py map_yaml:="$RMPD_AMCL_MAP_YAML"
+    exec ros2 launch robot_patrol_node amcl_stack.launch.py \
+        map_yaml:="$RMPD_AMCL_MAP_YAML" \
+        initial_pose_x:="$INITIAL_POSE_X" \
+        initial_pose_y:="$INITIAL_POSE_Y" \
+        initial_pose_yaw:="$INITIAL_POSE_YAW"
 fi
 
 echo "Launching live mapping stack"

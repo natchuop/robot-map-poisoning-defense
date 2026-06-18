@@ -17,6 +17,12 @@ def generate_launch_description():
     laser_x = LaunchConfiguration('laser_x')
     laser_y = LaunchConfiguration('laser_y')
     laser_yaw = LaunchConfiguration('laser_yaw')
+    hit_score_increment = LaunchConfiguration('hit_score_increment')
+    free_score_decrement = LaunchConfiguration('free_score_decrement')
+    occupied_score_threshold = LaunchConfiguration('occupied_score_threshold')
+    free_score_threshold = LaunchConfiguration('free_score_threshold')
+    score_min = LaunchConfiguration('score_min')
+    score_max = LaunchConfiguration('score_max')
 
     return LaunchDescription(
         [
@@ -32,6 +38,12 @@ def generate_launch_description():
             DeclareLaunchArgument('laser_x', default_value='0.0'),
             DeclareLaunchArgument('laser_y', default_value='0.0'),
             DeclareLaunchArgument('laser_yaw', default_value='0.0'),
+            DeclareLaunchArgument('hit_score_increment', default_value='4'),
+            DeclareLaunchArgument('free_score_decrement', default_value='1'),
+            DeclareLaunchArgument('occupied_score_threshold', default_value='6'),
+            DeclareLaunchArgument('free_score_threshold', default_value='-2'),
+            DeclareLaunchArgument('score_min', default_value='-12'),
+            DeclareLaunchArgument('score_max', default_value='24'),
             Node(
                 package='robot_patrol_node',
                 executable='map_builder',
@@ -50,6 +62,12 @@ def generate_launch_description():
                         'laser_x': laser_x,
                         'laser_y': laser_y,
                         'laser_yaw': laser_yaw,
+                        'hit_score_increment': hit_score_increment,
+                        'free_score_decrement': free_score_decrement,
+                        'occupied_score_threshold': occupied_score_threshold,
+                        'free_score_threshold': free_score_threshold,
+                        'score_min': score_min,
+                        'score_max': score_max,
                     }
                 ],
             ),

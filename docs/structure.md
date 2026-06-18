@@ -19,7 +19,8 @@ This repo is built around one active ROS 2 + Webots demo and a few supporting do
 2. The controller sends pose and scan packets to the ROS 2 bridge in Docker.
 3. The ROS package republishes those packets as ROS topics.
 4. The AMCL stack localizes the robot against the known map.
-5. RViz shows the result.
+5. Nav2 uses the static map for planning and the live local costmap for obstacle avoidance.
+6. RViz shows the result.
 
 ## Generated Files
 

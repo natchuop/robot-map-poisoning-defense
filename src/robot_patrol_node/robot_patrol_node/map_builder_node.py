@@ -41,6 +41,12 @@ class MapBuilderNode(Node):
         self.declare_parameter('laser_x', 0.0)
         self.declare_parameter('laser_y', 0.0)
         self.declare_parameter('laser_yaw', 0.0)
+        self.declare_parameter('hit_score_increment', 4)
+        self.declare_parameter('free_score_decrement', 1)
+        self.declare_parameter('occupied_score_threshold', 6)
+        self.declare_parameter('free_score_threshold', -2)
+        self.declare_parameter('score_min', -12)
+        self.declare_parameter('score_max', 24)
 
         self.scan_topic = self.get_parameter('scan_topic').value
         self.pose_topic = self.get_parameter('pose_topic').value
@@ -54,6 +60,12 @@ class MapBuilderNode(Node):
         self.laser_x = float(self.get_parameter('laser_x').value)
         self.laser_y = float(self.get_parameter('laser_y').value)
         self.laser_yaw = float(self.get_parameter('laser_yaw').value)
+        self.hit_score_increment = int(self.get_parameter('hit_score_increment').value)
+        self.free_score_decrement = int(self.get_parameter('free_score_decrement').value)
+        self.occupied_score_threshold = int(self.get_parameter('occupied_score_threshold').value)
+        self.free_score_threshold = int(self.get_parameter('free_score_threshold').value)
+        self.score_min = int(self.get_parameter('score_min').value)
+        self.score_max = int(self.get_parameter('score_max').value)
 
         self.width_cells = int(self.map_width_m / self.resolution)
         self.height_cells = int(self.map_height_m / self.resolution)
@@ -61,7 +73,10 @@ class MapBuilderNode(Node):
         self.origin_y = -self.map_height_m / 2.0
 
         self.grid = np.full((self.height_cells, self.width_cells), -1, dtype=np.int8)
+        self.scores = np.zeros((self.height_cells, self.width_cells), dtype=np.int16)
+        self.observed = np.zeros((self.height_cells, self.width_cells), dtype=bool)
         self.latest_pose = None
+        self.pose_dirty = False
 
         self.map_pub = self.create_publisher(OccupancyGrid, self.map_topic, 10)
         self.scan_sub = self.create_subscription(LaserScan, self.scan_topic, self.scan_callback, 10)
@@ -81,18 +96,25 @@ class MapBuilderNode(Node):
         y = float(msg.y)
         theta = normalize_angle(float(msg.theta))
         self.latest_pose = (x, y, theta)
+        self.pose_dirty = True
         self.publish_base_tf(x, y, theta)
 
     def scan_callback(self, scan: LaserScan) -> None:
         if self.latest_pose is None:
             return
+        if not self.pose_dirty:
+            return
+        self.pose_dirty = False
 
         robot_x, robot_y, robot_theta = self.latest_pose
-        robot_cell = self.world_to_grid(robot_x, robot_y)
-        if robot_cell is None:
+        laser_theta = normalize_angle(robot_theta + self.laser_yaw)
+        laser_x = robot_x + (self.laser_x * math.cos(robot_theta)) - (self.laser_y * math.sin(robot_theta))
+        laser_y = robot_y + (self.laser_x * math.sin(robot_theta)) + (self.laser_y * math.cos(robot_theta))
+        laser_cell = self.world_to_grid(laser_x, laser_y)
+        if laser_cell is None:
             return
 
-        start_col, start_row = robot_cell
+        start_col, start_row = laser_cell
         angle = scan.angle_min
 
         for range_value in scan.ranges:
@@ -106,15 +128,15 @@ class MapBuilderNode(Node):
             else:
                 valid_range = min(range_value, scan.range_max)
                 hit_detected = scan.range_min <= range_value < scan.range_max
-            beam_angle = robot_theta + angle
-            end_x = robot_x + valid_range * math.cos(beam_angle)
-            end_y = robot_y + valid_range * math.sin(beam_angle)
+            beam_angle = laser_theta + angle
+            end_x = laser_x + valid_range * math.cos(beam_angle)
+            end_y = laser_y + valid_range * math.sin(beam_angle)
             end_cell = self.world_to_grid(end_x, end_y)
 
             if end_cell is not None:
                 self.mark_free_along_ray(start_col, start_row, end_cell[0], end_cell[1])
                 if hit_detected:
-                    self.set_cell(end_cell[0], end_cell[1], 100)
+                    self.mark_occupied(end_cell[0], end_cell[1])
 
             angle += scan.angle_increment
 
@@ -169,11 +191,35 @@ class MapBuilderNode(Node):
         if 0 <= col < self.width_cells and 0 <= row < self.height_cells:
             self.grid[row, col] = np.int8(value)
 
+    def refresh_cell_from_score(self, col: int, row: int) -> None:
+        score = self.scores[row, col]
+        if not self.observed[row, col]:
+            self.grid[row, col] = np.int8(-1)
+        elif score >= self.occupied_score_threshold:
+            self.grid[row, col] = np.int8(100)
+        elif score <= self.free_score_threshold:
+            self.grid[row, col] = np.int8(0)
+        else:
+            self.grid[row, col] = np.int8(-1)
+
+    def adjust_score(self, col: int, row: int, delta: int) -> None:
+        if 0 <= col < self.width_cells and 0 <= row < self.height_cells:
+            self.observed[row, col] = True
+            updated = int(self.scores[row, col]) + delta
+            self.scores[row, col] = np.int16(min(self.score_max, max(self.score_min, updated)))
+            self.refresh_cell_from_score(col, row)
+
+    def mark_occupied(self, col: int, row: int) -> None:
+        self.adjust_score(col, row, self.hit_score_increment)
+
+    def set_free_cell(self, col: int, row: int) -> None:
+        self.adjust_score(col, row, -self.free_score_decrement)
+
     def mark_free_along_ray(self, start_col: int, start_row: int, end_col: int, end_row: int) -> None:
         for col, row in self.bresenham(start_col, start_row, end_col, end_row):
             if col == end_col and row == end_row:
                 break
-            self.set_cell(col, row, 0)
+            self.set_free_cell(col, row)
 
     def bresenham(self, x0: int, y0: int, x1: int, y1: int):
         dx = abs(x1 - x0)

@@ -6,6 +6,7 @@ This repo is a ROS 2 + Webots demo for studying robot-to-robot map poisoning and
 
 - Run verification: `bash scripts/verify.sh`
 - After verification passes, run the main demo: `bash scripts/quick_test.sh`
+- Run the office demo: `bash runOffice.sh`
 - Use the optional mapping path only if you still want the older map-building demo: `RMPD_TEST_MODE=mapping bash scripts/quick_test.sh`
 
 ## What You Need
@@ -71,4 +72,3 @@ That launches Webots, ROS 2, RViz, and the AMCL demo together. Press `Ctrl-C` in
 
 - `build/`, `install/`, and `log/` are generated and can be deleted safely.
 - The shared Webots controller lives in `webots/controllers/patrol_robot/patrol_robot.py`.
-
