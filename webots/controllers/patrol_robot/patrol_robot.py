@@ -27,10 +27,45 @@ WHEEL_RADIUS = float(os.environ.get('WEBOTS_WHEEL_RADIUS', '0.033'))
 WHEEL_BASE = float(os.environ.get('WEBOTS_WHEEL_BASE', '0.16'))
 MAX_WHEEL_SPEED = float(os.environ.get('WEBOTS_MAX_WHEEL_SPEED', '6.28'))
 CMD_TIMEOUT_SEC = float(os.environ.get('WEBOTS_CMD_TIMEOUT_SEC', '1.0'))
+LOG_INTERVAL_STEPS = int(os.environ.get('WEBOTS_LOG_INTERVAL_STEPS', '300'))
+CHECKPOINT_TOUCH_ROBOT_RADIUS = float(os.environ.get('WEBOTS_CHECKPOINT_TOUCH_ROBOT_RADIUS', '0.18'))
+CHECKPOINT_TOUCH_SLACK = float(os.environ.get('WEBOTS_CHECKPOINT_TOUCH_SLACK', '0.01'))
+CHECKPOINT_BLOCK_SIZE = 0.12
+CHECKPOINTS = {
+    'A': (-1.49882, 1.84407),
+    'B': (1.5267, -0.221987),
+    'C': (-0.416565, -1.35783),
+    'D': (-2.63149, -0.778393),
+}
 
 
 def clamp(value, low, high):
     return max(low, min(high, value))
+
+
+def checkpoint_touch_event(checkpoint_name, robot_x, robot_y):
+    marker = CHECKPOINTS.get(checkpoint_name)
+    if marker is None:
+        return None
+
+    marker_x, marker_y = marker
+    half_size = CHECKPOINT_BLOCK_SIZE * 0.5
+    dx = abs(robot_x - marker_x)
+    dy = abs(robot_y - marker_y)
+    outside_x = max(dx - half_size, 0.0)
+    outside_y = max(dy - half_size, 0.0)
+    edge_gap = math.hypot(outside_x, outside_y)
+    touched = edge_gap <= CHECKPOINT_TOUCH_ROBOT_RADIUS + CHECKPOINT_TOUCH_SLACK
+    if not touched:
+        return None
+
+    center_distance = math.hypot(robot_x - marker_x, robot_y - marker_y)
+    return {
+        'name': checkpoint_name,
+        'distance': float(center_distance),
+        'edge_gap': float(edge_gap),
+        'robot_radius': float(CHECKPOINT_TOUCH_ROBOT_RADIUS),
+    }
 
 
 def cmd_vel_to_wheel_speeds(linear_x, angular_z):
@@ -214,11 +249,29 @@ class BridgeSender:
         except json.JSONDecodeError:
             return None
 
+        active_checkpoint = packet.get('active_checkpoint')
+        if isinstance(active_checkpoint, dict):
+            return {
+                'type': 'active_checkpoint',
+                'name': str(active_checkpoint.get('name', '')).strip(),
+            }
+
+        checkpoint_event = packet.get('checkpoint_event')
+        if isinstance(checkpoint_event, dict):
+            message = str(checkpoint_event.get('message', '')).strip()
+            if message:
+                return {
+                    'type': 'checkpoint_event',
+                    'message': message,
+                }
+            return None
+
         cmd_vel = packet.get('cmd_vel')
         if not isinstance(cmd_vel, dict):
             return None
 
         return {
+            'type': 'cmd_vel',
             'linear_x': float(cmd_vel.get('linear_x', 0.0)),
             'angular_z': float(cmd_vel.get('angular_z', 0.0)),
         }
@@ -264,6 +317,8 @@ def main():
         current_linear_x = 0.0
         current_angular_z = 0.0
         last_cmd_time = 0.0
+        active_checkpoint = ''
+        last_reported_touch = ''
 
         print(
             f'ROS bridge targets {", ".join(f"tcp://{target}:{BRIDGE_PORT}" for target in BRIDGE_TARGETS)}',
@@ -277,6 +332,17 @@ def main():
 
     while robot.step(timestep) != -1:
         for command in sender.receive_commands():
+            if command.get('type') == 'checkpoint_event':
+                print(f'[checkpoint] {command["message"]}', flush=True)
+                continue
+
+            if command.get('type') == 'active_checkpoint':
+                active_checkpoint = command.get('name', '')
+                last_reported_touch = ''
+                if active_checkpoint:
+                    print(f'[checkpoint] ACTIVE checkpoint {active_checkpoint}', flush=True)
+                continue
+
             current_linear_x = command['linear_x']
             current_angular_z = command['angular_z']
             last_cmd_time = time.time()
@@ -295,12 +361,12 @@ def main():
 
         gps_values = gps.getValues()
         robot_x = gps_values[0]
-        robot_y = gps_values[2]
+        robot_y = gps_values[1]
 
         rpy = imu.getRollPitchYaw()
         robot_heading = rpy[2]
 
-        if counter % 20 == 0:
+        if LOG_INTERVAL_STEPS > 0 and counter % LOG_INTERVAL_STEPS == 0:
             print(
                 f'pose -> x: {robot_x:.2f} y: {robot_y:.2f} heading: {robot_heading:.2f} '
                 f'cmd_vel -> linear_x: {current_linear_x:.2f} angular_z: {current_angular_z:.2f}',
@@ -332,10 +398,21 @@ def main():
             },
         }
 
+        contact_event = checkpoint_touch_event(active_checkpoint, robot_x, robot_y)
+        if contact_event is not None:
+            packet['checkpoint_contact'] = contact_event
+            if last_reported_touch != active_checkpoint:
+                print(
+                    f'[checkpoint] TOUCHING checkpoint {active_checkpoint} '
+                    f'(center distance {contact_event["distance"]:.2f} m)',
+                    flush=True,
+                )
+                last_reported_touch = active_checkpoint
+
         payload = json.dumps(packet, separators=(',', ':')).encode('utf-8')
         sent = sender.send(payload)
 
-        if sent and counter % 20 == 0:
+        if sent and LOG_INTERVAL_STEPS > 0 and counter % LOG_INTERVAL_STEPS == 0:
             print('sent bridge packet', flush=True)
 
         counter += 1

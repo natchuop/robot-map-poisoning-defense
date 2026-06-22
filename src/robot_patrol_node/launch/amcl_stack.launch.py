@@ -18,6 +18,7 @@ def generate_launch_description():
     initial_pose_y = LaunchConfiguration('initial_pose_y')
     initial_pose_yaw = LaunchConfiguration('initial_pose_yaw')
     use_sim_time = LaunchConfiguration('use_sim_time')
+    bridge_publish_hz = LaunchConfiguration('bridge_publish_hz')
 
     return LaunchDescription([
         DeclareLaunchArgument('listen_host', default_value='0.0.0.0'),
@@ -33,6 +34,7 @@ def generate_launch_description():
         DeclareLaunchArgument('initial_pose_y', default_value='0.0'),
         DeclareLaunchArgument('initial_pose_yaw', default_value='0.0'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
+        DeclareLaunchArgument('bridge_publish_hz', default_value='15.0'),
 
         Node(
             package='robot_patrol_node',
@@ -42,6 +44,7 @@ def generate_launch_description():
                 'listen_host': listen_host,
                 'listen_port': listen_port,
                 'scan_frame': 'laser',
+                'max_publish_hz': bridge_publish_hz,
             }],
         ),
 
@@ -55,6 +58,23 @@ def generate_launch_description():
                 'odom_frame': odom_frame,
                 'base_frame': base_frame,
             }],
+        ),
+
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='map_to_odom_tf',
+            arguments=[
+                '--x', '0',
+                '--y', '0',
+                '--z', '0',
+                '--roll', '0',
+                '--pitch', '0',
+                '--yaw', '0',
+                '--frame-id', 'map',
+                '--child-frame-id', 'odom',
+            ],
+            output='screen',
         ),
 
         Node(
@@ -98,7 +118,7 @@ def generate_launch_description():
                 'odom_frame_id': odom_frame,
                 'global_frame_id': map_frame,
                 'scan_topic': scan_topic,
-                'tf_broadcast': True,
+                'tf_broadcast': False,
                 'transform_tolerance': 1.0,
                 'set_initial_pose': False,
             }],
@@ -122,11 +142,13 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'topic': '/initialpose',
+                'odom_topic': odom_topic,
                 'frame_id': map_frame,
+                'use_odom_pose': True,
                 'x': initial_pose_x,
                 'y': initial_pose_y,
                 'yaw': initial_pose_yaw,
-                'publish_count': 120,
+                'publish_count': 5,
             }],
         ),
     ])

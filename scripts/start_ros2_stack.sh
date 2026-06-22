@@ -6,7 +6,7 @@ cd "$CONTAINER_WORKSPACE"
 set +u
 source /opt/ros/jazzy/setup.bash
 set -u
-rm -rf build/robot_patrol_node install/robot_patrol_node log/latest
+rm -rf build install log/latest
 echo "Building robot_patrol_node..."
 colcon build --packages-select robot_patrol_node --symlink-install
 set +u

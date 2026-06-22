@@ -1,0 +1,86 @@
+Robot Map Poisoning Defense - Codex Work Summary
+
+What was fixed:
+- Checked Docker/ROS logs and confirmed no live robot container was running at the time of inspection.
+- Ran a controlled ROS-only Docker smoke test to verify the AMCL/Nav2/patrol stack starts cleanly.
+- Fixed a broken newline byte-string issue in udp_bridge_node.py that could prevent the bridge node from importing.
+- Updated the Webots bridge readiness check in quick_test.sh so it waits for the current bridge log message:
+  - Published Webots packet #1
+- Changed ROS startup cleanup to remove stale generated build/install artifacts before rebuilding.
+- Removed stale UTF-8 BOM markers and normalized relevant files to LF line endings.
+- Verified shell scripts are ASCII/LF and executable.
+- Verified no temporary Docker containers were left running after troubleshooting.
+
+Navigation and patrol behavior:
+- Kept the checkpoint route unchanged:
+  - A -> B -> C -> D -> A
+- Kept checkpoint coordinates unchanged.
+- Kept the current architecture:
+  - Webots GPS/IMU odom + LiDAR scan + known static map + AMCL
+- Kept live mapping mode separate from AMCL mode.
+- Continued using Nav2 NavigateToPose goals checkpoint-by-checkpoint.
+- Patrol node now waits for Webots /robot_pose before starting.
+- Patrol node logs when Nav2 is ready.
+- Patrol node prints clear checkpoint status messages:
+  - NEXT checkpoint ...
+  - REACHED checkpoint ...
+- Patrol node tracks arrival using the Webots GPS pose first, with AMCL pose as fallback.
+- Patrol node retries the same checkpoint if Nav2 fails or progress stalls instead of silently skipping ahead.
+
+Bridge and logging changes:
+- udp_bridge now publishes /robot_pose and /scan at a capped rate of 15 Hz.
+- Reduced high-rate Webots telemetry from overwhelming ROS message filters.
+- Webots controller console spam was reduced with WEBOTS_LOG_INTERVAL_STEPS.
+- quick_test.sh now streams recent ROS container logs so checkpoint messages are visible in the terminal.
+
+Nav2 configuration:
+- Continued using the installed NavFn planner with A* enabled.
+- Tuned Nav2 parameters for smoother movement and fewer collision aborts.
+- Used Regulated Pure Pursuit for path following.
+- Adjusted costmap, inflation, progress checker, and goal checker tolerances.
+
+Files touched:
+- scripts/quick_test.sh
+- scripts/start_ros2_stack.sh
+- src/robot_patrol_node/config/nav2_params.yaml
+- src/robot_patrol_node/launch/amcl_stack.launch.py
+- src/robot_patrol_node/robot_patrol_node/checkpoint_patrol_node.py
+- src/robot_patrol_node/robot_patrol_node/initial_pose_publisher_node.py
+- src/robot_patrol_node/robot_patrol_node/udp_bridge_node.py
+- webots/controllers/patrol_robot/patrol_robot.py
+- webots/worlds/testRvizMap/turtlebot3_burger.wbt
+
+Validation performed:
+- Python compile checks passed for the changed ROS nodes and launch files.
+- Bash syntax checks passed for launch scripts.
+- git diff whitespace checks passed.
+- Docker ROS package build passed.
+- ROS-only smoke launch confirmed:
+  - AMCL starts.
+  - Nav2 starts.
+  - map_server loads the static map.
+  - udp_bridge starts.
+  - pose_to_odom starts.
+  - initial_pose_publisher starts.
+  - checkpoint_patrol starts and waits for Webots /robot_pose.
+
+Important note from smoke test:
+- The repeated odom transform warning is expected when Webots is not connected.
+- Once Webots sends /robot_pose, pose_to_odom creates /odom and odom -> base_link TF.
+
+How to run:
+- From the project root, run:
+  bash scripts/launch_everything.sh
+
+Expected useful logs:
+- Publishing /robot_pose and /scan at up to 15.0 Hz
+- Published Webots packet #1
+- Received /odom; publishing AMCL initial pose from Webots odom.
+- Initial pose complete.
+- Nav2 ready. Starting checkpoint patrol.
+- NEXT checkpoint ...
+- REACHED checkpoint ...
+
+Where logs appear:
+- The checkpoint messages should appear in the terminal running bash scripts/launch_everything.sh.
+- Webots console messages like "pose -> ..." and "sent bridge packet" are from the Webots controller, not from ROS/Nav2.

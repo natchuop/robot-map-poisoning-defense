@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Map1
         - /LaserScan1
+        - /Live LiDAR Map1
         - /PoseArray1
         - /TF1
       Splitter Ratio: 0.5
@@ -38,6 +39,16 @@ Visualization Manager:
       Name: Map
       Topic:
         Value: /map
+      Unreliable: false
+      Use Timestamp: false
+    - Alpha: 0.55
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: true
+      Name: Live LiDAR Map
+      Topic:
+        Value: /live_map
       Unreliable: false
       Use Timestamp: false
     - Alpha: 1

@@ -41,6 +41,7 @@ class MapBuilderNode(Node):
         self.declare_parameter('laser_x', 0.0)
         self.declare_parameter('laser_y', 0.0)
         self.declare_parameter('laser_yaw', 0.0)
+        self.declare_parameter('publish_tf', True)
 
         self.scan_topic = self.get_parameter('scan_topic').value
         self.pose_topic = self.get_parameter('pose_topic').value
@@ -54,6 +55,7 @@ class MapBuilderNode(Node):
         self.laser_x = float(self.get_parameter('laser_x').value)
         self.laser_y = float(self.get_parameter('laser_y').value)
         self.laser_yaw = float(self.get_parameter('laser_yaw').value)
+        self.publish_tf = bool(self.get_parameter('publish_tf').value)
 
         self.width_cells = int(self.map_width_m / self.resolution)
         self.height_cells = int(self.map_height_m / self.resolution)
@@ -69,7 +71,8 @@ class MapBuilderNode(Node):
 
         self.tf_broadcaster = TransformBroadcaster(self)
         self.static_tf_broadcaster = StaticTransformBroadcaster(self)
-        self.publish_static_sensor_tf()
+        if self.publish_tf:
+            self.publish_static_sensor_tf()
 
         self.get_logger().info(
             f'Map builder ready: scan={self.scan_topic}, pose={self.pose_topic}, map={self.map_topic}'
@@ -81,7 +84,8 @@ class MapBuilderNode(Node):
         y = float(msg.y)
         theta = normalize_angle(float(msg.theta))
         self.latest_pose = (x, y, theta)
-        self.publish_base_tf(x, y, theta)
+        if self.publish_tf:
+            self.publish_base_tf(x, y, theta)
 
     def scan_callback(self, scan: LaserScan) -> None:
         if self.latest_pose is None:

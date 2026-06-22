@@ -18,6 +18,8 @@ def generate_launch_description():
     initial_pose_yaw = LaunchConfiguration('initial_pose_yaw')
     use_sim_time = LaunchConfiguration('use_sim_time')
     start_checkpoint_patrol = LaunchConfiguration('start_checkpoint_patrol')
+    start_navigation_diagnostics = LaunchConfiguration('start_navigation_diagnostics')
+    start_live_mapping = LaunchConfiguration('start_live_mapping')
 
     pkg_share = FindPackageShare('robot_patrol_node').find('robot_patrol_node')
 
@@ -33,6 +35,8 @@ def generate_launch_description():
         DeclareLaunchArgument('initial_pose_yaw', default_value='0.0'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('start_checkpoint_patrol', default_value='true'),
+        DeclareLaunchArgument('start_navigation_diagnostics', default_value='true'),
+        DeclareLaunchArgument('start_live_mapping', default_value='true'),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(amcl_launch),
@@ -54,6 +58,25 @@ def generate_launch_description():
             }.items(),
         ),
 
+
+        Node(
+            package='robot_patrol_node',
+            executable='map_builder',
+            name='live_map_builder',
+            output='screen',
+            condition=IfCondition(start_live_mapping),
+            parameters=[{
+                'scan_topic': '/scan',
+                'pose_topic': '/robot_pose',
+                'map_topic': '/live_map',
+                'map_frame': 'map',
+                'publish_tf': False,
+                'map_width_m': 8.0,
+                'map_height_m': 8.0,
+                'resolution': 0.05,
+            }],
+        ),
+
         Node(
             package='robot_patrol_node',
             executable='checkpoint_patrol',
@@ -61,6 +84,17 @@ def generate_launch_description():
             condition=IfCondition(start_checkpoint_patrol),
             parameters=[{
                 'frame_id': 'map',
+            }],
+        ),
+
+        Node(
+            package='robot_patrol_node',
+            executable='navigation_diagnostics',
+            output='screen',
+            condition=IfCondition(start_navigation_diagnostics),
+            parameters=[{
+                'log_interval_sec': 2.0,
+                'arrival_radius': 0.50,
             }],
         ),
     ])

@@ -1,0 +1,139 @@
+﻿Robot Map Poisoning Defense - Implementation Summary
+
+What It Does
+------------
+The project runs a Webots TurtleBot patrol using ROS 2/Nav2. The robot patrols the visible checkpoint route:
+
+A -> B -> C -> D -> A
+
+The visible logs stay simple, but internally the patrol node uses extra hidden helper waypoints so Nav2 takes safer paths around obstacles.
+
+How Pathfinding Works
+---------------------
+Nav2 does the actual path planning and control.
+
+The system uses:
+
+- AMCL mode for localization against a known static map.
+- A global costmap using the static map plus inflation.
+- A local costmap using live lidar obstacle data.
+- Nav2's NavfnPlanner for global paths.
+- Nav2's RegulatedPurePursuitController for following paths.
+
+The important costmap behavior is:
+
+- The global costmap does not use the live obstacle layer anymore. This prevents temporary lidar readings from blocking whole global routes.
+- The local costmap still uses the obstacle layer, so the robot can avoid live nearby obstacles while driving.
+
+So, pathfinding is basically:
+
+Static map plans the route globally.
+Live lidar adjusts local driving around obstacles.
+Hidden helper waypoints guide Nav2 through safer corridors.
+
+Checkpoint Validation
+---------------------
+Checkpoint completion is now stricter than GPS distance.
+
+A checkpoint only counts as reached when Webots reports that the robot footprint is touching the colored non-collision checkpoint block.
+
+That flow is:
+
+1. Patrol node publishes the active checkpoint on /active_checkpoint.
+2. Webots receives the active checkpoint name.
+3. Webots checks whether the robot is touching that checkpoint's colored block.
+4. Webots sends a checkpoint_contact event back to ROS.
+5. ROS marks the checkpoint reached only after receiving that event.
+
+The Webots terminal prints easy-to-read checkpoint messages like:
+
+[checkpoint] REACHED checkpoint 1/5: A (...)
+
+Hidden Helper Waypoints
+-----------------------
+The visible route is still:
+
+A -> B -> C -> D -> A
+
+But internally the route is more like:
+
+A
+_B_EXIT
+_B_CRUISE
+_B_APPROACH
+B
+C
+_D_APPROACH
+D
+_A_RETURN_0
+_A_RETURN_1
+_A_RETURN_2
+_A_RETURN_3
+A
+
+These helper waypoints are not counted as visible checkpoints. They just guide the robot around obstacles and through corridors more reliably.
+
+Recent tuning focused on the D -> A segment. The old return path could put the robot near a tight obstacle area, where it would rotate in place or stall. The new return helpers route it through the upper-left corridor, which tested much more reliably.
+
+Live Mapping / RViz
+-------------------
+A live lidar map is published separately as /live_map.
+
+RViz can show:
+
+- The known static map used by AMCL/Nav2.
+- The live lidar-built map.
+- Robot pose, scan, path, and navigation state.
+
+This lets you compare the known map with what lidar is currently seeing.
+
+Important Files
+---------------
+Main patrol logic:
+
+src/robot_patrol_node/robot_patrol_node/checkpoint_patrol_node.py
+
+Webots/ROS UDP bridge:
+
+src/robot_patrol_node/robot_patrol_node/udp_bridge_node.py
+
+Webots robot controller and checkpoint touch detection:
+
+webots/controllers/patrol_robot/patrol_robot.py
+
+Nav2 planner/costmap/controller configuration:
+
+src/robot_patrol_node/config/nav2_params.yaml
+
+Live map builder:
+
+src/robot_patrol_node/robot_patrol_node/map_builder_node.py
+
+Diagnostics:
+
+src/robot_patrol_node/robot_patrol_node/navigation_diagnostics_node.py
+
+Launch/test scripts:
+
+scripts/launch_everything.sh
+scripts/quick_test.sh
+
+How To Run
+----------
+From the repo root:
+
+env RMPD_TEST_MODE=amcl RMPD_QUICK_TEST_RVIZ=true RMPD_STREAM_ROS_LOGS=true WEBOTS_LOG_INTERVAL_STEPS=120 bash scripts/launch_everything.sh
+
+Set RMPD_QUICK_TEST_RVIZ=false if you want to run without RViz.
+
+Validation Done
+---------------
+The latest live simulation completed the full contact-gated route:
+
+REACHED checkpoint 1/5: A
+REACHED checkpoint 2/5: B
+REACHED checkpoint 3/5: C
+REACHED checkpoint 4/5: D
+REACHED checkpoint 5/5: A
+
+It also continued into the next loop, showing the route was repeatable rather than a one-off success.
