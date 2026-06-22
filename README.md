@@ -6,7 +6,7 @@ This repo is a ROS 2 + Webots demo for studying robot-to-robot map poisoning and
 
 - Run verification: `bash scripts/verify.sh`
 - After verification passes, run the main demo: `bash scripts/quick_test.sh`
-- Run the office demo: `bash runOffice.sh`
+- Run the office demo: `bash scripts/runOffice.sh`
 - Use the optional mapping path only if you still want the older map-building demo: `RMPD_TEST_MODE=mapping bash scripts/quick_test.sh`
 
 ## What You Need
@@ -71,6 +71,6 @@ That launches Webots, ROS 2, RViz, and the AMCL demo together. Press `Ctrl-C` in
 ## Notes
 
 - `build/`, `install/`, and `log/` are generated and can be deleted safely.
-- `testRvizMap` uses `webots/controllers/anna_bot/anna_bot.py`, which preserves the older obstacle-avoidance controller from `main`.
-- `office` and `testBuildingMapForRobot` use `webots/controllers/patrol_robot/user_controlled_robot.py`.
-- `webots/controllers/patrol_robot/patrol_robot.py` remains available as the shared autonomous patrol controller.
+- `testRvizMap` uses `webots/controllers/anna_bot/anna_bot.py`, the Nav2-capable checkpoint patrol controller.
+- `office` and `testBuildingMapForRobot` use `webots/controllers/user_controlled_robot/user_controlled_robot.py`.
+- `webots/controllers/patrol_robot/patrol_robot.py` remains available as the prior autonomous patrol controller.

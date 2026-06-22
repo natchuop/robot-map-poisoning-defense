@@ -9,11 +9,12 @@ This repo currently uses a TurtleBot3 Burger world in Webots and a ROS 2 bridge 
 - Live map-building world: `webots/worlds/testBuildingMapForRobot/turtlebot3_burger.wbt`
 - Known AMCL map: `webots/worlds/testRvizMap/amcl_map/arena.yaml` and `arena.pgm`
 - Office AMCL map: `webots/worlds/office/amcl_map/office.yaml` and `office.pgm`
-- Test RViz controller: `webots/controllers/anna_bot/anna_bot.py`
-- Shared patrol controller: `webots/controllers/patrol_robot/patrol_robot.py`
-- User-controlled controller: `webots/controllers/patrol_robot/user_controlled_robot.py`
+- Checkpoint patrol controller: `webots/controllers/anna_bot/anna_bot.py`
+- Prior autonomous patrol controller: `webots/controllers/patrol_robot/patrol_robot.py`
+- User-controlled controller: `webots/controllers/user_controlled_robot/user_controlled_robot.py`
 - Test RViz wrapper: `webots/worlds/controllers/anna_bot/anna_bot.py`
 - Webots wrapper: `webots/worlds/controllers/patrol_robot/patrol_robot.py`
+- User-controlled wrapper: `webots/worlds/controllers/user_controlled_robot/user_controlled_robot.py`
 
 The office map is built from the world walls and floor bounds only. Furniture and other movable objects are left out so AMCL keys off the room structure.
 
@@ -21,7 +22,9 @@ The wrappers exist only because the world tree is nested. Keep behavior in `webo
 
 ## Data Flow
 
-Webots world -> Python controller -> ROS bridge -> `/robot_pose` and `/scan` -> AMCL / map server -> `/map`, `/odom`, `/tf` -> RViz
+Webots world -> Python controller -> ROS bridge -> `/robot_pose` and `/scan` -> AMCL / Nav2 -> `/cmd_vel` -> ROS bridge -> Webots
+
+The bridge also forwards `/active_checkpoint` to Webots and publishes `/webots_checkpoint_contact` when the robot footprint touches the active colored checkpoint block.
 
 ## Nav2 In 2D
 
@@ -56,7 +59,7 @@ bash scripts/runTestBuildingMapForRobot.sh
 
 To launch the office world, point `RMPD_WEBOTS_WORLD` at `webots/worlds/office/office.wbt` before running the script.
 
-For convenience, `bash runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, and WASD user-controlled robot.
+For convenience, `bash scripts/runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, and WASD user-controlled robot.
 
 Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes against the known map.
 
@@ -76,8 +79,8 @@ They send newline-delimited JSON over TCP by default. The default bridge target 
 
 ## Controller Choices
 
-- `anna_bot` is the older autonomous obstacle-avoidance controller and is used by `testRvizMap`.
-- `patrol_robot` is the newer autonomous controller with the coordinate, heading, and LiDAR fixes from the restructured branch.
+- `anna_bot` is the Nav2-capable checkpoint patrol controller and is used by `testRvizMap`.
+- `patrol_robot` is the prior autonomous obstacle-avoidance controller with the coordinate, heading, and LiDAR fixes from the restructured branch.
 - `user_controlled_robot` is the WASD controller used by the office and live map-building demos.
 
 ## Adding A World
@@ -88,4 +91,4 @@ They send newline-delimited JSON over TCP by default. The default bridge target 
 4. Put world-specific map or route data alongside that world.
 5. Run `bash scripts/quick_test.sh` and `bash scripts/verify.sh`.
 
-If you want the office world specifically, use `bash runOffice.sh`.
+If you want the office world specifically, use `bash scripts/runOffice.sh`.

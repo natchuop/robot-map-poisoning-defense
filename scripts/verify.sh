@@ -113,12 +113,18 @@ fi
 info "Checking Python syntax"
 if python3 -m py_compile \
     "$REPO_DIR/scripts/send_test_bridge_packet.py" \
+    "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/checkpoint_patrol_node.py" \
+    "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/initial_pose_publisher_node.py" \
     "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/map_builder_node.py" \
+    "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/navigation_diagnostics_node.py" \
+    "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/pose_to_odom_node.py" \
     "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/udp_bridge_node.py" \
     "$REPO_DIR/webots/controllers/anna_bot/anna_bot.py" \
     "$REPO_DIR/webots/worlds/controllers/anna_bot/anna_bot.py" \
     "$REPO_DIR/webots/controllers/patrol_robot/patrol_robot.py" \
-    "$REPO_DIR/webots/worlds/controllers/patrol_robot/patrol_robot.py"; then
+    "$REPO_DIR/webots/worlds/controllers/patrol_robot/patrol_robot.py" \
+    "$REPO_DIR/webots/controllers/user_controlled_robot/user_controlled_robot.py" \
+    "$REPO_DIR/webots/worlds/controllers/user_controlled_robot/user_controlled_robot.py"; then
     green "Python files compile"
 else
     red "Python files compile"

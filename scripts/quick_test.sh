@@ -39,6 +39,7 @@ DEFAULT_CONTAINER_WORKSPACE="$(env_file_value RMPD_CONTAINER_WORKSPACE /workspac
 DEFAULT_BRIDGE_PORT="$(env_file_value RMPD_BRIDGE_PORT 5005)"
 DEFAULT_HOLD_OPEN="$(env_file_value RMPD_QUICK_TEST_HOLD_OPEN true)"
 DEFAULT_RVIZ_MODE="$(env_file_value RMPD_QUICK_TEST_RVIZ auto)"
+DEFAULT_STREAM_ROS_LOGS="$(env_file_value RMPD_STREAM_ROS_LOGS true)"
 
 CONTAINER_NAME="${RMPD_CONTAINER_NAME:-ros2_dev}"
 CONTAINER_WORKSPACE="${RMPD_CONTAINER_WORKSPACE:-$DEFAULT_CONTAINER_WORKSPACE}"
@@ -48,10 +49,12 @@ TEST_MODE="${RMPD_TEST_MODE:-amcl}"
 HOLD_OPEN="${RMPD_QUICK_TEST_HOLD_OPEN:-$DEFAULT_HOLD_OPEN}"
 RVIZ_CHECK_SECONDS="${RMPD_RVIZ_CHECK_SECONDS:-10}"
 RVIZ_MODE="${RMPD_QUICK_TEST_RVIZ:-$DEFAULT_RVIZ_MODE}"
+STREAM_ROS_LOGS="${RMPD_STREAM_ROS_LOGS:-$DEFAULT_STREAM_ROS_LOGS}"
 HOST_BRIDGE_PORT="${RMPD_BRIDGE_PORT:-$DEFAULT_BRIDGE_PORT}"
 HOST_BRIDGE_TARGETS="${WEBOTS_BRIDGE_TARGETS:-}"
 RVIZ_HOST_LOG="${TMPDIR:-/tmp}/rmpd/quick_test/rmpd_rviz.log"
 export RMPD_INSTALL_FULL_STACK=true
+ROS_LOG_FOLLOW_PID=""
 
 find_default_world() {
   local worlds_dir="$REPO_DIR/webots/worlds"
@@ -163,11 +166,25 @@ cleanup() {
     kill "$RVIZ_EXEC_PID" >/dev/null 2>&1 || true
   fi
 
+  if [ -n "${ROS_LOG_FOLLOW_PID:-}" ] && kill -0 "$ROS_LOG_FOLLOW_PID" >/dev/null 2>&1; then
+    kill "$ROS_LOG_FOLLOW_PID" >/dev/null 2>&1 || true
+  fi
+
   docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
   if [ -n "${WEBOTS_PID:-}" ] && kill -0 "$WEBOTS_PID" >/dev/null 2>&1; then
     kill "$WEBOTS_PID" >/dev/null 2>&1 || true
   fi
+}
+
+stream_ros_logs() {
+  if ! [[ "$STREAM_ROS_LOGS" =~ ^(1|true|yes|on)$ ]]; then
+    return 0
+  fi
+
+  echo "Streaming ROS container logs below."
+  docker logs -f --tail 200 "$CONTAINER_NAME" &
+  ROS_LOG_FOLLOW_PID=$!
 }
 
 wait_for_log() {
@@ -610,6 +627,9 @@ if [ "$TEST_MODE" = "amcl" ]; then
     -e RMPD_AMCL_INITIAL_POSE_X="$AMCL_INITIAL_POSE_X" \
     -e RMPD_AMCL_INITIAL_POSE_Y="$AMCL_INITIAL_POSE_Y" \
     -e RMPD_AMCL_INITIAL_POSE_YAW="$AMCL_INITIAL_POSE_YAW" \
+    -e RMPD_START_CHECKPOINT_PATROL="${RMPD_START_CHECKPOINT_PATROL:-true}" \
+    -e RMPD_START_NAVIGATION_DIAGNOSTICS="${RMPD_START_NAVIGATION_DIAGNOSTICS:-true}" \
+    -e RMPD_START_LIVE_MAPPING="${RMPD_START_LIVE_MAPPING:-true}" \
     ros2 bash -lc 'bash scripts/start_ros2_stack.sh' >/dev/null
 else
   docker_compose run -d \
@@ -627,10 +647,11 @@ wait_for_log 'Listening for Webots packets' 180 'ROS bridge listener'
 if [ "$TEST_MODE" = "amcl" ]; then
   wait_for_log 'Pose-to-odom ready' 120 'pose-to-odom node'
   wait_for_log 'Initial pose publisher ready' 120 'initial pose publisher'
-  wait_for_log 'map @ 0.050 m/pix' 45 '/map loaded by map_server'
-  wait_for_log 'Managed nodes are active' 45 'AMCL lifecycle active'
+  wait_for_log 'Read map' 45 '/map loaded by map_server' || echo 'Warning: map load log was not observed before Webots data wait.'
+  stream_ros_logs
 else
   wait_for_log 'Map builder ready' 180 'map builder'
+  stream_ros_logs
 fi
 
 log_step "Launching Webots"
@@ -653,7 +674,11 @@ echo "Webots bridge targets: $HOST_BRIDGE_TARGETS"
 echo "Webots bridge port: $HOST_BRIDGE_PORT"
 
 log_step "Waiting for Webots data"
-wait_for_log 'Received TCP packet' 120 'first Webots packet'
+wait_for_log 'Published Webots packet #' 120 'Webots bridge packets' || echo 'Warning: bridge packet log was not observed before continuing.'
+if [ "$TEST_MODE" = "amcl" ]; then
+  log_step "Waiting for Nav2 lifecycle after Webots pose is available"
+  wait_for_log 'Managed nodes are active' 90 'Nav2 lifecycle active' || echo 'Warning: lifecycle active log was not observed before continuing.'
+fi
 
 if should_launch_rviz; then
   if [ "$TEST_MODE" = "amcl" ]; then

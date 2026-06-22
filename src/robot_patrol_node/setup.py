@@ -7,15 +7,22 @@ setup(
     version='0.0.0',
     packages=find_packages(exclude=['test']),
     data_files=[
-        ('share/ament_index/resource_index/packages',
-            ['resource/' + package_name]),
+        (
+            'share/ament_index/resource_index/packages',
+            ['resource/' + package_name],
+        ),
         ('share/' + package_name, ['package.xml']),
+
         ('share/' + package_name + '/launch', ['launch/amcl_stack.launch.py']),
         ('share/' + package_name + '/launch', ['launch/map_builder.launch.py']),
         ('share/' + package_name + '/launch', ['launch/mapping_stack.launch.py']),
         ('share/' + package_name + '/launch', ['launch/rviz.launch.py']),
+        ('share/' + package_name + '/launch', ['launch/nav2_stack.launch.py']),
+        ('share/' + package_name + '/launch', ['launch/nav2_with_amcl.launch.py']),
+
         ('share/' + package_name + '/config', ['config/amcl.rviz']),
         ('share/' + package_name + '/config', ['config/default.rviz']),
+        ('share/' + package_name + '/config', ['config/nav2_params.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -29,6 +36,8 @@ setup(
             'map_builder = robot_patrol_node.map_builder_node:main',
             'pose_to_odom = robot_patrol_node.pose_to_odom_node:main',
             'udp_bridge = robot_patrol_node.udp_bridge_node:main',
+            'checkpoint_patrol = robot_patrol_node.checkpoint_patrol_node:main',
+            'navigation_diagnostics = robot_patrol_node.navigation_diagnostics_node:main',
         ],
     },
     extras_require={

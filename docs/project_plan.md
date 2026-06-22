@@ -10,7 +10,7 @@ This is the main context file for future AI work on the project.
 - IMU works
 - Current controller is Python and does obstacle avoidance
 - Controller can print robot `x`, `y`, and heading (`yaw`)
-- `bash scripts/quick_test.sh` runs the default AMCL localization smoke test
+- `bash scripts/quick_test.sh` runs the default AMCL + Nav2 checkpoint patrol smoke test
 - RViz opens with `amcl.rviz` and fixed frame `map`
 
 ## Project Goal
@@ -282,10 +282,10 @@ Current mapping loop:
 - build `/map` as `nav_msgs/OccupancyGrid`
 - visualize in RViz with fixed frame `map`
 
-Current AMCL quick-test loop:
+Current AMCL + Nav2 quick-test loop:
 
 - generate or refresh `webots/worlds/testRvizMap/amcl_map/arena.yaml`
-- start `udp_bridge`, `pose_to_odom`, `map_server`, AMCL, lifecycle manager, and initial pose publisher
+- start `udp_bridge`, `pose_to_odom`, `map_server`, AMCL, lifecycle manager, initial pose publisher, Nav2, and the checkpoint patrol node
 - publish `/robot_pose` and `/scan` from Webots packets
 - mirror Webots pose into `/odom` for the test harness
 - publish test-harness TF for `map -> odom`, `odom -> base_link`, and `base_link -> laser`
@@ -309,29 +309,29 @@ Why no SLAM for the main path:
 
 ## Current Controller / Bridge Notes
 
-Current `testRvizMap` controller:
+Current `testRvizMap` checkpoint patrol controller:
 
 `webots/controllers/anna_bot/anna_bot.py`
 
-This preserves the older autonomous obstacle-avoidance controller from `main`.
+This controller receives `/cmd_vel` from Nav2 through the bridge, tracks the active checkpoint sent from ROS, and reports checkpoint contact events back to ROS.
 
-Newer autonomous controller from the restructured branch:
+Prior autonomous controller from the restructured branch:
 
 `webots/controllers/patrol_robot/patrol_robot.py`
 
 User-controlled controller for the office and live map-building worlds:
 
-`webots/controllers/patrol_robot/user_controlled_robot.py`
+`webots/controllers/user_controlled_robot/user_controlled_robot.py`
 
 The Webots controllers send packets over TCP by default; the ROS bridge listens on both UDP and TCP on port `5005`.
 
 They:
 
-- reads GPS, IMU, and LiDAR
-- uses a Braitenberg-style avoidance rule
+- read GPS, IMU, and LiDAR
 - sends pose and scan data to Docker over TCP on port `5005`
 - defaults to `172.28.64.1` first, then `127.0.0.1`, for the host bridge
 - also accepts UDP on port `5005` as fallback/debug
+- use `/cmd_vel` and checkpoint contact events for the Nav2 checkpoint patrol flow
 
 World file:
 

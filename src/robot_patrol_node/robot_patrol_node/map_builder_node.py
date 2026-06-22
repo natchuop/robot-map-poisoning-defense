@@ -41,6 +41,7 @@ class MapBuilderNode(Node):
         self.declare_parameter('laser_x', 0.0)
         self.declare_parameter('laser_y', 0.0)
         self.declare_parameter('laser_yaw', 0.0)
+        self.declare_parameter('publish_tf', True)
         self.declare_parameter('hit_score_increment', 4)
         self.declare_parameter('free_score_decrement', 1)
         self.declare_parameter('occupied_score_threshold', 6)
@@ -60,6 +61,7 @@ class MapBuilderNode(Node):
         self.laser_x = float(self.get_parameter('laser_x').value)
         self.laser_y = float(self.get_parameter('laser_y').value)
         self.laser_yaw = float(self.get_parameter('laser_yaw').value)
+        self.publish_tf = bool(self.get_parameter('publish_tf').value)
         self.hit_score_increment = int(self.get_parameter('hit_score_increment').value)
         self.free_score_decrement = int(self.get_parameter('free_score_decrement').value)
         self.occupied_score_threshold = int(self.get_parameter('occupied_score_threshold').value)
@@ -89,7 +91,8 @@ class MapBuilderNode(Node):
 
         self.tf_broadcaster = TransformBroadcaster(self)
         self.static_tf_broadcaster = StaticTransformBroadcaster(self)
-        self.publish_static_sensor_tf()
+        if self.publish_tf:
+            self.publish_static_sensor_tf()
 
         self.get_logger().info(
             f'Map builder ready: scan={self.scan_topic}, '
@@ -103,7 +106,8 @@ class MapBuilderNode(Node):
         theta = normalize_angle(float(msg.theta))
         self.latest_pose = (x, y, theta)
         self.pose_dirty = True
-        self.publish_base_tf(x, y, theta)
+        if self.publish_tf:
+            self.publish_base_tf(x, y, theta)
 
     def scan_callback(self, scan: LaserScan) -> None:
         if self.latest_pose is None:

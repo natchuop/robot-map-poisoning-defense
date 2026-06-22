@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 export RMPD_WEBOTS_WORLD="$REPO_DIR/webots/worlds/office/office.wbt"
 export RMPD_AMCL_MAP_NAME="office"
