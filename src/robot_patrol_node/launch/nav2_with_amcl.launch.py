@@ -16,6 +16,7 @@ def generate_launch_description():
     initial_pose_x = LaunchConfiguration('initial_pose_x')
     initial_pose_y = LaunchConfiguration('initial_pose_y')
     initial_pose_yaw = LaunchConfiguration('initial_pose_yaw')
+    initial_pose_use_odom = LaunchConfiguration('initial_pose_use_odom')
     use_sim_time = LaunchConfiguration('use_sim_time')
     start_checkpoint_patrol = LaunchConfiguration('start_checkpoint_patrol')
     start_navigation_diagnostics = LaunchConfiguration('start_navigation_diagnostics')
@@ -33,6 +34,7 @@ def generate_launch_description():
         DeclareLaunchArgument('initial_pose_x', default_value='0.0'),
         DeclareLaunchArgument('initial_pose_y', default_value='0.0'),
         DeclareLaunchArgument('initial_pose_yaw', default_value='0.0'),
+        DeclareLaunchArgument('initial_pose_use_odom', default_value='true'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('start_checkpoint_patrol', default_value='true'),
         DeclareLaunchArgument('start_navigation_diagnostics', default_value='true'),
@@ -47,6 +49,7 @@ def generate_launch_description():
                 'initial_pose_x': initial_pose_x,
                 'initial_pose_y': initial_pose_y,
                 'initial_pose_yaw': initial_pose_yaw,
+                'initial_pose_use_odom': initial_pose_use_odom,
                 'use_sim_time': use_sim_time,
             }.items(),
         ),

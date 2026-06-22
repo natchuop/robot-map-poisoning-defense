@@ -152,7 +152,7 @@ Solid {
 TurtleBot3Burger {
   translation 0 0 0
   rotation 0 1 0 0
-  controller "anna_bot"
+  controller "patrol_robot"
   extensionSlot [
     GPS {
     }

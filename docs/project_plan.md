@@ -311,13 +311,9 @@ Why no SLAM for the main path:
 
 Current `testRvizMap` checkpoint patrol controller:
 
-`webots/controllers/anna_bot/anna_bot.py`
+`webots/controllers/patrol_robot/patrol_robot.py`
 
 This controller receives `/cmd_vel` from Nav2 through the bridge, tracks the active checkpoint sent from ROS, and reports checkpoint contact events back to ROS.
-
-Prior autonomous controller from the restructured branch:
-
-`webots/controllers/patrol_robot/patrol_robot.py`
 
 User-controlled controller for the office and live map-building worlds:
 

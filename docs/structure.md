@@ -4,13 +4,13 @@ This repo is built around one active ROS 2 + Webots demo and a few supporting do
 
 ## Where To Work
 
-- `webots/controllers/anna_bot/anna_bot.py` is the Nav2-capable checkpoint patrol controller used by `testRvizMap`.
-- `webots/controllers/patrol_robot/patrol_robot.py` is the prior autonomous patrol controller.
+- `webots/controllers/patrol_robot/patrol_robot.py` is the Nav2-capable checkpoint patrol controller used by `testRvizMap`.
 - `webots/controllers/user_controlled_robot/user_controlled_robot.py` is the WASD controller used by the office and live map-building worlds.
 - `webots/worlds/<world_name>/` holds each Webots world and its world-specific assets.
 - `webots/worlds/controllers/<controller_name>/<controller_name>.py` files are only Webots lookup wrappers.
 - `src/robot_patrol_node/` is the active ROS 2 package for the bridge, map builder, AMCL helpers, launches, and RViz configs.
 - `scripts/quick_test.sh` runs the end-to-end demo.
+- `scripts/runOffice.sh` runs the office world with its own AMCL map, RViz config, and configured initial pose.
 - `scripts/verify.sh` runs the headless environment check.
 - `docker/` holds the Dockerfile and compose files.
 - `docs/` holds the project notes, structure guide, Webots setup guide, and verification guide.
@@ -21,7 +21,7 @@ This repo is built around one active ROS 2 + Webots demo and a few supporting do
 2. The controller sends pose and scan packets to the ROS 2 bridge in Docker.
 3. The ROS package republishes those packets as ROS topics.
 4. The AMCL stack localizes the robot against the known map.
-5. Nav2 sends `/cmd_vel` through the bridge for checkpoint patrols.
+5. Nav2 sends `/cmd_vel` through the bridge to `patrol_robot` for checkpoint patrols.
 6. The bridge also reports Webots checkpoint contact events back to ROS.
 7. RViz shows the static map, live map, scan, path, and navigation state.
 

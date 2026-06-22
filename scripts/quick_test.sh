@@ -39,6 +39,7 @@ DEFAULT_CONTAINER_WORKSPACE="$(env_file_value RMPD_CONTAINER_WORKSPACE /workspac
 DEFAULT_BRIDGE_PORT="$(env_file_value RMPD_BRIDGE_PORT 5005)"
 DEFAULT_HOLD_OPEN="$(env_file_value RMPD_QUICK_TEST_HOLD_OPEN true)"
 DEFAULT_RVIZ_MODE="$(env_file_value RMPD_QUICK_TEST_RVIZ auto)"
+DEFAULT_RVIZ_CONFIG="$(env_file_value RMPD_QUICK_TEST_RVIZ_CONFIG '')"
 DEFAULT_STREAM_ROS_LOGS="$(env_file_value RMPD_STREAM_ROS_LOGS true)"
 
 CONTAINER_NAME="${RMPD_CONTAINER_NAME:-ros2_dev}"
@@ -49,6 +50,7 @@ TEST_MODE="${RMPD_TEST_MODE:-amcl}"
 HOLD_OPEN="${RMPD_QUICK_TEST_HOLD_OPEN:-$DEFAULT_HOLD_OPEN}"
 RVIZ_CHECK_SECONDS="${RMPD_RVIZ_CHECK_SECONDS:-10}"
 RVIZ_MODE="${RMPD_QUICK_TEST_RVIZ:-$DEFAULT_RVIZ_MODE}"
+RVIZ_CONFIG_FILE="${RMPD_QUICK_TEST_RVIZ_CONFIG:-$DEFAULT_RVIZ_CONFIG}"
 STREAM_ROS_LOGS="${RMPD_STREAM_ROS_LOGS:-$DEFAULT_STREAM_ROS_LOGS}"
 HOST_BRIDGE_PORT="${RMPD_BRIDGE_PORT:-$DEFAULT_BRIDGE_PORT}"
 HOST_BRIDGE_TARGETS="${WEBOTS_BRIDGE_TARGETS:-}"
@@ -97,6 +99,16 @@ if [ -n "$WORLD_PATH" ]; then
   WORLD_PATH="$(abs_path "$WORLD_PATH")"
 fi
 WORLD_BASENAME="$(basename "$WORLD_PATH")"
+if [ -z "$RVIZ_CONFIG_FILE" ]; then
+  case "$WORLD_BASENAME" in
+    office.wbt)
+      RVIZ_CONFIG_FILE="office_amcl.rviz"
+      ;;
+    *)
+      RVIZ_CONFIG_FILE="amcl.rviz"
+      ;;
+  esac
+fi
 world_amcl_defaults() {
   case "$WORLD_BASENAME" in
     office.wbt)
@@ -192,6 +204,7 @@ wait_for_log() {
   local timeout_seconds="${2:-120}"
   local label="${3:-$pattern}"
   local elapsed=0
+  local logs
 
   echo "Waiting: $label"
   while [ "$elapsed" -lt "$timeout_seconds" ]; do
@@ -201,7 +214,8 @@ wait_for_log() {
       return 1
     fi
 
-    if docker logs "$CONTAINER_NAME" 2>&1 | grep -Fq "$pattern"; then
+    logs="$(docker logs "$CONTAINER_NAME" 2>&1 || true)"
+    if grep -Fq "$pattern" <<<"$logs"; then
       echo "Ready: $label"
       return 0
     fi
@@ -627,16 +641,17 @@ if [ "$TEST_MODE" = "amcl" ]; then
     -e RMPD_AMCL_INITIAL_POSE_X="$AMCL_INITIAL_POSE_X" \
     -e RMPD_AMCL_INITIAL_POSE_Y="$AMCL_INITIAL_POSE_Y" \
     -e RMPD_AMCL_INITIAL_POSE_YAW="$AMCL_INITIAL_POSE_YAW" \
+    -e RMPD_AMCL_INITIAL_POSE_USE_ODOM="${RMPD_AMCL_INITIAL_POSE_USE_ODOM:-true}" \
     -e RMPD_START_CHECKPOINT_PATROL="${RMPD_START_CHECKPOINT_PATROL:-true}" \
     -e RMPD_START_NAVIGATION_DIAGNOSTICS="${RMPD_START_NAVIGATION_DIAGNOSTICS:-true}" \
     -e RMPD_START_LIVE_MAPPING="${RMPD_START_LIVE_MAPPING:-true}" \
-    ros2 bash -lc 'bash scripts/start_ros2_stack.sh' >/dev/null
+    ros2 bash scripts/start_ros2_stack.sh >/dev/null
 else
   docker_compose run -d \
     --service-ports \
     --name "$CONTAINER_NAME" \
     -e RMPD_CONTAINER_WORKSPACE="$CONTAINER_WORKSPACE" \
-    ros2 bash -lc 'bash scripts/start_ros2_stack.sh' >/dev/null
+    ros2 bash scripts/start_ros2_stack.sh >/dev/null
 fi
 
 log_step "Waiting for ROS 2 build/setup"
@@ -690,11 +705,16 @@ if should_launch_rviz; then
 
   if [ "$TEST_MODE" = "amcl" ]; then
     RVIZ_CONFIG_PATH="$(
-      docker exec "$CONTAINER_NAME" bash -lc '
+      docker exec -e RMPD_RVIZ_CONFIG_FILE="$RVIZ_CONFIG_FILE" "$CONTAINER_NAME" bash -lc '
         source /opt/ros/jazzy/setup.bash
         source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash"
-        pkg_prefix="$(ros2 pkg prefix robot_patrol_node)"
-        printf "%s/share/robot_patrol_node/config/amcl.rviz\n" "$pkg_prefix"
+        rviz_config_file="${RMPD_RVIZ_CONFIG_FILE:-amcl.rviz}"
+        if [[ "$rviz_config_file" = /* ]]; then
+          printf "%s\n" "$rviz_config_file"
+        else
+          pkg_prefix="$(ros2 pkg prefix robot_patrol_node)"
+          printf "%s/share/robot_patrol_node/config/%s\n" "$pkg_prefix" "$rviz_config_file"
+        fi
       ' | tr -d '\r'
     )"
 

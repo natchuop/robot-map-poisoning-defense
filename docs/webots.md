@@ -9,10 +9,8 @@ This repo currently uses a TurtleBot3 Burger world in Webots and a ROS 2 bridge 
 - Live map-building world: `webots/worlds/testBuildingMapForRobot/turtlebot3_burger.wbt`
 - Known AMCL map: `webots/worlds/testRvizMap/amcl_map/arena.yaml` and `arena.pgm`
 - Office AMCL map: `webots/worlds/office/amcl_map/office.yaml` and `office.pgm`
-- Checkpoint patrol controller: `webots/controllers/anna_bot/anna_bot.py`
-- Prior autonomous patrol controller: `webots/controllers/patrol_robot/patrol_robot.py`
+- Checkpoint patrol controller: `webots/controllers/patrol_robot/patrol_robot.py`
 - User-controlled controller: `webots/controllers/user_controlled_robot/user_controlled_robot.py`
-- Test RViz wrapper: `webots/worlds/controllers/anna_bot/anna_bot.py`
 - Webots wrapper: `webots/worlds/controllers/patrol_robot/patrol_robot.py`
 - User-controlled wrapper: `webots/worlds/controllers/user_controlled_robot/user_controlled_robot.py`
 
@@ -59,9 +57,11 @@ bash scripts/runTestBuildingMapForRobot.sh
 
 To launch the office world, point `RMPD_WEBOTS_WORLD` at `webots/worlds/office/office.wbt` before running the script.
 
-For convenience, `bash scripts/runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, and WASD user-controlled robot.
+For convenience, `bash scripts/runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, simplified office RViz config, and WASD user-controlled robot. The office robot starts at `x=-4.35`, `y=-5.35`, `yaw=0.00464`; the script publishes that configured AMCL initial pose and disables checkpoint patrol and the live-map RViz overlay.
 
 Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes against the known map.
+
+In default AMCL mode, RViz uses `amcl.rviz` and displays both the static `/map` and the robot-built `/live_map`. The live map uses RViz's costmap color scheme and can appear pink or purple. The office script uses `office_amcl.rviz`, which hides `/live_map` so the static office map, scan, AMCL particles, and TF are easier to inspect. The test-building script uses mapping mode, so it only shows the live occupancy map as `/map`.
 
 ## Controller Contract
 
@@ -79,15 +79,14 @@ They send newline-delimited JSON over TCP by default. The default bridge target 
 
 ## Controller Choices
 
-- `anna_bot` is the Nav2-capable checkpoint patrol controller and is used by `testRvizMap`.
-- `patrol_robot` is the prior autonomous obstacle-avoidance controller with the coordinate, heading, and LiDAR fixes from the restructured branch.
+- `patrol_robot` is the Nav2-capable checkpoint patrol controller and is used by `testRvizMap`.
 - `user_controlled_robot` is the WASD controller used by the office and live map-building demos.
 
 ## Adding A World
 
 1. Create `webots/worlds/<world_name>/`.
 2. Add the `.wbt` world file.
-3. Set the world `controller` field to `anna_bot`, `patrol_robot`, or `user_controlled_robot`.
+3. Set the world `controller` field to `patrol_robot` or `user_controlled_robot`.
 4. Put world-specific map or route data alongside that world.
 5. Run `bash scripts/quick_test.sh` and `bash scripts/verify.sh`.
 

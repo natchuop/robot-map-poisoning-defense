@@ -23,6 +23,7 @@ setup(
         ('share/' + package_name + '/config', ['config/amcl.rviz']),
         ('share/' + package_name + '/config', ['config/default.rviz']),
         ('share/' + package_name + '/config', ['config/nav2_params.yaml']),
+        ('share/' + package_name + '/config', ['config/office_amcl.rviz']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

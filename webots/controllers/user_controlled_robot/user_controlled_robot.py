@@ -10,6 +10,7 @@ from controller import Keyboard, Robot
 TIME_STEP = 64
 DRIVE_SPEED = float(os.environ.get('WEBOTS_DRIVE_SPEED', '1.8'))
 TURN_SPEED = float(os.environ.get('WEBOTS_TURN_SPEED', '1.2'))
+LOG_INTERVAL_STEPS = int(os.environ.get('WEBOTS_LOG_INTERVAL_STEPS', '20'))
 ROBOT_ID = os.environ.get('WEBOTS_ROBOT_ID', os.environ.get('ROBOT_NAME', 'robot_1'))
 MAP_ID = os.environ.get('WEBOTS_MAP_ID', '').strip()
 BRIDGE_PROTOCOL = os.environ.get('WEBOTS_BRIDGE_PROTOCOL', 'tcp').strip().lower()
@@ -275,7 +276,7 @@ def main():
             quaternion = imu.getQuaternion()
             robot_heading = planar_heading_from_imu(imu, rpy)
 
-            if counter % 20 == 0:
+            if LOG_INTERVAL_STEPS > 0 and counter % LOG_INTERVAL_STEPS == 0:
                 print(
                     f'pose -> x: {robot_x:.2f} y: {robot_y:.2f} heading: {robot_heading:.2f} '
                     f'imu_rpy: {rpy[0]:.2f}, {rpy[1]:.2f}, {rpy[2]:.2f}',
@@ -290,7 +291,7 @@ def main():
                 else:
                     ranges.append(float(value))
 
-            if DEBUG_FRAME and counter % 20 == 0:
+            if DEBUG_FRAME and LOG_INTERVAL_STEPS > 0 and counter % LOG_INTERVAL_STEPS == 0:
                 finite_ranges = [
                     (index, value)
                     for index, value in enumerate(ranges)
@@ -334,7 +335,7 @@ def main():
 
             payload = json.dumps(packet, separators=(',', ':')).encode('utf-8')
             sent = sender.send(payload)
-            if sent and counter % 20 == 0:
+            if sent and LOG_INTERVAL_STEPS > 0 and counter % LOG_INTERVAL_STEPS == 0:
                 print('sent bridge packet', flush=True)
             counter += 1
         except Exception as exc:

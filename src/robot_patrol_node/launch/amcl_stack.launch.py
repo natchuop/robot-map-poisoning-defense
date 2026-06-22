@@ -17,6 +17,7 @@ def generate_launch_description():
     initial_pose_x = LaunchConfiguration('initial_pose_x')
     initial_pose_y = LaunchConfiguration('initial_pose_y')
     initial_pose_yaw = LaunchConfiguration('initial_pose_yaw')
+    initial_pose_use_odom = LaunchConfiguration('initial_pose_use_odom')
     use_sim_time = LaunchConfiguration('use_sim_time')
     bridge_publish_hz = LaunchConfiguration('bridge_publish_hz')
 
@@ -33,6 +34,7 @@ def generate_launch_description():
         DeclareLaunchArgument('initial_pose_x', default_value='0.0'),
         DeclareLaunchArgument('initial_pose_y', default_value='0.0'),
         DeclareLaunchArgument('initial_pose_yaw', default_value='0.0'),
+        DeclareLaunchArgument('initial_pose_use_odom', default_value='true'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('bridge_publish_hz', default_value='15.0'),
 
@@ -144,7 +146,7 @@ def generate_launch_description():
                 'topic': '/initialpose',
                 'odom_topic': odom_topic,
                 'frame_id': map_frame,
-                'use_odom_pose': True,
+                'use_odom_pose': initial_pose_use_odom,
                 'x': initial_pose_x,
                 'y': initial_pose_y,
                 'yaw': initial_pose_yaw,
