@@ -42,6 +42,8 @@ class MapBuilderNode(Node):
         self.declare_parameter('laser_y', 0.0)
         self.declare_parameter('laser_yaw', 0.0)
         self.declare_parameter('publish_tf', True)
+        self.declare_parameter('occupancy_mode', 'scored')
+        self.declare_parameter('require_pose_update', True)
         self.declare_parameter('hit_score_increment', 4)
         self.declare_parameter('free_score_decrement', 1)
         self.declare_parameter('occupied_score_threshold', 6)
@@ -62,6 +64,8 @@ class MapBuilderNode(Node):
         self.laser_y = float(self.get_parameter('laser_y').value)
         self.laser_yaw = float(self.get_parameter('laser_yaw').value)
         self.publish_tf = bool(self.get_parameter('publish_tf').value)
+        self.occupancy_mode = str(self.get_parameter('occupancy_mode').value).strip().lower()
+        self.require_pose_update = bool(self.get_parameter('require_pose_update').value)
         self.hit_score_increment = int(self.get_parameter('hit_score_increment').value)
         self.free_score_decrement = int(self.get_parameter('free_score_decrement').value)
         self.occupied_score_threshold = int(self.get_parameter('occupied_score_threshold').value)
@@ -112,7 +116,7 @@ class MapBuilderNode(Node):
     def scan_callback(self, scan: LaserScan) -> None:
         if self.latest_pose is None:
             return
-        if not self.pose_dirty:
+        if self.require_pose_update and not self.pose_dirty:
             return
         self.pose_dirty = False
 
@@ -221,6 +225,8 @@ class MapBuilderNode(Node):
             self.grid[row, col] = np.int8(-1)
 
     def adjust_score(self, col: int, row: int, delta: int) -> None:
+        if self.occupancy_mode != 'scored':
+            return
         if 0 <= col < self.width_cells and 0 <= row < self.height_cells:
             self.observed[row, col] = True
             updated = int(self.scores[row, col]) + delta
@@ -228,9 +234,17 @@ class MapBuilderNode(Node):
             self.refresh_cell_from_score(col, row)
 
     def mark_occupied(self, col: int, row: int) -> None:
+        if self.occupancy_mode == 'direct':
+            self.observed[row, col] = True
+            self.set_cell(col, row, 100)
+            return
         self.adjust_score(col, row, self.hit_score_increment)
 
     def set_free_cell(self, col: int, row: int) -> None:
+        if self.occupancy_mode == 'direct':
+            self.observed[row, col] = True
+            self.set_cell(col, row, 0)
+            return
         self.adjust_score(col, row, -self.free_score_decrement)
 
     def mark_free_along_ray(

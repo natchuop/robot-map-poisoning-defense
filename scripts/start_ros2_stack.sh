@@ -26,6 +26,8 @@ if [ "${RMPD_TEST_MODE:-mapping}" = "amcl" ]; then
     START_CHECKPOINT_PATROL="${RMPD_START_CHECKPOINT_PATROL:-true}"
     START_NAVIGATION_DIAGNOSTICS="${RMPD_START_NAVIGATION_DIAGNOSTICS:-true}"
     START_LIVE_MAPPING="${RMPD_START_LIVE_MAPPING:-true}"
+    LIVE_MAP_WIDTH_M="${RMPD_LIVE_MAP_WIDTH_M:-8.0}"
+    LIVE_MAP_HEIGHT_M="${RMPD_LIVE_MAP_HEIGHT_M:-8.0}"
     echo "Launching AMCL + Nav2 stack with Webots GPS/IMU odom + LiDAR + static map: $RMPD_AMCL_MAP_YAML"
     exec ros2 launch robot_patrol_node nav2_with_amcl.launch.py \
         map_yaml:="$RMPD_AMCL_MAP_YAML" \
@@ -35,7 +37,9 @@ if [ "${RMPD_TEST_MODE:-mapping}" = "amcl" ]; then
         initial_pose_use_odom:="$INITIAL_POSE_USE_ODOM" \
         start_checkpoint_patrol:="$START_CHECKPOINT_PATROL" \
         start_navigation_diagnostics:="$START_NAVIGATION_DIAGNOSTICS" \
-        start_live_mapping:="$START_LIVE_MAPPING"
+        start_live_mapping:="$START_LIVE_MAPPING" \
+        live_map_width_m:="$LIVE_MAP_WIDTH_M" \
+        live_map_height_m:="$LIVE_MAP_HEIGHT_M"
 fi
 
 echo "Launching live mapping stack (Webots GPS/IMU pose + LiDAR, no AMCL)"

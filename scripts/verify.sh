@@ -119,9 +119,9 @@ if python3 -m py_compile \
     "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/navigation_diagnostics_node.py" \
     "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/pose_to_odom_node.py" \
     "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/udp_bridge_node.py" \
-    "$REPO_DIR/webots/controllers/patrol_robot/patrol_robot.py" \
+    "$REPO_DIR/webots/robot_controllers/patrol_robot/patrol_robot.py" \
     "$REPO_DIR/webots/worlds/controllers/patrol_robot/patrol_robot.py" \
-    "$REPO_DIR/webots/controllers/user_controlled_robot/user_controlled_robot.py" \
+    "$REPO_DIR/webots/robot_controllers/user_controlled_robot/user_controlled_robot.py" \
     "$REPO_DIR/webots/worlds/controllers/user_controlled_robot/user_controlled_robot.py"; then
     green "Python files compile"
 else

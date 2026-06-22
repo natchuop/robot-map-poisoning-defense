@@ -25,7 +25,8 @@ BRIDGE_PORT = int(os.environ.get('WEBOTS_BRIDGE_PORT', '5005'))
 
 WHEEL_RADIUS = float(os.environ.get('WEBOTS_WHEEL_RADIUS', '0.033'))
 WHEEL_BASE = float(os.environ.get('WEBOTS_WHEEL_BASE', '0.16'))
-MAX_WHEEL_SPEED = float(os.environ.get('WEBOTS_MAX_WHEEL_SPEED', '6.28'))
+MAX_WHEEL_SPEED = float(os.environ.get('WEBOTS_MAX_WHEEL_SPEED', '6.6'))
+CMD_VEL_SCALE = float(os.environ.get('WEBOTS_CMD_VEL_SCALE', '2.0'))
 CMD_TIMEOUT_SEC = float(os.environ.get('WEBOTS_CMD_TIMEOUT_SEC', '1.0'))
 LOG_INTERVAL_STEPS = int(os.environ.get('WEBOTS_LOG_INTERVAL_STEPS', '300'))
 CHECKPOINT_TOUCH_ROBOT_RADIUS = float(os.environ.get('WEBOTS_CHECKPOINT_TOUCH_ROBOT_RADIUS', '0.18'))
@@ -119,6 +120,8 @@ def checkpoint_touch_event(checkpoint_name, robot_x, robot_y):
 
 
 def cmd_vel_to_wheel_speeds(linear_x, angular_z):
+    linear_x *= CMD_VEL_SCALE
+    angular_z *= CMD_VEL_SCALE
     left_speed = (linear_x - angular_z * WHEEL_BASE / 2.0) / WHEEL_RADIUS
     right_speed = (linear_x + angular_z * WHEEL_BASE / 2.0) / WHEEL_RADIUS
 

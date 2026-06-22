@@ -4,8 +4,8 @@ This repo is built around one active ROS 2 + Webots demo and a few supporting do
 
 ## Where To Work
 
-- `webots/controllers/patrol_robot/patrol_robot.py` is the Nav2-capable checkpoint patrol controller used by `testRvizMap`.
-- `webots/controllers/user_controlled_robot/user_controlled_robot.py` is the WASD controller used by the office and live map-building worlds.
+- `webots/robot_controllers/patrol_robot/patrol_robot.py` is the Nav2-capable checkpoint patrol controller used by `testRvizMap`.
+- `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py` is the WASD controller used by the office and live map-building worlds.
 - `webots/worlds/<world_name>/` holds each Webots world and its world-specific assets.
 - `webots/worlds/controllers/<controller_name>/<controller_name>.py` files are only Webots lookup wrappers.
 - `src/robot_patrol_node/` is the active ROS 2 package for the bridge, map builder, AMCL helpers, launches, and RViz configs.

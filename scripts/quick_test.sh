@@ -701,7 +701,7 @@ if should_launch_rviz; then
   fi
 
   log_step "Launching RViz in Docker"
-  RVIZ_CONFIG_ARG=''
+  RVIZ_CONFIG_PATH=''
 
   if [ "$TEST_MODE" = "amcl" ]; then
     RVIZ_CONFIG_PATH="$(
@@ -720,16 +720,33 @@ if should_launch_rviz; then
 
     if ! docker exec "$CONTAINER_NAME" test -f "$RVIZ_CONFIG_PATH"; then
       echo "Warning: AMCL RViz config was not found at $RVIZ_CONFIG_PATH; falling back to default.rviz" >&2
+      RVIZ_CONFIG_PATH=''
     else
       echo "Using AMCL RViz config: $RVIZ_CONFIG_PATH"
-      RVIZ_CONFIG_ARG="rviz_config:=$RVIZ_CONFIG_PATH"
+    fi
+  else
+    RVIZ_CONFIG_PATH="$(
+      docker exec "$CONTAINER_NAME" bash -lc '
+        source /opt/ros/jazzy/setup.bash
+        source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash"
+        pkg_prefix="$(ros2 pkg prefix robot_patrol_node)"
+        printf "%s/share/robot_patrol_node/config/default.rviz\n" "$pkg_prefix"
+      ' | tr -d '\r'
+    )"
+    if ! docker exec "$CONTAINER_NAME" test -f "$RVIZ_CONFIG_PATH"; then
+      echo "Warning: default RViz config was not found at $RVIZ_CONFIG_PATH; letting ros2 launch choose its own default." >&2
+      RVIZ_CONFIG_PATH=''
     fi
   fi
 
   mkdir -p "$(dirname "$RVIZ_HOST_LOG")"
   rm -f "$RVIZ_HOST_LOG"
 
-  docker exec "$CONTAINER_NAME" bash -lc "source /opt/ros/jazzy/setup.bash && source \"\${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash\" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py $RVIZ_CONFIG_ARG" >"$RVIZ_HOST_LOG" 2>&1 &
+  if [ -n "$RVIZ_CONFIG_PATH" ]; then
+    docker exec -e RMPD_RVIZ_CONFIG_PATH="$RVIZ_CONFIG_PATH" "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py rviz_config:="$RMPD_RVIZ_CONFIG_PATH"' >"$RVIZ_HOST_LOG" 2>&1 &
+  else
+    docker exec "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py' >"$RVIZ_HOST_LOG" 2>&1 &
+  fi
   RVIZ_EXEC_PID=$!
 
   echo "RViz launch command submitted to $CONTAINER_NAME"

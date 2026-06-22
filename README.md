@@ -61,7 +61,7 @@ bash scripts/quick_test.sh
 
 That launches Webots, ROS 2, RViz, and the AMCL demo together. Press `Ctrl-C` in the terminal to close everything. 
 
-`quick_test.sh` launches the full AMCL/Nav2 demo, so RViz shows the static `/map` plus the live `/live_map` overlay. The overlay uses RViz's costmap colors, which can appear pink or purple. `runOffice.sh` uses an office-specific AMCL RViz view without that live-map overlay. `runTestBuildingMapForRobot.sh` uses live mapping mode, so it shows the robot-built map without the AMCL/Nav2 overlay.
+`quick_test.sh` launches the full AMCL/Nav2 demo, so RViz shows the static `/map` plus the live `/live_map` overlay. The overlay uses RViz's costmap colors, which can appear pink or purple. `runOffice.sh` uses the same RViz view with office-specific startup pose settings, so it keeps the remembered LiDAR map visible while localizing in the office world. `runTestBuildingMapForRobot.sh` uses live mapping mode, so it shows the robot-built map without the AMCL/Nav2 overlay.
 
 ## Project Files
 
@@ -73,6 +73,6 @@ That launches Webots, ROS 2, RViz, and the AMCL demo together. Press `Ctrl-C` in
 ## Notes
 
 - `build/`, `install/`, and `log/` are generated and can be deleted safely.
-- `testRvizMap` uses `webots/controllers/patrol_robot/patrol_robot.py`, the Nav2-capable checkpoint patrol controller.
-- `office` and `testBuildingMapForRobot` use `webots/controllers/user_controlled_robot/user_controlled_robot.py`.
+- `testRvizMap` uses `webots/robot_controllers/patrol_robot/patrol_robot.py`, the Nav2-capable checkpoint patrol controller.
+- `office` and `testBuildingMapForRobot` use `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`.
 - `runOffice.sh` starts the office world at `(-4.35, -5.35, 0.00464)` and publishes that configured AMCL initial pose instead of assuming the robot starts at the origin.

@@ -23,6 +23,8 @@ def generate_launch_description():
     free_score_threshold = LaunchConfiguration('free_score_threshold')
     score_min = LaunchConfiguration('score_min')
     score_max = LaunchConfiguration('score_max')
+    occupancy_mode = LaunchConfiguration('occupancy_mode')
+    require_pose_update = LaunchConfiguration('require_pose_update')
 
     return LaunchDescription(
         [
@@ -44,6 +46,8 @@ def generate_launch_description():
             DeclareLaunchArgument('free_score_threshold', default_value='-2'),
             DeclareLaunchArgument('score_min', default_value='-12'),
             DeclareLaunchArgument('score_max', default_value='24'),
+            DeclareLaunchArgument('occupancy_mode', default_value='direct'),
+            DeclareLaunchArgument('require_pose_update', default_value='false'),
             Node(
                 package='robot_patrol_node',
                 executable='map_builder',
@@ -68,6 +72,8 @@ def generate_launch_description():
                         'free_score_threshold': free_score_threshold,
                         'score_min': score_min,
                         'score_max': score_max,
+                        'occupancy_mode': occupancy_mode,
+                        'require_pose_update': require_pose_update,
                     }
                 ],
             ),

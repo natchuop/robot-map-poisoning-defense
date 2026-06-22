@@ -59,7 +59,7 @@ bash scripts/quick_test.sh
 
 The quick test starts the AMCL localization stack, opens Webots, waits for bridge packets and TF, and launches RViz with `amcl.rviz`.
 
-In that default RViz config, the static AMCL map is `/map` and the robot-built LiDAR map is `/live_map`. `/live_map` uses costmap-style colors, so pink or purple cells are expected. `bash scripts/runOffice.sh` uses `office_amcl.rviz`, disables `/live_map`, and publishes the office world's configured starting pose instead of assuming the robot starts at the origin. The test-building script runs mapping mode instead, where the robot-built map is published directly as `/map`.
+In that default RViz config, the static AMCL map is `/map` and the robot-built LiDAR map is `/live_map`. `/live_map` uses costmap-style colors, so pink or purple cells are expected. `bash scripts/runOffice.sh` uses the same RViz view with the office-world startup pose and keeps `/live_map` enabled so previously explored areas remain visible in RViz. The test-building script runs mapping mode instead, where the robot-built map is published directly as `/map`.
 
 To override the verification host port:
 

@@ -8,8 +8,8 @@ from controller import Keyboard, Robot
 
 
 TIME_STEP = 64
-DRIVE_SPEED = float(os.environ.get('WEBOTS_DRIVE_SPEED', '1.8'))
-TURN_SPEED = float(os.environ.get('WEBOTS_TURN_SPEED', '1.2'))
+DRIVE_SPEED = float(os.environ.get('WEBOTS_DRIVE_SPEED', '3.6'))
+TURN_SPEED = float(os.environ.get('WEBOTS_TURN_SPEED', '2.4'))
 LOG_INTERVAL_STEPS = int(os.environ.get('WEBOTS_LOG_INTERVAL_STEPS', '20'))
 ROBOT_ID = os.environ.get('WEBOTS_ROBOT_ID', os.environ.get('ROBOT_NAME', 'robot_1'))
 MAP_ID = os.environ.get('WEBOTS_MAP_ID', '').strip()

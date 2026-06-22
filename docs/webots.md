@@ -9,14 +9,14 @@ This repo currently uses a TurtleBot3 Burger world in Webots and a ROS 2 bridge 
 - Live map-building world: `webots/worlds/testBuildingMapForRobot/turtlebot3_burger.wbt`
 - Known AMCL map: `webots/worlds/testRvizMap/amcl_map/arena.yaml` and `arena.pgm`
 - Office AMCL map: `webots/worlds/office/amcl_map/office.yaml` and `office.pgm`
-- Checkpoint patrol controller: `webots/controllers/patrol_robot/patrol_robot.py`
-- User-controlled controller: `webots/controllers/user_controlled_robot/user_controlled_robot.py`
+- Checkpoint patrol controller: `webots/robot_controllers/patrol_robot/patrol_robot.py`
+- User-controlled controller: `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`
 - Webots wrapper: `webots/worlds/controllers/patrol_robot/patrol_robot.py`
 - User-controlled wrapper: `webots/worlds/controllers/user_controlled_robot/user_controlled_robot.py`
 
 The office map is built from the world walls and floor bounds only. Furniture and other movable objects are left out so AMCL keys off the room structure.
 
-The wrappers exist only because the world tree is nested. Keep behavior in `webots/controllers/`, and keep the wrapper files as thin forwarders.
+The wrappers exist only because the world tree is nested. Keep behavior in `webots/robot_controllers/`, and keep the wrapper files in `webots/worlds/controllers/` as thin forwarders.
 
 ## Data Flow
 
@@ -57,11 +57,11 @@ bash scripts/runTestBuildingMapForRobot.sh
 
 To launch the office world, point `RMPD_WEBOTS_WORLD` at `webots/worlds/office/office.wbt` before running the script.
 
-For convenience, `bash scripts/runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, simplified office RViz config, and WASD user-controlled robot. The office robot starts at `x=-4.35`, `y=-5.35`, `yaw=0.00464`; the script publishes that configured AMCL initial pose and disables checkpoint patrol and the live-map RViz overlay.
+For convenience, `bash scripts/runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, the same RViz view as the quick test, and WASD user-controlled robot. The office robot starts at `x=-4.35`, `y=-5.35`, `yaw=0.00464`; the script publishes that configured AMCL initial pose and keeps the live `/live_map` overlay enabled so previously explored areas remain visible.
 
 Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes against the known map.
 
-In default AMCL mode, RViz uses `amcl.rviz` and displays both the static `/map` and the robot-built `/live_map`. The live map uses RViz's costmap color scheme and can appear pink or purple. The office script uses `office_amcl.rviz`, which hides `/live_map` so the static office map, scan, AMCL particles, and TF are easier to inspect. The test-building script uses mapping mode, so it only shows the live occupancy map as `/map`.
+In default AMCL mode, RViz uses `amcl.rviz` and displays both the static `/map` and the robot-built `/live_map`. The live map uses RViz's costmap color scheme and can appear pink or purple. The office script uses the same RViz config but office-specific startup pose settings so the remembered map remains visible in the office world. The test-building script uses mapping mode, so it only shows the live occupancy map as `/map`.
 
 ## Controller Contract
 

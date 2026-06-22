@@ -311,13 +311,13 @@ Why no SLAM for the main path:
 
 Current `testRvizMap` checkpoint patrol controller:
 
-`webots/controllers/patrol_robot/patrol_robot.py`
+`webots/robot_controllers/patrol_robot/patrol_robot.py`
 
 This controller receives `/cmd_vel` from Nav2 through the bridge, tracks the active checkpoint sent from ROS, and reports checkpoint contact events back to ROS.
 
 User-controlled controller for the office and live map-building worlds:
 
-`webots/controllers/user_controlled_robot/user_controlled_robot.py`
+`webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`
 
 The Webots controllers send packets over TCP by default; the ROS bridge listens on both UDP and TCP on port `5005`.
 

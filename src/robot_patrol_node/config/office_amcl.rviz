@@ -40,6 +40,16 @@ Visualization Manager:
         Value: /map
       Unreliable: false
       Use Timestamp: false
+    - Alpha: 0.55
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: true
+      Name: Live LiDAR Map
+      Topic:
+        Value: /live_map
+      Unreliable: false
+      Use Timestamp: false
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 255; 210; 0

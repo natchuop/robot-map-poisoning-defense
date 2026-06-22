@@ -12,6 +12,8 @@ def generate_launch_description():
     free_score_decrement = LaunchConfiguration('free_score_decrement')
     occupied_score_threshold = LaunchConfiguration('occupied_score_threshold')
     free_score_threshold = LaunchConfiguration('free_score_threshold')
+    occupancy_mode = LaunchConfiguration('occupancy_mode')
+    require_pose_update = LaunchConfiguration('require_pose_update')
 
     return LaunchDescription(
         [
@@ -22,6 +24,8 @@ def generate_launch_description():
             DeclareLaunchArgument('free_score_decrement', default_value='1'),
             DeclareLaunchArgument('occupied_score_threshold', default_value='6'),
             DeclareLaunchArgument('free_score_threshold', default_value='-2'),
+            DeclareLaunchArgument('occupancy_mode', default_value='direct'),
+            DeclareLaunchArgument('require_pose_update', default_value='false'),
             Node(
                 package='robot_patrol_node',
                 executable='udp_bridge',
@@ -44,6 +48,8 @@ def generate_launch_description():
                         'free_score_decrement': free_score_decrement,
                         'occupied_score_threshold': occupied_score_threshold,
                         'free_score_threshold': free_score_threshold,
+                        'occupancy_mode': occupancy_mode,
+                        'require_pose_update': require_pose_update,
                     }
                 ],
             ),

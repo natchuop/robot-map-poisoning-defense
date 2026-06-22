@@ -21,6 +21,8 @@ def generate_launch_description():
     start_checkpoint_patrol = LaunchConfiguration('start_checkpoint_patrol')
     start_navigation_diagnostics = LaunchConfiguration('start_navigation_diagnostics')
     start_live_mapping = LaunchConfiguration('start_live_mapping')
+    live_map_width_m = LaunchConfiguration('live_map_width_m')
+    live_map_height_m = LaunchConfiguration('live_map_height_m')
 
     pkg_share = FindPackageShare('robot_patrol_node').find('robot_patrol_node')
 
@@ -39,6 +41,8 @@ def generate_launch_description():
         DeclareLaunchArgument('start_checkpoint_patrol', default_value='true'),
         DeclareLaunchArgument('start_navigation_diagnostics', default_value='true'),
         DeclareLaunchArgument('start_live_mapping', default_value='true'),
+        DeclareLaunchArgument('live_map_width_m', default_value='8.0'),
+        DeclareLaunchArgument('live_map_height_m', default_value='8.0'),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(amcl_launch),
@@ -74,8 +78,10 @@ def generate_launch_description():
                 'map_topic': '/live_map',
                 'map_frame': 'map',
                 'publish_tf': False,
-                'map_width_m': 8.0,
-                'map_height_m': 8.0,
+                'occupancy_mode': 'scored',
+                'require_pose_update': False,
+                'map_width_m': live_map_width_m,
+                'map_height_m': live_map_height_m,
                 'resolution': 0.05,
             }],
         ),
