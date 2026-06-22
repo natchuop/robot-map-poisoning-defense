@@ -1,7 +1,7 @@
 import math
 
-import rclpy
 from geometry_msgs.msg import PoseWithCovarianceStamped, Quaternion
+import rclpy
 from rclpy.node import Node
 
 
@@ -59,7 +59,8 @@ class InitialPosePublisherNode(Node):
         )
 
         self.get_logger().info(
-            f'Initial pose publisher ready: topic={self.topic}, pose=({self.x:.2f}, {self.y:.2f}, {self.yaw:.2f})'
+            f'Initial pose publisher ready: topic={self.topic}, '
+            f'pose=({self.x:.2f}, {self.y:.2f}, {self.yaw:.2f})'
         )
 
     def publish_pose(self) -> None:

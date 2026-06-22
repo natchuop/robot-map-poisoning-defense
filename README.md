@@ -71,4 +71,6 @@ That launches Webots, ROS 2, RViz, and the AMCL demo together. Press `Ctrl-C` in
 ## Notes
 
 - `build/`, `install/`, and `log/` are generated and can be deleted safely.
-- The shared Webots controller lives in `webots/controllers/patrol_robot/patrol_robot.py`.
+- `testRvizMap` uses `webots/controllers/anna_bot/anna_bot.py`, which preserves the older obstacle-avoidance controller from `main`.
+- `office` and `testBuildingMapForRobot` use `webots/controllers/patrol_robot/user_controlled_robot.py`.
+- `webots/controllers/patrol_robot/patrol_robot.py` remains available as the shared autonomous patrol controller.

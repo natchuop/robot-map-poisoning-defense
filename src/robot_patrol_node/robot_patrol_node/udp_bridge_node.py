@@ -3,14 +3,15 @@ import math
 import socket
 import threading
 
-import rclpy
 from geometry_msgs.msg import Pose2D
+import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 
 
 class UdpBridgeNode(Node):
-    """Receive Webots pose + LiDAR packets and republish ROS 2 topics.
+    """
+    Receive Webots pose + LiDAR packets and republish ROS 2 topics.
 
     The original bridge used UDP. It now also listens on TCP because Docker
     Desktop forwards TCP localhost traffic from Windows much more reliably.
@@ -107,7 +108,8 @@ class UdpBridgeNode(Node):
         self._packet_count += 1
         if self._packet_count <= 3 or self._packet_count % 20 == 0:
             self.get_logger().info(
-                f'Received {transport} packet #{self._packet_count} with keys: {sorted(packet.keys())}'
+                f'Received {transport} packet #{self._packet_count} '
+                f'with keys: {sorted(packet.keys())}'
             )
         self._publish_packet(packet)
 
@@ -130,8 +132,11 @@ class UdpBridgeNode(Node):
         scan_msg.header.frame_id = self.scan_frame
         scan_msg.angle_min = float(scan.get('angle_min', -math.pi))
         scan_msg.angle_max = float(scan.get('angle_max', math.pi))
+        default_angle_increment = (
+            (scan_msg.angle_max - scan_msg.angle_min) / max(len(ranges), 1)
+        )
         scan_msg.angle_increment = float(
-            scan.get('angle_increment', (scan_msg.angle_max - scan_msg.angle_min) / max(len(ranges), 1))
+            scan.get('angle_increment', default_angle_increment)
         )
         scan_msg.time_increment = 0.0
         scan_msg.scan_time = float(scan.get('scan_time', 0.0))

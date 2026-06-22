@@ -309,13 +309,23 @@ Why no SLAM for the main path:
 
 ## Current Controller / Bridge Notes
 
-Preferred controller for ROS integration:
+Current `testRvizMap` controller:
+
+`webots/controllers/anna_bot/anna_bot.py`
+
+This preserves the older autonomous obstacle-avoidance controller from `main`.
+
+Newer autonomous controller from the restructured branch:
 
 `webots/controllers/patrol_robot/patrol_robot.py`
 
-The Webots controller sends packets over TCP by default; the ROS bridge listens on both UDP and TCP on port `5005`.
+User-controlled controller for the office and live map-building worlds:
 
-It:
+`webots/controllers/patrol_robot/user_controlled_robot.py`
+
+The Webots controllers send packets over TCP by default; the ROS bridge listens on both UDP and TCP on port `5005`.
+
+They:
 
 - reads GPS, IMU, and LiDAR
 - uses a Braitenberg-style avoidance rule

@@ -76,7 +76,7 @@ WoodenBox {
 TurtleBot3Burger {
   translation 0 0 0
   rotation 0 1 0 0
-  controller "patrol_robot"
+  controller "anna_bot"
   extensionSlot [
     GPS {
     }

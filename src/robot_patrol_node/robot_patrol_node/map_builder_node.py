@@ -1,9 +1,9 @@
 import math
 
-import numpy as np
-import rclpy
 from geometry_msgs.msg import Pose2D, Quaternion, TransformStamped
 from nav_msgs.msg import OccupancyGrid
+import numpy as np
+import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 from tf2_ros import StaticTransformBroadcaster, TransformBroadcaster
@@ -79,7 +79,12 @@ class MapBuilderNode(Node):
         self.pose_dirty = False
 
         self.map_pub = self.create_publisher(OccupancyGrid, self.map_topic, 10)
-        self.scan_sub = self.create_subscription(LaserScan, self.scan_topic, self.scan_callback, 10)
+        self.scan_sub = self.create_subscription(
+            LaserScan,
+            self.scan_topic,
+            self.scan_callback,
+            10,
+        )
         self.pose_sub = self.create_subscription(Pose2D, self.pose_topic, self.pose_callback, 10)
 
         self.tf_broadcaster = TransformBroadcaster(self)
@@ -87,7 +92,8 @@ class MapBuilderNode(Node):
         self.publish_static_sensor_tf()
 
         self.get_logger().info(
-            f'Map builder ready: scan={self.scan_topic}, pose={self.pose_topic}, map={self.map_topic}'
+            f'Map builder ready: scan={self.scan_topic}, '
+            f'pose={self.pose_topic}, map={self.map_topic}'
         )
 
     def pose_callback(self, msg) -> None:
@@ -108,8 +114,16 @@ class MapBuilderNode(Node):
 
         robot_x, robot_y, robot_theta = self.latest_pose
         laser_theta = normalize_angle(robot_theta + self.laser_yaw)
-        laser_x = robot_x + (self.laser_x * math.cos(robot_theta)) - (self.laser_y * math.sin(robot_theta))
-        laser_y = robot_y + (self.laser_x * math.sin(robot_theta)) + (self.laser_y * math.cos(robot_theta))
+        laser_x = (
+            robot_x
+            + (self.laser_x * math.cos(robot_theta))
+            - (self.laser_y * math.sin(robot_theta))
+        )
+        laser_y = (
+            robot_y
+            + (self.laser_x * math.sin(robot_theta))
+            + (self.laser_y * math.cos(robot_theta))
+        )
         laser_cell = self.world_to_grid(laser_x, laser_y)
         if laser_cell is None:
             return
@@ -215,7 +229,13 @@ class MapBuilderNode(Node):
     def set_free_cell(self, col: int, row: int) -> None:
         self.adjust_score(col, row, -self.free_score_decrement)
 
-    def mark_free_along_ray(self, start_col: int, start_row: int, end_col: int, end_row: int) -> None:
+    def mark_free_along_ray(
+        self,
+        start_col: int,
+        start_row: int,
+        end_col: int,
+        end_row: int,
+    ) -> None:
         for col, row in self.bresenham(start_col, start_row, end_col, end_row):
             if col == end_col and row == end_row:
                 break

@@ -4,17 +4,20 @@ This repo currently uses a TurtleBot3 Burger world in Webots and a ROS 2 bridge 
 
 ## Current Demo
 
-- World: `webots/worlds/testRvizMap/turtlebot3_burger.wbt`
-- Additional world: `webots/worlds/office/office.wbt`
+- Main AMCL world: `webots/worlds/testRvizMap/turtlebot3_burger.wbt`
+- Office world: `webots/worlds/office/office.wbt`
+- Live map-building world: `webots/worlds/testBuildingMapForRobot/turtlebot3_burger.wbt`
 - Known AMCL map: `webots/worlds/testRvizMap/amcl_map/arena.yaml` and `arena.pgm`
 - Office AMCL map: `webots/worlds/office/amcl_map/office.yaml` and `office.pgm`
+- Test RViz controller: `webots/controllers/anna_bot/anna_bot.py`
 - Shared patrol controller: `webots/controllers/patrol_robot/patrol_robot.py`
 - User-controlled controller: `webots/controllers/patrol_robot/user_controlled_robot.py`
+- Test RViz wrapper: `webots/worlds/controllers/anna_bot/anna_bot.py`
 - Webots wrapper: `webots/worlds/controllers/patrol_robot/patrol_robot.py`
 
 The office map is built from the world walls and floor bounds only. Furniture and other movable objects are left out so AMCL keys off the room structure.
 
-The wrapper exists only because the world tree is nested. Keep behavior in the shared controller.
+The wrappers exist only because the world tree is nested. Keep behavior in `webots/controllers/`, and keep the wrapper files as thin forwarders.
 
 ## Data Flow
 
@@ -59,7 +62,7 @@ Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes again
 
 ## Controller Contract
 
-The controller expects these Webots devices:
+The controllers expect these Webots devices:
 
 - `gps`
 - `inertial unit`
@@ -69,13 +72,19 @@ The controller expects these Webots devices:
 - `left wheel motor`
 - `right wheel motor`
 
-It sends newline-delimited JSON over TCP by default. The default bridge target is `tcp://172.28.64.1:5005`, with `127.0.0.1` as fallback.
+They send newline-delimited JSON over TCP by default. The default bridge target is `tcp://172.28.64.1:5005`, with `127.0.0.1` as fallback.
+
+## Controller Choices
+
+- `anna_bot` is the older autonomous obstacle-avoidance controller and is used by `testRvizMap`.
+- `patrol_robot` is the newer autonomous controller with the coordinate, heading, and LiDAR fixes from the restructured branch.
+- `user_controlled_robot` is the WASD controller used by the office and live map-building demos.
 
 ## Adding A World
 
 1. Create `webots/worlds/<world_name>/`.
 2. Add the `.wbt` world file.
-3. Reuse the shared controller name `patrol_robot`.
+3. Set the world `controller` field to `anna_bot`, `patrol_robot`, or `user_controlled_robot`.
 4. Put world-specific map or route data alongside that world.
 5. Run `bash scripts/quick_test.sh` and `bash scripts/verify.sh`.
 
