@@ -11,6 +11,7 @@ This repo is built around one active ROS 2 + Webots demo and a few supporting do
 - `src/robot_patrol_node/` is the active ROS 2 package for the bridge, map builder, AMCL helpers, launches, and RViz configs.
 - `scripts/quick_test.sh` runs the end-to-end demo.
 - `scripts/runOffice.sh` runs the office world with its own AMCL map, RViz config, and configured initial pose.
+- `scripts/runConfusingMaze.sh` runs the confusing maze world with its own AMCL map and configured initial pose.
 - `scripts/verify.sh` runs the headless environment check.
 - `docker/` holds the Dockerfile and compose files.
 - `docs/` holds the project notes, structure guide, Webots setup guide, and verification guide.

@@ -1,0 +1,470 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/robotis/turtlebot/protos/TurtleBot3Burger.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/devices/robotis/protos/RobotisLds01.proto"
+
+WorldInfo {
+  title "Confusing Maze"
+  basicTimeStep 64
+}
+Viewpoint {
+  orientation 0.5731039616788504 -0.6025001374489628 -0.5554686611159875 4.198671894937354
+  position -0.19482044582890412 0.5653812065269637 23.031665759509966
+  follow "TurtleBot3Burger"
+  followType "Pan and Tilt Shot"
+}
+Background {
+  skyColor [
+    0.15 0.15 0.15
+  ]
+}
+DirectionalLight {
+  direction -0.5 -1 -0.5
+}
+RectangleArena {
+  floorSize 10 10
+  floorTileSize 1 1
+  wallHeight 0.5
+}
+DEF H1 Solid {
+  translation -2 3.5 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 4 0.15 0.5
+      }
+    }
+  ]
+  name "h1"
+  boundingObject Box {
+    size 4 0.15 0.5
+  }
+}
+DEF H2 Solid {
+  translation 4 3.5 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 2 0.15 0.5
+      }
+    }
+  ]
+  name "h2"
+  boundingObject Box {
+    size 2 0.15 0.5
+  }
+}
+DEF H3 Solid {
+  translation -3.5 2 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 3 0.15 0.5
+      }
+    }
+  ]
+  name "h3"
+  boundingObject Box {
+    size 3 0.15 0.5
+  }
+}
+DEF H4 Solid {
+  translation 2 2 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 4 0.15 0.5
+      }
+    }
+  ]
+  name "h4"
+  boundingObject Box {
+    size 4 0.15 0.5
+  }
+}
+DEF H5 Solid {
+  translation -1.5 0.5 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 3 0.15 0.5
+      }
+    }
+  ]
+  name "h5"
+  boundingObject Box {
+    size 3 0.15 0.5
+  }
+}
+DEF H6 Solid {
+  translation 3 0.5 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 2 0.15 0.5
+      }
+    }
+  ]
+  name "h6"
+  boundingObject Box {
+    size 2 0.15 0.5
+  }
+}
+DEF H7 Solid {
+  translation -3 -1 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 2 0.15 0.5
+      }
+    }
+  ]
+  name "h7"
+  boundingObject Box {
+    size 2 0.15 0.5
+  }
+}
+DEF H8 Solid {
+  translation 1.5 -1 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 3 0.15 0.5
+      }
+    }
+  ]
+  name "h8"
+  boundingObject Box {
+    size 3 0.15 0.5
+  }
+}
+DEF H9 Solid {
+  translation -2 -2.5 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 4 0.15 0.5
+      }
+    }
+  ]
+  name "h9"
+  boundingObject Box {
+    size 4 0.15 0.5
+  }
+}
+DEF H10 Solid {
+  translation 3 -2.5 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 2 0.15 0.5
+      }
+    }
+  ]
+  name "h10"
+  boundingObject Box {
+    size 2 0.15 0.5
+  }
+}
+DEF V2 Solid {
+  translation -1 4.25 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v2"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V3 Solid {
+  translation 2 4.25 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v3"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V5 Solid {
+  translation 1 2.75 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v5"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V6 Solid {
+  translation 4 2.72 0.25
+  rotation 0 0.7071067811865475 0.7071067811865475 0
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v6"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V7 Solid {
+  translation -3 1.25 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v7"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V9 Solid {
+  translation 3 1.25 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v9"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V10 Solid {
+  translation -1 -0.25 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v10"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V11 Solid {
+  translation 2 -0.25 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v11"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V12 Solid {
+  translation -4 -1.75 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v12"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V13 Solid {
+  translation 0 -1.75 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v13"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V14 Solid {
+  translation 3 -1.75 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v14"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V15 Solid {
+  translation -2 -3.31 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v15"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF V16 Solid {
+  translation 1 -4.2 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.8 0.8
+      }
+      geometry Box {
+        size 0.15 1.5 0.5
+      }
+    }
+  ]
+  name "v16"
+  boundingObject Box {
+    size 0.15 1.5 0.5
+  }
+}
+DEF START Solid {
+  translation -3.5 -3.5 0.05
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0 1 0
+        emissiveColor 0 0.8 0
+      }
+      geometry Box {
+        size 0.8 0.8 0.1
+      }
+    }
+  ]
+  name "start"
+  boundingObject Box {
+    size 0.8 0.8 0.1
+  }
+}
+DEF END Solid {
+  translation 4.4 4.3 0.05
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 1 0 0
+        emissiveColor 0.8 0 0
+      }
+      geometry Box {
+        size 0.8 0.8 0.1
+      }
+    }
+  ]
+  name "end"
+  boundingObject Box {
+    size 0.8 0.8 0.1
+  }
+}
+TurtleBot3Burger {
+  translation -3.5 -3.5 0
+  rotation 0 1 0 0
+  controller "user_controlled_robot"
+  extensionSlot [
+    GPS {
+    }
+    InertialUnit {
+    }
+    RobotisLds01 {
+    }
+  ]
+}

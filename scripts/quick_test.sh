@@ -114,6 +114,9 @@ world_amcl_defaults() {
     office.wbt)
       printf '%s %s %s %s\n' 'office' '-4.35' '-5.35' '0.004641574238792719'
       ;;
+    confusing_maze.wbt)
+      printf '%s %s %s %s\n' 'confusing_maze' '-3.5' '-3.5' '0.0'
+      ;;
     *)
       printf '%s %s %s %s\n' 'arena' '0.0' '0.0' '0.0'
       ;;
@@ -498,6 +501,163 @@ print(
 PY
 }
 
+generate_confusing_maze_amcl_map() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "python3 is required to generate the confusing maze AMCL map." >&2
+    exit 1
+  fi
+
+  mkdir -p "$AMCL_MAP_DIR"
+  python3 - "$WORLD_PATH" "$AMCL_MAP_DIR" "$AMCL_MAP_BASENAME" <<'PY'
+from pathlib import Path
+import math
+import re
+import sys
+
+world_path = Path(sys.argv[1])
+outdir = Path(sys.argv[2])
+map_name = sys.argv[3]
+text = world_path.read_text(encoding='utf-8')
+
+number = r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
+resolution = 0.05
+wall_thickness = 0.1
+
+
+def extract_blocks(kind):
+    blocks = []
+    needle = f'{kind} {{'
+    cursor = 0
+    while True:
+        start = text.find(needle, cursor)
+        if start < 0:
+            return blocks
+
+        depth = 0
+        for index in range(start, len(text)):
+            if text[index] == '{':
+                depth += 1
+            elif text[index] == '}':
+                depth -= 1
+                if depth == 0:
+                    blocks.append(text[start:index + 1])
+                    cursor = index + 1
+                    break
+        else:
+            return blocks
+
+
+def parse_vector(block, label, default=(0.0, 0.0, 0.0)):
+    match = re.search(rf'^\s*{label}\s+({number})\s+({number})\s+({number})\s*$', block, re.M)
+    if not match:
+        return default
+    return tuple(float(value) for value in match.groups())
+
+
+def parse_box_size(block):
+    match = re.search(
+        rf'geometry\s+Box\s*\{{\s*size\s+({number})\s+({number})\s+({number})\s*',
+        block,
+        re.S,
+    )
+    if not match:
+        match = re.search(
+            rf'boundingObject\s+Box\s*\{{\s*size\s+({number})\s+({number})\s+({number})\s*',
+            block,
+            re.S,
+        )
+    if not match:
+        return None
+    return tuple(float(value) for value in match.groups())
+
+
+arena_blocks = extract_blocks('RectangleArena')
+if not arena_blocks:
+    raise SystemExit('No RectangleArena block found in confusing maze world.')
+
+arena_block = arena_blocks[0]
+floor_size_match = re.search(rf'^\s*floorSize\s+({number})\s+({number})\s*$', arena_block, re.M)
+if not floor_size_match:
+    raise SystemExit('No floorSize found in confusing maze world.')
+
+floor_width, floor_height = (float(value) for value in floor_size_match.groups())
+origin_x = -floor_width / 2.0
+origin_y = -floor_height / 2.0
+width = max(1, int(math.ceil(floor_width / resolution)))
+height = max(1, int(math.ceil(floor_height / resolution)))
+grid = [[254 for _ in range(width)] for _ in range(height)]
+
+
+def mark_cell(ix, iy):
+    if 0 <= ix < width and 0 <= iy < height:
+        grid[iy][ix] = 0
+
+
+def mark_rect(cx, cy, sx, sy, inflate=resolution / 2.0):
+    half_x = abs(sx) / 2.0 + inflate
+    half_y = abs(sy) / 2.0 + inflate
+    min_x = max(0, int(math.floor((cx - half_x - origin_x) / resolution)))
+    max_x = min(width - 1, int(math.ceil((cx + half_x - origin_x) / resolution)))
+    min_y = max(0, int(math.floor((cy - half_y - origin_y) / resolution)))
+    max_y = min(height - 1, int(math.ceil((cy + half_y - origin_y) / resolution)))
+    for iy in range(min_y, max_y + 1):
+        for ix in range(min_x, max_x + 1):
+            mark_cell(ix, iy)
+
+
+outer_walls = [
+    (0.0, floor_height / 2.0, floor_width, wall_thickness),
+    (0.0, -floor_height / 2.0, floor_width, wall_thickness),
+    (-floor_width / 2.0, 0.0, wall_thickness, floor_height),
+    (floor_width / 2.0, 0.0, wall_thickness, floor_height),
+]
+for wall in outer_walls:
+    mark_rect(*wall)
+
+wall_count = len(outer_walls)
+for block in extract_blocks('Solid'):
+    name_match = re.search(r'^\s*name\s+"([^"]+)"\s*$', block, re.M)
+    name = name_match.group(1).lower() if name_match else ''
+    if name in {'start', 'end'}:
+        continue
+
+    size = parse_box_size(block)
+    if size is None or size[2] <= 0.2:
+        continue
+
+    tx, ty, _ = parse_vector(block, 'translation')
+    mark_rect(tx, ty, size[0], size[1])
+    wall_count += 1
+
+pgm_path = outdir / f'{map_name}.pgm'
+with pgm_path.open('w', encoding='ascii') as handle:
+    handle.write('P2\n')
+    handle.write(f'{width} {height}\n')
+    handle.write('255\n')
+    for row in reversed(grid):
+        handle.write(' '.join(str(value) for value in row))
+        handle.write('\n')
+
+yaml_path = outdir / f'{map_name}.yaml'
+yaml_path.write_text(
+    '\n'.join(
+        [
+            f'image: {map_name}.pgm',
+            f'resolution: {resolution}',
+            f'origin: [{origin_x}, {origin_y}, 0.0]',
+            'negate: 0',
+            'occupied_thresh: 0.65',
+            'free_thresh: 0.2',
+        ]
+    )
+    + '\n',
+    encoding='ascii',
+)
+
+print(f'Generated {map_name}.yaml from {world_path.name} with {wall_count} wall segments')
+PY
+}
+
 find_webots_cmd() {
   if [ -n "$WEBOTS_CMD" ]; then
     printf '%s\n' "$WEBOTS_CMD"
@@ -601,6 +761,9 @@ if [ "$TEST_MODE" = "amcl" ]; then
   if [ "$WORLD_BASENAME" = "office.wbt" ]; then
     log_step "Generating the office AMCL map"
     generate_office_amcl_map
+  elif [ "$WORLD_BASENAME" = "confusing_maze.wbt" ]; then
+    log_step "Generating the confusing maze AMCL map"
+    generate_confusing_maze_amcl_map
   else
     log_step "Generating the AMCL test map"
     generate_amcl_map

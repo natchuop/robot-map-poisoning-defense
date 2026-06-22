@@ -9,6 +9,7 @@ This repo currently uses a TurtleBot3 Burger world in Webots and a ROS 2 bridge 
 - Live map-building world: `webots/worlds/testBuildingMapForRobot/turtlebot3_burger.wbt`
 - Known AMCL map: `webots/worlds/testRvizMap/amcl_map/arena.yaml` and `arena.pgm`
 - Office AMCL map: `webots/worlds/office/amcl_map/office.yaml` and `office.pgm`
+- Confusing maze AMCL map: `webots/worlds/confusingMaze/amcl_map/confusing_maze.yaml` and `confusing_maze.pgm`
 - Checkpoint patrol controller: `webots/robot_controllers/patrol_robot/patrol_robot.py`
 - User-controlled controller: `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`
 - Webots wrapper: `webots/worlds/controllers/patrol_robot/patrol_robot.py`
@@ -58,6 +59,8 @@ bash scripts/runTestBuildingMapForRobot.sh
 To launch the office world, point `RMPD_WEBOTS_WORLD` at `webots/worlds/office/office.wbt` before running the script.
 
 For convenience, `bash scripts/runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, the same RViz view as the quick test, and WASD user-controlled robot. The office robot starts at `x=-4.35`, `y=-5.35`, `yaw=0.00464`; the script publishes that configured AMCL initial pose and keeps the live `/live_map` overlay enabled so previously explored areas remain visible.
+
+For convenience, `bash scripts/runConfusingMaze.sh` launches `webots/worlds/confusingMaze/confusing_maze.wbt` with its generated AMCL map and the `user_controlled_robot` controller. The maze robot starts at `x=-3.5`, `y=-3.5`, `yaw=0.0`.
 
 Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes against the known map.
 

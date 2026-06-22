@@ -7,6 +7,7 @@ This repo is a ROS 2 + Webots demo for studying robot-to-robot map poisoning and
 - Run verification: `bash scripts/verify.sh`
 - After verification passes, run the main demo: `bash scripts/quick_test.sh`
 - Run the office demo: `bash scripts/runOffice.sh`
+- Run the confusing maze demo: `bash scripts/runConfusingMaze.sh`
 - Use the optional mapping path only if you still want the older map-building demo: `RMPD_TEST_MODE=mapping bash scripts/quick_test.sh`
 
 ## What You Need
@@ -74,5 +75,6 @@ That launches Webots, ROS 2, RViz, and the AMCL demo together. Press `Ctrl-C` in
 
 - `build/`, `install/`, and `log/` are generated and can be deleted safely.
 - `testRvizMap` uses `webots/robot_controllers/patrol_robot/patrol_robot.py`, the Nav2-capable checkpoint patrol controller.
-- `office` and `testBuildingMapForRobot` use `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`.
+- `office`, `testBuildingMapForRobot`, and `confusingMaze` use `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`.
 - `runOffice.sh` starts the office world at `(-4.35, -5.35, 0.00464)` and publishes that configured AMCL initial pose instead of assuming the robot starts at the origin.
+- `runConfusingMaze.sh` starts the maze world at `(-3.5, -3.5, 0.0)` and generates `webots/worlds/confusingMaze/amcl_map/confusing_maze.yaml`.
