@@ -14,31 +14,9 @@ CHECKPOINTS = {
     'B': (1.5267, -0.221987),
     'C': (-0.416565, -1.35783),
     'D': (-2.63149, -0.778393),
-    '_B_EXIT': (-1.05, 2.20),
-    '_B_CRUISE': (0.65, 1.75),
-    '_B_APPROACH': (1.55, 0.65),
-    '_D_APPROACH': (-1.65, -1.25),
-    '_A_RETURN_0': (-2.20, -0.20),
-    '_A_RETURN_1': (-1.45, 0.15),
-    '_A_RETURN_2': (-0.85, 0.55),
-    '_A_RETURN_3': (-0.90, 1.20),
 }
 
-CHECKPOINT_ROUTE = [
-    'A',
-    '_B_EXIT',
-    '_B_CRUISE',
-    '_B_APPROACH',
-    'B',
-    'C',
-    '_D_APPROACH',
-    'D',
-    '_A_RETURN_0',
-    '_A_RETURN_1',
-    '_A_RETURN_2',
-    '_A_RETURN_3',
-    'A',
-]
+CHECKPOINT_ROUTE = ['A', 'B', 'C', 'D', 'A']
 
 
 def wrap_angle(angle):

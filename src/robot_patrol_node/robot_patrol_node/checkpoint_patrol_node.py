@@ -26,47 +26,14 @@ CHECKPOINTS = {
     'B': Checkpoint(1.5267, -0.221987),
     'C': Checkpoint(-0.416565, -1.35783),
     'D': Checkpoint(-2.63149, -0.778393),
-    '_B_EXIT': Checkpoint(-1.05, 2.20),
-    '_B_CRUISE': Checkpoint(0.65, 1.75),
-    '_B_APPROACH': Checkpoint(1.55, 0.65),
-    '_D_APPROACH': Checkpoint(-1.65, -1.25),
-    '_A_RETURN_0': Checkpoint(-2.20, -0.20),
-    '_A_RETURN_1': Checkpoint(-1.45, 0.15),
-    '_A_RETURN_2': Checkpoint(-0.85, 0.55),
-    '_A_RETURN_3': Checkpoint(-0.90, 1.20),
 }
 
-HELPER_TARGETS = {
-    '_B_EXIT': 'B',
-    '_B_CRUISE': 'B',
-    '_B_APPROACH': 'B',
-    '_D_APPROACH': 'D',
-    '_A_RETURN_0': 'A',
-    '_A_RETURN_1': 'A',
-    '_A_RETURN_2': 'A',
-    '_A_RETURN_3': 'A',
-}
+HELPER_TARGETS = {}
 
-CHECKPOINT_ROUTE = [
-    'A',
-    '_B_EXIT',
-    '_B_CRUISE',
-    '_B_APPROACH',
-    'B',
-    'C',
-    '_D_APPROACH',
-    'D',
-    '_A_RETURN_0',
-    '_A_RETURN_1',
-    '_A_RETURN_2',
-    '_A_RETURN_3',
-    'A',
-]
+CHECKPOINT_ROUTE = ['A', 'B', 'C', 'D', 'A']
 VISIBLE_ROUTE = ['A', 'B', 'C', 'D', 'A']
 
-DEPARTURE_RECOVERIES = {
-    'A': (3.0, -0.10, -0.55),
-}
+DEPARTURE_RECOVERIES = {}
 
 
 class CheckpointPatrolNode(Node):
@@ -76,16 +43,18 @@ class CheckpointPatrolNode(Node):
         self.declare_parameter('loop', True)
         self.declare_parameter('frame_id', 'map')
         self.declare_parameter('goal_reached_radius', 0.52)
-        self.declare_parameter('helper_reached_radius', 0.75)
-        self.declare_parameter('helper_stalled_pass_radius', 0.95)
+        self.declare_parameter('helper_reached_radius', 0.50)
+        self.declare_parameter('helper_stalled_pass_radius', 0.65)
         self.declare_parameter('retry_delay_sec', 1.5)
         self.declare_parameter('stalled_timeout_sec', 12.0)
         self.declare_parameter('feedback_log_interval_sec', 5.0)
         self.declare_parameter('blocked_front_range_m', 0.30)
         self.declare_parameter('blocked_progress_timeout_sec', 4.0)
-        self.declare_parameter('retry_recovery_duration_sec', 1.4)
+        self.declare_parameter('retry_recovery_duration_sec', 0.0)
         self.declare_parameter('retry_recovery_linear_x', -0.10)
         self.declare_parameter('retry_recovery_angular_z', 0.75)
+        self.declare_parameter('contact_wait_timeout_sec', 3.0)
+        self.declare_parameter('contact_wait_radius', 0.16)
 
         self.loop = bool(self.get_parameter('loop').value)
         self.frame_id = str(self.get_parameter('frame_id').value)
@@ -112,6 +81,10 @@ class CheckpointPatrolNode(Node):
         self.retry_recovery_angular_z = float(
             self.get_parameter('retry_recovery_angular_z').value
         )
+        self.contact_wait_timeout_sec = float(
+            self.get_parameter('contact_wait_timeout_sec').value
+        )
+        self.contact_wait_radius = float(self.get_parameter('contact_wait_radius').value)
         self.route = list(CHECKPOINT_ROUTE)
 
         self.client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
@@ -162,6 +135,7 @@ class CheckpointPatrolNode(Node):
         self.retry_timer = None
         self.next_goal_timer = None
         self.departure_timer = None
+        self.contact_wait_timer = None
         self.departure_end_time = None
         self.departure_twist = None
         self.departure_followup = None
@@ -183,7 +157,7 @@ class CheckpointPatrolNode(Node):
         )
         self.get_logger().info(
             'Visible checkpoints complete only after Webots reports robot '
-            'footprint contact with the colored block.'
+            'center arrival at the colored block.'
         )
 
     def robot_pose_callback(self, msg):
@@ -230,11 +204,11 @@ class CheckpointPatrolNode(Node):
         distance = event.get('distance')
         if isinstance(distance, (int, float)):
             reason = (
-                'touching colored block in Webots at '
+                'centered on colored block in Webots at '
                 f'{float(distance):.2f} m from marker center'
             )
         else:
-            reason = 'touching colored block in Webots'
+            reason = 'centered on colored block in Webots'
 
         self.active_checkpoint_touched = True
         self.complete_active_checkpoint(reason)
@@ -305,6 +279,7 @@ class CheckpointPatrolNode(Node):
 
         self.cancel_timer('retry')
         self.cancel_timer('next')
+        self.cancel_timer('contact_wait')
 
         self.goal_sequence += 1
         sequence = self.goal_sequence
@@ -474,9 +449,15 @@ class CheckpointPatrolNode(Node):
                     self.retry_active_checkpoint(
                         'Nav2 succeeded before marker pose/contact was available'
                     )
+                elif distance[0] <= self.contact_wait_radius:
+                    self.wait_for_checkpoint_contact(
+                        sequence,
+                        f'Nav2 succeeded but Webots has not reported colored-block center arrival; '
+                        f'marker is {distance[0]:.2f} m away using {distance[1]}'
+                    )
                 else:
                     self.retry_active_checkpoint(
-                        f'Nav2 succeeded but Webots has not reported colored-block contact; '
+                        f'Nav2 succeeded but Webots has not reported colored-block center arrival; '
                         f'marker is {distance[0]:.2f} m away using {distance[1]}'
                     )
                 return
@@ -502,10 +483,28 @@ class CheckpointPatrolNode(Node):
 
         self.retry_active_checkpoint(f'Nav2 status {result.status}')
 
+    def wait_for_checkpoint_contact(self, sequence, reason):
+        self.cancel_timer('contact_wait')
+        self.get_logger().info(
+            f'Waiting up to {self.contact_wait_timeout_sec:.1f}s for Webots center arrival: '
+            f'{reason}'
+        )
+        self.contact_wait_timer = self.create_timer(
+            self.contact_wait_timeout_sec,
+            lambda seq=sequence, why=reason: self.contact_wait_timeout(seq, why),
+        )
+
+    def contact_wait_timeout(self, sequence, reason):
+        self.cancel_timer('contact_wait')
+        if sequence != self.active_goal_sequence:
+            return
+        self.retry_active_checkpoint(reason)
+
     def complete_active_checkpoint(self, reason):
         if self.active_goal_sequence is None:
             return
 
+        self.cancel_timer('contact_wait')
         checkpoint_name = self.active_checkpoint_name
         if checkpoint_name in HELPER_TARGETS:
             target_name = HELPER_TARGETS[checkpoint_name]
@@ -526,6 +525,7 @@ class CheckpointPatrolNode(Node):
         self.get_logger().info(message)
         self.publish_webots_checkpoint_event(message)
 
+        self.cmd_vel_pub.publish(Twist())
         if self.current_goal_handle is not None:
             self.current_goal_handle.cancel_goal_async()
 
@@ -539,12 +539,13 @@ class CheckpointPatrolNode(Node):
         if checkpoint_name in DEPARTURE_RECOVERIES:
             self.start_departure_recovery(checkpoint_name)
         else:
-            self.schedule_next_goal(0.25)
+            self.schedule_next_goal(0.75)
 
     def retry_active_checkpoint(self, reason):
         if self.active_goal_sequence is None:
             return
 
+        self.cancel_timer('contact_wait')
         checkpoint_name = self.active_checkpoint_name
         distance = self.distance_to_active_checkpoint()
         if (
@@ -562,6 +563,7 @@ class CheckpointPatrolNode(Node):
             f'Replanning checkpoint {checkpoint_name}: {reason}; retry {self.retry_count}'
         )
 
+        self.cmd_vel_pub.publish(Twist())
         if self.current_goal_handle is not None:
             self.current_goal_handle.cancel_goal_async()
 
@@ -592,8 +594,8 @@ class CheckpointPatrolNode(Node):
         if self.retry_recovery_duration_sec <= 0.0:
             return False
         if self.scan_front_min is None:
-            return self.retry_count >= 2
-        return self.scan_front_min <= self.blocked_front_range_m or self.retry_count >= 2
+            return False
+        return self.scan_front_min <= self.blocked_front_range_m
 
     def start_retry_recovery(self, checkpoint_name, reason):
         self.cancel_timer('departure')
@@ -678,6 +680,10 @@ class CheckpointPatrolNode(Node):
             self.next_goal_timer.cancel()
             self.destroy_timer(self.next_goal_timer)
             self.next_goal_timer = None
+        if timer_name == 'contact_wait' and self.contact_wait_timer is not None:
+            self.contact_wait_timer.cancel()
+            self.destroy_timer(self.contact_wait_timer)
+            self.contact_wait_timer = None
         if timer_name == 'departure':
             if self.departure_timer is not None:
                 self.departure_timer.cancel()

@@ -434,6 +434,84 @@ DEF START Solid {
   ]
   name "start"
   locked TRUE
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation 4.68147 2.77425 0.03
+  name "checkpoint_A"
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.2 0.2
+          emissiveColor 0.45 0.05 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation -1.80907 4.22736 0.03
+  name "checkpoint_B"
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.2 0.8 0.2
+          emissiveColor 0.05 0.35 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation -3.12341 -1.84476 0.03
+  name "checkpoint_C"
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.2 0.35 0.95
+          emissiveColor 0.05 0.1 0.45
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation 2.36735 -1.69319 0.03
+  name "checkpoint_D"
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.8 0.2
+          emissiveColor 0.45 0.35 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
 }
 DEF END Solid {
   translation 4.4 4.3 0.05
@@ -450,11 +528,13 @@ DEF END Solid {
   ]
   name "end"
   locked TRUE
+  boundingObject NULL
+  physics NULL
 }
 TurtleBot3Burger {
   translation -3.5 -3.5 0
   rotation 0 1 0 0
-  controller "user_controlled_robot"
+  controller "patrol_robot"
   extensionSlot [
     GPS {
     }
