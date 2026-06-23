@@ -117,6 +117,9 @@ world_amcl_defaults() {
     confusing_maze.wbt)
       printf '%s %s %s %s\n' 'confusing_maze' '-3.5' '-3.5' '0.0'
       ;;
+    sandbox.wbt)
+      printf '%s %s %s %s\n' 'sandbox' '2.0' '2.0' '0.0'
+      ;;
     *)
       printf '%s %s %s %s\n' 'arena' '0.0' '0.0' '0.0'
       ;;
@@ -501,9 +504,9 @@ print(
 PY
 }
 
-generate_confusing_maze_amcl_map() {
+generate_rectangular_arena_amcl_map() {
   if ! command -v python3 >/dev/null 2>&1; then
-    echo "python3 is required to generate the confusing maze AMCL map." >&2
+    echo "python3 is required to generate the rectangular arena AMCL map." >&2
     exit 1
   fi
 
@@ -554,6 +557,13 @@ def parse_vector(block, label, default=(0.0, 0.0, 0.0)):
     return tuple(float(value) for value in match.groups())
 
 
+def parse_rotation(block, default=(0.0, 0.0, 1.0, 0.0)):
+    match = re.search(rf'^\s*rotation\s+({number})\s+({number})\s+({number})\s+({number})\s*$', block, re.M)
+    if not match:
+        return default
+    return tuple(float(value) for value in match.groups())
+
+
 def parse_box_size(block):
     match = re.search(
         rf'geometry\s+Box\s*\{{\s*size\s+({number})\s+({number})\s+({number})\s*',
@@ -573,12 +583,12 @@ def parse_box_size(block):
 
 arena_blocks = extract_blocks('RectangleArena')
 if not arena_blocks:
-    raise SystemExit('No RectangleArena block found in confusing maze world.')
+    raise SystemExit(f'No RectangleArena block found in {world_path.name}.')
 
 arena_block = arena_blocks[0]
 floor_size_match = re.search(rf'^\s*floorSize\s+({number})\s+({number})\s*$', arena_block, re.M)
 if not floor_size_match:
-    raise SystemExit('No floorSize found in confusing maze world.')
+    raise SystemExit(f'No floorSize found in {world_path.name}.')
 
 floor_width, floor_height = (float(value) for value in floor_size_match.groups())
 origin_x = -floor_width / 2.0
@@ -593,16 +603,34 @@ def mark_cell(ix, iy):
         grid[iy][ix] = 0
 
 
-def mark_rect(cx, cy, sx, sy, inflate=resolution / 2.0):
+def yaw_from_rotation(rotation):
+    axis_x, axis_y, axis_z, angle = rotation
+    if abs(axis_z) >= max(abs(axis_x), abs(axis_y)):
+        return angle if axis_z >= 0 else -angle
+    return 0.0
+
+
+def mark_rotated_rect(cx, cy, sx, sy, yaw, inflate=resolution / 2.0):
     half_x = abs(sx) / 2.0 + inflate
     half_y = abs(sy) / 2.0 + inflate
-    min_x = max(0, int(math.floor((cx - half_x - origin_x) / resolution)))
-    max_x = min(width - 1, int(math.ceil((cx + half_x - origin_x) / resolution)))
-    min_y = max(0, int(math.floor((cy - half_y - origin_y) / resolution)))
-    max_y = min(height - 1, int(math.ceil((cy + half_y - origin_y) / resolution)))
+    cos_yaw = math.cos(yaw)
+    sin_yaw = math.sin(yaw)
+    span_x = abs(half_x * cos_yaw) + abs(half_y * sin_yaw)
+    span_y = abs(half_x * sin_yaw) + abs(half_y * cos_yaw)
+    min_x = max(0, int(math.floor((cx - span_x - origin_x) / resolution)))
+    max_x = min(width - 1, int(math.ceil((cx + span_x - origin_x) / resolution)))
+    min_y = max(0, int(math.floor((cy - span_y - origin_y) / resolution)))
+    max_y = min(height - 1, int(math.ceil((cy + span_y - origin_y) / resolution)))
     for iy in range(min_y, max_y + 1):
+        world_y = origin_y + (iy + 0.5) * resolution
+        dy = world_y - cy
         for ix in range(min_x, max_x + 1):
-            mark_cell(ix, iy)
+            world_x = origin_x + (ix + 0.5) * resolution
+            dx = world_x - cx
+            local_x = dx * cos_yaw + dy * sin_yaw
+            local_y = -dx * sin_yaw + dy * cos_yaw
+            if abs(local_x) <= half_x and abs(local_y) <= half_y:
+                mark_cell(ix, iy)
 
 
 outer_walls = [
@@ -612,7 +640,7 @@ outer_walls = [
     (floor_width / 2.0, 0.0, wall_thickness, floor_height),
 ]
 for wall in outer_walls:
-    mark_rect(*wall)
+    mark_rotated_rect(*wall, 0.0)
 
 wall_count = len(outer_walls)
 for block in extract_blocks('Solid'):
@@ -626,7 +654,8 @@ for block in extract_blocks('Solid'):
         continue
 
     tx, ty, _ = parse_vector(block, 'translation')
-    mark_rect(tx, ty, size[0], size[1])
+    yaw = yaw_from_rotation(parse_rotation(block))
+    mark_rotated_rect(tx, ty, size[0], size[1], yaw)
     wall_count += 1
 
 pgm_path = outdir / f'{map_name}.pgm'
@@ -761,9 +790,9 @@ if [ "$TEST_MODE" = "amcl" ]; then
   if [ "$WORLD_BASENAME" = "office.wbt" ]; then
     log_step "Generating the office AMCL map"
     generate_office_amcl_map
-  elif [ "$WORLD_BASENAME" = "confusing_maze.wbt" ]; then
-    log_step "Generating the confusing maze AMCL map"
-    generate_confusing_maze_amcl_map
+  elif [ "$WORLD_BASENAME" = "confusing_maze.wbt" ] || [ "$WORLD_BASENAME" = "sandbox.wbt" ]; then
+    log_step "Generating the rectangular arena AMCL map"
+    generate_rectangular_arena_amcl_map
   else
     log_step "Generating the AMCL test map"
     generate_amcl_map

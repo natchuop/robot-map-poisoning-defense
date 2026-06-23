@@ -28,7 +28,7 @@ Visualization Manager:
         Value: Lines
       Name: Grid
       Plane: XY
-      Plane Cell Count: 12
+      Plane Cell Count: 140
       Reference Frame: <Fixed Frame>
     - Alpha: 1
       Class: rviz_default_plugins/Map
@@ -106,7 +106,7 @@ Views:
     Class: rviz_default_plugins/TopDownOrtho
     Name: Current View
     Near Clip Distance: 0.01
-    Scale: 24
+    Scale: 110
     Target Frame: map
     Value: TopDownOrtho (rviz_default_plugins)
     X: 0

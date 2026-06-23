@@ -50,21 +50,27 @@ By default this launches the AMCL smoke test. If you want the older mapping path
 RMPD_TEST_MODE=mapping bash scripts/quick_test.sh
 ```
 
-For the new live robot-built map demo, run:
+For the test-building world with the same remembered-map overlay as the quick test, run:
 
 ```bash
 bash scripts/runTestBuildingMapForRobot.sh
 ```
 
+If you specifically want the older live-mapping-only flow, run:
+
+```bash
+RMPD_TEST_MODE=mapping bash scripts/runTestBuildingMapForRobot.sh
+```
+
 To launch the office world, point `RMPD_WEBOTS_WORLD` at `webots/worlds/office/office.wbt` before running the script.
 
-For convenience, `bash scripts/runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, the same RViz view as the quick test, and WASD user-controlled robot. The office robot starts at `x=-4.35`, `y=-5.35`, `yaw=0.00464`; the script publishes that configured AMCL initial pose and keeps the live `/live_map` overlay enabled so previously explored areas remain visible.
+For convenience, `bash scripts/runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, the office RViz view, and WASD user-controlled robot. The office robot starts at `x=-4.35`, `y=-5.35`, `yaw=0.00464`; the script publishes that configured AMCL initial pose and keeps the live `/live_map` overlay enabled so previously explored areas remain visible.
 
 For convenience, `bash scripts/runConfusingMaze.sh` launches `webots/worlds/confusingMaze/confusing_maze.wbt` with its generated AMCL map and the `user_controlled_robot` controller. The maze robot starts at `x=-3.5`, `y=-3.5`, `yaw=0.0`.
 
 Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes against the known map.
 
-In default AMCL mode, RViz uses `amcl.rviz` and displays both the static `/map` and the robot-built `/live_map`. The live map uses RViz's costmap color scheme and can appear pink or purple. The office script uses the same RViz config but office-specific startup pose settings so the remembered map remains visible in the office world. The test-building script uses mapping mode, so it only shows the live occupancy map as `/map`.
+In default AMCL mode, RViz uses `amcl.rviz` and displays both the static `/map` and the robot-built `/live_map`. The live map uses RViz's costmap color scheme and can appear pink or purple. The office script uses `office_amcl.rviz` plus office-specific startup pose settings so the larger office map and remembered overlay remain visible. The test-building script now also uses AMCL mode by default so it matches the quick-test remembered-map behavior.
 
 ## Controller Contract
 

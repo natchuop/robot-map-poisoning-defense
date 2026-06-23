@@ -27,7 +27,7 @@ Visualization Manager:
         Value: Lines
       Name: Grid
       Plane: XY
-      Plane Cell Count: 10
+      Plane Cell Count: 60
       Reference Frame: <Fixed Frame>
     - Class: rviz_default_plugins/Map
       Color Scheme: map
@@ -76,7 +76,7 @@ Visualization Manager:
 Views:
   Current:
     Class: rviz_default_plugins/Orbit
-    Distance: 10
+    Distance: 32
     Enable Stereo Rendering:
       Value: false
     Focal Point:

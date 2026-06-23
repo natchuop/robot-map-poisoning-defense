@@ -11,6 +11,7 @@ import rclpy
 from rclpy.action import ActionClient
 from rclpy.duration import Duration
 from rclpy.node import Node
+from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String
 
 
@@ -78,8 +79,13 @@ class CheckpointPatrolNode(Node):
         self.declare_parameter('helper_reached_radius', 0.75)
         self.declare_parameter('helper_stalled_pass_radius', 0.95)
         self.declare_parameter('retry_delay_sec', 1.5)
-        self.declare_parameter('stalled_timeout_sec', 20.0)
+        self.declare_parameter('stalled_timeout_sec', 12.0)
         self.declare_parameter('feedback_log_interval_sec', 5.0)
+        self.declare_parameter('blocked_front_range_m', 0.30)
+        self.declare_parameter('blocked_progress_timeout_sec', 4.0)
+        self.declare_parameter('retry_recovery_duration_sec', 1.4)
+        self.declare_parameter('retry_recovery_linear_x', -0.10)
+        self.declare_parameter('retry_recovery_angular_z', 0.75)
 
         self.loop = bool(self.get_parameter('loop').value)
         self.frame_id = str(self.get_parameter('frame_id').value)
@@ -92,6 +98,19 @@ class CheckpointPatrolNode(Node):
         self.stalled_timeout_sec = float(self.get_parameter('stalled_timeout_sec').value)
         self.feedback_log_interval_sec = float(
             self.get_parameter('feedback_log_interval_sec').value
+        )
+        self.blocked_front_range_m = float(self.get_parameter('blocked_front_range_m').value)
+        self.blocked_progress_timeout_sec = float(
+            self.get_parameter('blocked_progress_timeout_sec').value
+        )
+        self.retry_recovery_duration_sec = float(
+            self.get_parameter('retry_recovery_duration_sec').value
+        )
+        self.retry_recovery_linear_x = float(
+            self.get_parameter('retry_recovery_linear_x').value
+        )
+        self.retry_recovery_angular_z = float(
+            self.get_parameter('retry_recovery_angular_z').value
         )
         self.route = list(CHECKPOINT_ROUTE)
 
@@ -106,6 +125,12 @@ class CheckpointPatrolNode(Node):
             PoseWithCovarianceStamped,
             '/amcl_pose',
             self.amcl_pose_callback,
+            10,
+        )
+        self.scan_subscription = self.create_subscription(
+            LaserScan,
+            '/scan',
+            self.scan_callback,
             10,
         )
         self.active_checkpoint_pub = self.create_publisher(String, '/active_checkpoint', 10)
@@ -124,6 +149,9 @@ class CheckpointPatrolNode(Node):
 
         self.current_robot_pose = None
         self.current_amcl_pose = None
+        self.scan_front_min = None
+        self.scan_left_min = None
+        self.scan_right_min = None
         self.current_index = 0
         self.retry_count = 0
         self.started = False
@@ -136,6 +164,7 @@ class CheckpointPatrolNode(Node):
         self.departure_timer = None
         self.departure_end_time = None
         self.departure_twist = None
+        self.departure_followup = None
         self.last_feedback_log_time = None
         self.last_progress_distance = None
         self.last_progress_time = None
@@ -165,6 +194,22 @@ class CheckpointPatrolNode(Node):
         pose.header = msg.header
         pose.pose = msg.pose.pose
         self.current_amcl_pose = pose
+
+    def scan_callback(self, msg):
+        self.scan_front_min = self.scan_sector_min(msg, -0.20, 0.20)
+        self.scan_left_min = self.scan_sector_min(msg, 0.45, 1.20)
+        self.scan_right_min = self.scan_sector_min(msg, -1.20, -0.45)
+
+    @staticmethod
+    def scan_sector_min(scan, angle_min, angle_max):
+        finite = []
+        angle = float(scan.angle_min)
+        increment = float(scan.angle_increment)
+        for value in scan.ranges:
+            if angle_min <= angle <= angle_max and math.isfinite(value):
+                finite.append(float(value))
+            angle += increment
+        return min(finite) if finite else None
 
     def checkpoint_contact_callback(self, msg):
         if self.active_goal_sequence is None or not self.active_checkpoint_name:
@@ -352,6 +397,16 @@ class CheckpointPatrolNode(Node):
             self.stalled_retry_started = False
         elif self.last_progress_time is not None and not self.stalled_retry_started:
             stalled_for = (now - self.last_progress_time).nanoseconds / 1_000_000_000.0
+            if (
+                self.scan_front_min is not None
+                and self.scan_front_min <= self.blocked_front_range_m
+                and stalled_for >= self.blocked_progress_timeout_sec
+            ):
+                self.stalled_retry_started = True
+                self.retry_active_checkpoint(
+                    f'blocked ahead at {self.scan_front_min:.2f} m for {stalled_for:.0f}s'
+                )
+                return
             if stalled_for >= self.stalled_timeout_sec:
                 self.stalled_retry_started = True
                 self.retry_active_checkpoint(f'no progress for {stalled_for:.0f}s')
@@ -513,7 +568,10 @@ class CheckpointPatrolNode(Node):
         self.active_goal_sequence = None
         self.current_goal_handle = None
         self.publish_active_checkpoint('')
-        self.schedule_retry()
+        if self.should_run_retry_recovery():
+            self.start_retry_recovery(checkpoint_name, reason)
+        else:
+            self.schedule_retry()
 
     def start_departure_recovery(self, checkpoint_name):
         self.cancel_timer('departure')
@@ -523,11 +581,46 @@ class CheckpointPatrolNode(Node):
         twist.angular.z = angular_z
         self.departure_twist = twist
         self.departure_end_time = self.get_clock().now() + Duration(seconds=duration)
+        self.departure_followup = 'next'
         self.get_logger().info(
             f'Departing checkpoint {checkpoint_name}: recovery cmd_vel '
             f'linear={linear_x:.2f}, angular={angular_z:.2f} for {duration:.1f}s'
         )
         self.departure_timer = self.create_timer(0.1, self.departure_recovery_tick)
+
+    def should_run_retry_recovery(self):
+        if self.retry_recovery_duration_sec <= 0.0:
+            return False
+        if self.scan_front_min is None:
+            return self.retry_count >= 2
+        return self.scan_front_min <= self.blocked_front_range_m or self.retry_count >= 2
+
+    def start_retry_recovery(self, checkpoint_name, reason):
+        self.cancel_timer('departure')
+        twist = Twist()
+        twist.linear.x = self.retry_recovery_linear_x
+        turn_direction = self.choose_recovery_turn_direction(checkpoint_name)
+        twist.angular.z = turn_direction * abs(self.retry_recovery_angular_z)
+        self.departure_twist = twist
+        self.departure_end_time = (
+            self.get_clock().now() + Duration(seconds=self.retry_recovery_duration_sec)
+        )
+        self.departure_followup = 'retry'
+        self.get_logger().info(
+            f'Unsticking before retrying {checkpoint_name}: '
+            f'linear={twist.linear.x:.2f}, angular={twist.angular.z:.2f} '
+            f'for {self.retry_recovery_duration_sec:.1f}s after {reason}'
+        )
+        self.departure_timer = self.create_timer(0.1, self.departure_recovery_tick)
+
+    def choose_recovery_turn_direction(self, checkpoint_name):
+        if self.scan_left_min is None and self.scan_right_min is None:
+            return -1.0 if checkpoint_name == 'A' else 1.0
+        if self.scan_left_min is None:
+            return 1.0
+        if self.scan_right_min is None:
+            return -1.0
+        return -1.0 if self.scan_left_min >= self.scan_right_min else 1.0
 
     def departure_recovery_tick(self):
         if self.departure_end_time is None or self.departure_twist is None:
@@ -536,10 +629,15 @@ class CheckpointPatrolNode(Node):
 
         if self.get_clock().now() >= self.departure_end_time:
             self.cmd_vel_pub.publish(Twist())
+            followup = self.departure_followup
             self.departure_end_time = None
             self.departure_twist = None
+            self.departure_followup = None
             self.cancel_timer('departure')
-            self.schedule_next_goal(0.2)
+            if followup == 'retry':
+                self.schedule_retry()
+            else:
+                self.schedule_next_goal(0.2)
             return
 
         self.cmd_vel_pub.publish(self.departure_twist)
@@ -587,6 +685,7 @@ class CheckpointPatrolNode(Node):
                 self.departure_timer = None
             self.departure_end_time = None
             self.departure_twist = None
+            self.departure_followup = None
 
 
 def main(args=None):
