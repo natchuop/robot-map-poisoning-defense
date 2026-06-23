@@ -25,8 +25,8 @@ BRIDGE_PORT = int(os.environ.get('WEBOTS_BRIDGE_PORT', '5005'))
 
 WHEEL_RADIUS = float(os.environ.get('WEBOTS_WHEEL_RADIUS', '0.033'))
 WHEEL_BASE = float(os.environ.get('WEBOTS_WHEEL_BASE', '0.16'))
-MAX_WHEEL_SPEED = float(os.environ.get('WEBOTS_MAX_WHEEL_SPEED', '6.6'))
-CMD_VEL_SCALE = float(os.environ.get('WEBOTS_CMD_VEL_SCALE', '2.0'))
+DEFAULT_MAX_WHEEL_SPEED = float(os.environ.get('WEBOTS_MAX_WHEEL_SPEED', '1000.0'))
+CMD_VEL_SCALE = float(os.environ.get('WEBOTS_CMD_VEL_SCALE', '4.0'))
 CMD_TIMEOUT_SEC = float(os.environ.get('WEBOTS_CMD_TIMEOUT_SEC', '1.0'))
 LOG_INTERVAL_STEPS = int(os.environ.get('WEBOTS_LOG_INTERVAL_STEPS', '300'))
 CHECKPOINT_TOUCH_ROBOT_RADIUS = float(os.environ.get('WEBOTS_CHECKPOINT_TOUCH_ROBOT_RADIUS', '0.18'))
@@ -119,14 +119,14 @@ def checkpoint_touch_event(checkpoint_name, robot_x, robot_y):
     }
 
 
-def cmd_vel_to_wheel_speeds(linear_x, angular_z):
+def cmd_vel_to_wheel_speeds(linear_x, angular_z, max_wheel_speed):
     linear_x *= CMD_VEL_SCALE
     angular_z *= CMD_VEL_SCALE
     left_speed = (linear_x - angular_z * WHEEL_BASE / 2.0) / WHEEL_RADIUS
     right_speed = (linear_x + angular_z * WHEEL_BASE / 2.0) / WHEEL_RADIUS
 
-    left_speed = clamp(left_speed, -MAX_WHEEL_SPEED, MAX_WHEEL_SPEED)
-    right_speed = clamp(right_speed, -MAX_WHEEL_SPEED, MAX_WHEEL_SPEED)
+    left_speed = clamp(left_speed, -max_wheel_speed, max_wheel_speed)
+    right_speed = clamp(right_speed, -max_wheel_speed, max_wheel_speed)
 
     return left_speed, right_speed
 
@@ -360,6 +360,11 @@ def main():
         left_motor.setPosition(float('inf'))
         right_motor.setVelocity(0.0)
         left_motor.setVelocity(0.0)
+        max_wheel_speed = min(
+            DEFAULT_MAX_WHEEL_SPEED,
+            float(left_motor.getMaxVelocity()),
+            float(right_motor.getMaxVelocity()),
+        )
 
         lidar_width = lidar.getHorizontalResolution()
         lidar_fov = float(lidar.getFov())
@@ -379,6 +384,11 @@ def main():
             flush=True,
         )
         print('GPS, IMU, LiDAR, and cmd_vel motor control initialized', flush=True)
+        print(
+            f'patrol_robot wheel speed cap {max_wheel_speed:.2f} rad/s '
+            f'(cmd_vel_scale={CMD_VEL_SCALE:.2f})',
+            flush=True,
+        )
 
     except Exception as exc:
         print(f'controller startup failed: {exc}', flush=True)
@@ -408,6 +418,7 @@ def main():
         left_speed, right_speed = cmd_vel_to_wheel_speeds(
             current_linear_x,
             current_angular_z,
+            max_wheel_speed,
         )
 
         left_motor.setVelocity(left_speed)

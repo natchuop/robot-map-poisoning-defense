@@ -23,6 +23,8 @@ def generate_launch_description():
     start_live_mapping = LaunchConfiguration('start_live_mapping')
     live_map_width_m = LaunchConfiguration('live_map_width_m')
     live_map_height_m = LaunchConfiguration('live_map_height_m')
+    live_map_origin_x = LaunchConfiguration('live_map_origin_x')
+    live_map_origin_y = LaunchConfiguration('live_map_origin_y')
 
     pkg_share = FindPackageShare('robot_patrol_node').find('robot_patrol_node')
 
@@ -43,6 +45,8 @@ def generate_launch_description():
         DeclareLaunchArgument('start_live_mapping', default_value='true'),
         DeclareLaunchArgument('live_map_width_m', default_value='8.0'),
         DeclareLaunchArgument('live_map_height_m', default_value='8.0'),
+        DeclareLaunchArgument('live_map_origin_x', default_value='nan'),
+        DeclareLaunchArgument('live_map_origin_y', default_value='nan'),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(amcl_launch),
@@ -65,6 +69,16 @@ def generate_launch_description():
             }.items(),
         ),
 
+        Node(
+            package='robot_patrol_node',
+            executable='localized_pose2d',
+            output='screen',
+            condition=IfCondition(start_live_mapping),
+            parameters=[{
+                'input_topic': '/amcl_pose',
+                'output_topic': '/localized_pose',
+            }],
+        ),
 
         Node(
             package='robot_patrol_node',
@@ -79,9 +93,26 @@ def generate_launch_description():
                 'map_frame': 'map',
                 'publish_tf': False,
                 'occupancy_mode': 'scored',
-                'require_pose_update': False,
+                'require_pose_update': True,
+                'hit_score_increment': 6,
+                'free_score_decrement': 1,
+                'occupied_score_threshold': 10,
+                'free_score_threshold': -4,
+                'score_min': -8,
+                'score_max': 40,
+                'clear_on_max_range': False,
+                'ray_end_trim_m': 0.10,
+                'occupied_radius_cells': 1,
+                'auto_expand_map': True,
+                'expansion_padding_m': 1.0,
+                'max_map_width_m': 120.0,
+                'max_map_height_m': 120.0,
+                'max_mapping_angular_speed_rad_s': 0.45,
+                'angular_settle_time_s': 0.20,
                 'map_width_m': live_map_width_m,
                 'map_height_m': live_map_height_m,
+                'map_origin_x': live_map_origin_x,
+                'map_origin_y': live_map_origin_y,
                 'resolution': 0.05,
             }],
         ),

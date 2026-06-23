@@ -433,9 +433,7 @@ DEF START Solid {
     }
   ]
   name "start"
-  boundingObject Box {
-    size 0.8 0.8 0.1
-  }
+  locked TRUE
 }
 DEF END Solid {
   translation 4.4 4.3 0.05
@@ -451,9 +449,7 @@ DEF END Solid {
     }
   ]
   name "end"
-  boundingObject Box {
-    size 0.8 0.8 0.1
-  }
+  locked TRUE
 }
 TurtleBot3Burger {
   translation -3.5 -3.5 0

@@ -8,8 +8,7 @@ from controller import Keyboard, Robot
 
 
 TIME_STEP = 64
-DRIVE_SPEED = float(os.environ.get('WEBOTS_DRIVE_SPEED', '3.6'))
-TURN_SPEED = float(os.environ.get('WEBOTS_TURN_SPEED', '2.4'))
+DEFAULT_TURN_SPEED_RATIO = float(os.environ.get('WEBOTS_TURN_SPEED_RATIO', '0.67'))
 LOG_INTERVAL_STEPS = int(os.environ.get('WEBOTS_LOG_INTERVAL_STEPS', '20'))
 ROBOT_ID = os.environ.get('WEBOTS_ROBOT_ID', os.environ.get('ROBOT_NAME', 'robot_1'))
 MAP_ID = os.environ.get('WEBOTS_MAP_ID', '').strip()
@@ -32,6 +31,17 @@ DEBUG_FRAME = os.environ.get('WEBOTS_DEBUG_FRAME', '').strip().lower() in {'1', 
 
 def normalize_angle(angle):
     return math.atan2(math.sin(angle), math.cos(angle))
+
+
+def clamp(value, low, high):
+    return max(low, min(high, value))
+
+
+def env_float(name, default):
+    value = os.environ.get(name)
+    if value is None or not str(value).strip():
+        return default
+    return float(value)
 
 
 def local_forward_vector():
@@ -221,6 +231,15 @@ def main():
         left_motor.setPosition(float('inf'))
         right_motor.setVelocity(0.0)
         left_motor.setVelocity(0.0)
+        max_wheel_speed = min(
+            float(left_motor.getMaxVelocity()),
+            float(right_motor.getMaxVelocity()),
+        )
+        drive_speed = min(env_float('WEBOTS_DRIVE_SPEED', max_wheel_speed), max_wheel_speed)
+        turn_speed = min(
+            env_float('WEBOTS_TURN_SPEED', drive_speed * DEFAULT_TURN_SPEED_RATIO),
+            max_wheel_speed,
+        )
 
         keyboard = Keyboard()
         keyboard.enable(timestep)
@@ -235,6 +254,11 @@ def main():
         print(f'ROS bridge targets {", ".join(f"tcp://{target}:{BRIDGE_PORT}" for target in BRIDGE_TARGETS)}', flush=True)
         print('GPS, IMU, LiDAR, and keyboard initialized', flush=True)
         print('keyboard teleop ready: W forward, S backward, A left, D right', flush=True)
+        print(
+            f'user_controlled_robot wheel speed cap {max_wheel_speed:.2f} rad/s '
+            f'(drive={drive_speed:.2f}, turn={turn_speed:.2f})',
+            flush=True,
+        )
     except Exception as exc:
         print(f'controller startup failed: {exc}', flush=True)
         raise
@@ -256,17 +280,17 @@ def main():
             angular = 0.0
 
             if forward and not backward:
-                linear += DRIVE_SPEED
+                linear += drive_speed
             elif backward and not forward:
-                linear -= DRIVE_SPEED
+                linear -= drive_speed
 
             if turn_left and not turn_right:
-                angular += TURN_SPEED
+                angular += turn_speed
             elif turn_right and not turn_left:
-                angular -= TURN_SPEED
+                angular -= turn_speed
 
-            left_speed = linear - angular
-            right_speed = linear + angular
+            left_speed = clamp(linear - angular, -max_wheel_speed, max_wheel_speed)
+            right_speed = clamp(linear + angular, -max_wheel_speed, max_wheel_speed)
 
             gps_values = gps.getValues()
             robot_x = gps_values[0]

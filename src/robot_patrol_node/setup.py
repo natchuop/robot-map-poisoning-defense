@@ -35,6 +35,7 @@ setup(
         'console_scripts': [
             'initial_pose_publisher = robot_patrol_node.initial_pose_publisher_node:main',
             'map_builder = robot_patrol_node.map_builder_node:main',
+            'localized_pose2d = robot_patrol_node.localized_pose2d_node:main',
             'pose_to_odom = robot_patrol_node.pose_to_odom_node:main',
             'udp_bridge = robot_patrol_node.udp_bridge_node:main',
             'checkpoint_patrol = robot_patrol_node.checkpoint_patrol_node:main',

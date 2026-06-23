@@ -19,7 +19,7 @@ class UdpBridgeNode(Node):
         self.declare_parameter('listen_host', '0.0.0.0')
         self.declare_parameter('listen_port', 5005)
         self.declare_parameter('scan_frame', 'laser')
-        self.declare_parameter('max_publish_hz', 15.0)
+        self.declare_parameter('max_publish_hz', 25.0)
 
         self.listen_host = self.get_parameter('listen_host').value
         self.listen_port = int(self.get_parameter('listen_port').value)
@@ -295,7 +295,7 @@ class UdpBridgeNode(Node):
             )
         )
         scan_msg.time_increment = 0.0
-        scan_msg.scan_time = 1.0 / max(self.max_publish_hz, 1.0)
+        scan_msg.scan_time = float(scan.get('scan_time', 1.0 / max(self.max_publish_hz, 1.0)))
         scan_msg.range_min = float(scan.get('range_min', 0.05))
         scan_msg.range_max = float(scan.get('range_max', 4.0))
         scan_msg.ranges = [float(value) for value in ranges]

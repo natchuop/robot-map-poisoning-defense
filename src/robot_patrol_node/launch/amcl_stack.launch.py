@@ -36,7 +36,7 @@ def generate_launch_description():
         DeclareLaunchArgument('initial_pose_yaw', default_value='0.0'),
         DeclareLaunchArgument('initial_pose_use_odom', default_value='true'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
-        DeclareLaunchArgument('bridge_publish_hz', default_value='15.0'),
+        DeclareLaunchArgument('bridge_publish_hz', default_value='25.0'),
 
         Node(
             package='robot_patrol_node',

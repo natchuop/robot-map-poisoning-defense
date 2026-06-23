@@ -62,7 +62,7 @@ bash scripts/quick_test.sh
 
 That launches Webots, ROS 2, RViz, and the AMCL demo together. Press `Ctrl-C` in the terminal to close everything. 
 
-`quick_test.sh` launches the full AMCL/Nav2 demo, so RViz shows the static `/map` plus the live `/live_map` overlay. The overlay uses RViz's costmap colors, which can appear pink or purple. `runOffice.sh` uses the same RViz view with office-specific startup pose settings, so it keeps the remembered LiDAR map visible while localizing in the office world. `runTestBuildingMapForRobot.sh` uses live mapping mode, so it shows the robot-built map without the AMCL/Nav2 overlay.
+`quick_test.sh` launches the full AMCL/Nav2 demo, so RViz shows the static `/map` plus the live `/live_map` overlay. The overlay uses RViz's costmap colors, which can appear pink or purple. `runOffice.sh` now uses the office-specific RViz view and startup pose settings so the larger office map and remembered LiDAR overlay stay visible. `runTestBuildingMapForRobot.sh` now follows the same AMCL + live `/live_map` pattern by default; set `RMPD_TEST_MODE=mapping` if you want the older live-mapping-only path.
 
 ## Project Files
 
