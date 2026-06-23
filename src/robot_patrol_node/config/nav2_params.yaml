@@ -18,7 +18,8 @@ controller_server:
       stateful: false
 
     FollowPath:
-      plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
+      plugin: dwb_core::DWBLocalPlanner
+      critics: ["RotateToGoal", "Oscillation", "ObstacleFootprint", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
       desired_linear_vel: 0.18
       lookahead_dist: 0.38
       min_lookahead_dist: 0.24

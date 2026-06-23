@@ -11,8 +11,8 @@ WorldInfo {
   basicTimeStep 64
 }
 Viewpoint {
-  orientation -0.3388730418566172 0.22709100191065382 0.9130140953753444 2.0434359745725845
-  position 2.5101352111946875 -6.620505104482779 5.314468032804468
+  orientation -0.21454348474018958 0.14589405998388233 0.9657567066383518 1.9794024067487057
+  position 2.3472095226630176 1.121572074471091 0.44096300993843346
   follow "TurtleBot3Burger"
   followType "Pan and Tilt Shot"
 }
@@ -204,16 +204,16 @@ DEF OBS1 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.3 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs1"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS2 Solid {
@@ -221,16 +221,16 @@ DEF OBS2 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.1 0.5 0.8
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs2"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS3 Solid {
@@ -238,16 +238,16 @@ DEF OBS3 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.2 0.8 0.3
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs3"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS4 Solid {
@@ -255,10 +255,10 @@ DEF OBS4 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.8 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
@@ -272,16 +272,16 @@ DEF OBS4_1 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.8 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs4(1)"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS4_2 Solid {
@@ -289,16 +289,16 @@ DEF OBS4_2 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.8 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs4(2)"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS4_3 Solid {
@@ -306,16 +306,16 @@ DEF OBS4_3 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.8 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs4(3)"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS4_4 Solid {
@@ -323,16 +323,16 @@ DEF OBS4_4 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.8 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs4(4)"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS4_5 Solid {
@@ -340,16 +340,16 @@ DEF OBS4_5 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.8 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs4(5)"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS4_6 Solid {
@@ -357,16 +357,16 @@ DEF OBS4_6 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.8 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs4(6)"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS4_7 Solid {
@@ -374,16 +374,16 @@ DEF OBS4_7 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.8 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs4(7)"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS4_8 Solid {
@@ -391,16 +391,16 @@ DEF OBS4_8 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.8 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs4(8)"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS4_9 Solid {
@@ -408,16 +408,16 @@ DEF OBS4_9 Solid {
   children [
     Shape {
       appearance PBRAppearance {
-        baseColor 0.8 0.8 0.1
+        baseColor 0.55 0.27 0.07
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs4(9)"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 DEF OBS5 Solid {
@@ -428,18 +428,39 @@ DEF OBS5 Solid {
         baseColor 0.8 0.1 0.8
       }
       geometry Box {
-        size 0.16 0.16 0.12
+        size 0.16 0.16 0.4
       }
     }
   ]
   name "obs5"
   boundingObject Box {
-    size 0.16 0.16 0.12
+    size 0.16 0.16 0.4
   }
 }
 TurtleBot3Burger {
-  translation 2 2 0
-  rotation 0 1 0 0
+  hidden position_0_0 1.0374876005908189e-09
+  hidden position_0_1 1.0200824379776625e-09
+  hidden position_0_2 2.4608072764200237e-06
+  hidden position2_0_2 0.0012337026434980916
+  hidden position3_0_2 4.008871473192077e-05
+  hidden linearVelocity_0 -6.0341403834868476e-05 1.2107456001285328e-07 -0.00010474569593280174
+  hidden angularVelocity_0 -2.5249671723903796e-06 -0.0012498154409710724 2.4933274040575456e-08
+  hidden position_3_0 63705.71775995754
+  hidden position_3_1 127321.43615991515
+  hidden rotation_4 0.940117465391062 -0.24101734845943537 -0.24101823376721568 4.650674072082983
+  hidden translation_5 -0.022354023184941434 -0.01 0.0394571638674362
+  hidden rotation_5 -0.7804096026038605 -0.44213087207538865 -0.44213249611574695 1.8162344009349531
+  hidden rotation_10 0 -1 0 1.5707959989625122
+  hidden linearVelocity_10 -4.124449080637205e-05 8.332579291079849e-08 -6.293526513112617e-05
+  hidden angularVelocity_10 -2.524967686920205e-06 -0.0012498154799951825 2.4933299402907174e-08
+  hidden rotation_11 -0.7071047815449927 1.1867613053987812e-15 -0.7071087808224477 3.141588
+  hidden linearVelocity_11 -4.124449048162135e-05 8.332436789045819e-08 -6.33392192037775e-05
+  hidden angularVelocity_11 -2.52496606538844e-06 -0.0012498154799739736 2.493205400451201e-08
+  hidden rotation_12 0.002013629067120079 0.9994704010295495 0.03247865089272412 0.0012343563078051254
+  hidden linearVelocity_12 -4.045530436727387e-06 6.157121285142032e-09 -0.00016400871274697255
+  hidden angularVelocity_12 -1.5392803279594392e-06 -0.0010113826134245016 2.3612106544602183e-08
+  translation 2.0000012059794567 1.9999999969964533 -0.0004775333596183373
+  rotation -0.002099950040801313 -0.9999977950983996 -2.8575423788581536e-06 0.009043530136577766
   controller "user_controlled_robot"
   extensionSlot [
     GPS {
