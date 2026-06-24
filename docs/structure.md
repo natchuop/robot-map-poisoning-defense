@@ -1,6 +1,6 @@
 # Repo Structure
 
-This repo is built around one active ROS 2 + Webots demo and a few supporting docs.
+This repo is built around one active ROS 2 + Webots demo, plus a roadmap for trust-based map-poisoning defense.
 
 ## Where To Work
 
@@ -8,7 +8,7 @@ This repo is built around one active ROS 2 + Webots demo and a few supporting do
 - `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py` is the WASD controller used by the office and live map-building worlds.
 - `webots/worlds/<world_name>/` holds each Webots world and its world-specific assets.
 - `webots/worlds/controllers/<controller_name>/<controller_name>.py` files are only Webots lookup wrappers.
-- `src/robot_patrol_node/` is the active ROS 2 package for the bridge, map builder, AMCL helpers, launches, and RViz configs.
+- `src/robot_patrol_node/` is the active ROS 2 package for the bridge, map builder, AMCL helpers, launches, RViz configs, and the logic that will grow into trust scoring and map-confidence handling.
 - `scripts/quick_test.sh` runs the end-to-end demo.
 - `scripts/runOffice.sh` runs the office world with its own AMCL map, RViz config, and configured initial pose.
 - `scripts/runConfusingMaze.sh` runs the confusing maze world with its own AMCL map and configured initial pose.
@@ -16,7 +16,7 @@ This repo is built around one active ROS 2 + Webots demo and a few supporting do
 - `scripts/runTestBuildingMapForRobot.sh` runs the test-building world with the same AMCL default as the main quick test.
 - `scripts/verify.sh` runs the headless environment check.
 - `docker/` holds the Dockerfile and compose files.
-- `docs/` holds the project notes, structure guide, Webots setup guide, and verification guide.
+- `docs/` holds the project notes, structure guide, Webots setup guide, verification guide, and the main [project plan](project_plan.md).
 
 ## How Things Connect
 
@@ -27,6 +27,14 @@ This repo is built around one active ROS 2 + Webots demo and a few supporting do
 5. Nav2 sends `/cmd_vel` through the bridge to `patrol_robot` for checkpoint patrols.
 6. The bridge also forwards `/active_checkpoint` and reports Webots checkpoint contact events back to ROS.
 7. RViz shows the static map, live map, scan, path, and navigation state.
+
+The project plan extends this flow with:
+
+1. robot trust scores for reporting robots
+2. trust confidence values that track how much evidence supports each trust score
+3. map cell confidence values for occupied or clear cells
+4. verification runs that compare map reports against fresh LiDAR scans
+5. quarantine decisions for robots that are both untrusted and well-evidenced as unreliable
 
 ## Generated Files
 

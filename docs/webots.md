@@ -1,6 +1,7 @@
 # Webots Guide
 
-This repo currently uses a TurtleBot3 Burger world in Webots and a ROS 2 bridge running in Docker.
+This repo currently uses TurtleBot3 Burger worlds in Webots and a ROS 2 bridge running in Docker.
+The longer-term Webots direction is to support trust-based shared mapping, verification, and quarantine across multiple robots.
 
 ## Current Demo
 
@@ -27,6 +28,31 @@ Webots world -> Python controller -> ROS bridge -> `/robot_pose`, `/scan`, and `
 
 The bridge also forwards `/active_checkpoint` to Webots and publishes `/webots_checkpoint_contact` when the robot center reaches the active colored checkpoint block.
 
+For the trust-based project plan, the next layer on top of this flow is:
+
+Webots world -> controller -> ROS bridge -> shared map update -> trust weighting -> map cell confidence -> navigation decision
+
+That future flow uses:
+
+- robot trust to measure how reliable a reporting robot seems
+- trust confidence to measure how much evidence supports that trust score
+- map cell confidence to decide whether a cell is occupied, clear, suspicious, or disputed
+- verification scans to compare a report with real LiDAR data
+- quarantine rules to ignore robots that are both untrusted and well supported by evidence
+
+Example planned update shape:
+
+```json
+{
+  "cell_x": 10,
+  "cell_y": 12,
+  "occupied": true,
+  "reporting_robot": "robot_3"
+}
+```
+
+The idea is not to accept that report automatically. Instead, the system would weight it using the reporting robot's trust and trust confidence before deciding how much it should change the shared map.
+
 ## Nav2 In 2D
 
 Nav2 works from a 2D occupancy grid:
@@ -37,6 +63,8 @@ Nav2 works from a 2D occupancy grid:
 - The local costmap uses live sensor data to react to new obstacles like boxes, chairs, or people.
 
 So the map gives Nav2 the room layout, and lidar gives it the chance to slow down, stop, or route around things that are not in the static map. The current Nav2 tuning uses Regulated Pure Pursuit and tighter obstacle-aware costmaps to keep the patrol behavior conservative near walls and furniture.
+
+That same structure is a good fit for the project plan because the shared-map defense also works on occupancy-grid cells. The plan is to update confidence per cell instead of treating every robot report as equally trustworthy.
 
 ## Quick Test
 
@@ -75,6 +103,17 @@ For convenience, `bash scripts/runSandbox.sh` launches `webots/worlds/sandbox/sa
 Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes against the known map.
 
 In default AMCL mode, RViz uses `amcl.rviz` and displays both the static `/map` and the robot-built `/live_map`. The live map uses RViz's costmap color scheme and can appear pink or purple. The office script uses `office_amcl.rviz` plus office-specific startup pose settings so the larger office map and remembered overlay remain visible. The test-building script now also uses AMCL mode by default so it matches the quick-test remembered-map behavior. The confusing maze and sandbox scripts reuse the same AMCL flow with world-specific map sizes and initial poses.
+
+## Project Plan Fit
+
+The project plan in `docs/project_plan.md` adds trust behavior on top of the current Webots setup:
+
+1. Multiple robots share map updates.
+2. One robot can be compromised and inject fake occupied cells.
+3. Honest robots verify reports with LiDAR.
+4. Trust scores and trust confidence decide how much to believe each reporter.
+5. Map cell confidence determines whether the cell should be treated as occupied, clear, suspicious, or disputed.
+6. Low-trust, high-confidence attackers can be quarantined so their reports stop influencing navigation.
 
 ## Controller Contract
 

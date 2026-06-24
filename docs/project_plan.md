@@ -1,205 +1,218 @@
-# Robot Map Poisoning Defense Project Plan
+# Revised Project Plan: Trust-Based Map Confidence for Robot-to-Robot Map Poisoning Defense
 
-This is the main context file for future AI work on the project.
+## 1. Project Goal
 
-## Current Working Demo
+The goal of this project is to create a trust-based defense system for multi-robot mapping. In the simulation, multiple robots share map updates with each other while exploring or patrolling the same environment. One robot may become compromised and publish fake map data, such as a fake obstacle or a fake blocked path.
 
-- TurtleBot3 Burger runs in Webots
-- 360-degree LDS-01 LiDAR works
-- GPS works
-- IMU works
-- Current controller is Python and can do obstacle avoidance plus checkpoint patrol
-- Controller can print robot `x`, `y`, and heading (`yaw`)
-- `bash scripts/quick_test.sh` runs the default AMCL + Nav2 checkpoint patrol smoke test
-- RViz opens with `amcl.rviz` and fixed frame `map`
-- `bash scripts/runOffice.sh` runs the office world with its own AMCL map, RViz config, and startup pose
-- `bash scripts/runConfusingMaze.sh` runs the confusing maze world with its own AMCL map and startup pose
-- `bash scripts/runSandbox.sh` runs the sandbox world with its own AMCL map and startup pose
-- `bash scripts/runTestBuildingMapForRobot.sh` runs the test-building world with the same AMCL default as the main quick test
+This project focuses on building one custom system. The system uses robot trust scores to decide how much confidence should be given to map updates from each robot.
 
-## Project Goal
-
-Study robot-to-robot map poisoning in a Webots + ROS 2 + Python system.
-
-Core idea:
-
-- Multiple robots map the same environment
-- Robots share map updates through ROS 2
-- One robot becomes compromised and publishes fake map data
-- We test trust strategies that reduce the spread of poisoned map updates
-
-This project is about:
-
-- robot-to-robot communication
-- shared mapping
-- trust decay
-- verification
-- quarantine
-
-It is not about:
-
-- object classification
-- machine learning-based detection
-
-## Main Research Question
-
-How do different trust management strategies affect the resilience of a multi-robot mapping system against robot-to-robot map poisoning attacks?
-
-## Key Design Decisions
-
-- Use GPS + IMU + LiDAR as the localization shortcut
-- Use fixed waypoint patrol routes, not random exploration
-- Prefer occupancy grids over object classification
-- Keep map sharing simple and ROS 2-based
-
-## Mapping Choice
-
-Use occupancy grids for the final system.
-
-Cell states:
-
-- unknown
-- free
-- occupied
-
-Why:
-
-- easy to share between robots
-- easy to compare against ground truth
-- matches the poisoning attack well
-
-Point clouds are useful for debugging coordinate transforms early, but occupancy grids are the final target.
-
-## Trust Model
-
-Use differential trust:
-
-- trust increases a little when a report is verified true
-- trust decreases a lot when a report is proven false
-- trust decays over time
-- robots below a threshold can be quarantined or ignored
-
-Example behavior:
+The main idea is:
 
 ```text
-Robot A reports obstacle at (10, 12)
-Robot B later scans the area
-If obstacle exists: small trust gain
-If obstacle does not exist: large trust loss
-If trust falls below threshold: quarantine or ignore Robot A
+robot trust -> trust confidence -> map cell confidence -> navigation decision
 ```
 
-Suggested starting values:
+If a trusted robot reports an obstacle, the map cell becomes more likely to be treated as occupied. If an untrusted robot reports an obstacle, the map cell receives little confidence and may be marked as suspicious until another robot verifies it.
 
-- true report: `+1`
-- false report: `-10`
-- decay: `-0.1` per interval or `trust *= 0.99`
-- quarantine threshold: `30`
+## 2. Research Question
 
-## Simulation Setup
+How can robot trust and trust confidence be used to update confidence in shared map coordinates so that robots can reduce the effect of fake obstacle injection attacks?
 
-Use a Webots world known to the researcher but unknown to the robots.
+A simpler version:
 
-The world should have:
+How can robots decide whether a shared obstacle report is real, fake, or uncertain?
 
-- walls
-- open pathways
-- several obstacles
-- overlapping patrol routes
-- enough space for multiple robots
+## 3. Three Important Values
 
-Robots start with no map knowledge and discover the world with LiDAR.
+This project uses three related but different values.
 
-## Robot Motion
+### 1. Robot Trust
 
-Use predefined waypoint patrol routes.
+Robot trust means:
+
+```text
+How reliable do I think this robot is?
+```
+
+For example:
+
+```text
+Robot 1 trust in Robot 2 = 0.85
+Robot 1 trust in Robot 3 = 0.30
+```
+
+A high trust score means the robot has usually sent correct map information. A low trust score means the robot has sent false, suspicious, or inconsistent information.
+
+Trust changes when robots verify each other’s reports.
 
 Example:
 
 ```text
-Robot 1: A -> B -> C -> D
-Robot 2: D -> E -> F -> A
-Robot 3: B -> F -> C -> E
+Robot 3 reports an obstacle.
+Robot 1 later scans that location.
+
+If the obstacle is real:
+    Robot 3 trust increases.
+
+If the obstacle is fake:
+    Robot 3 trust decreases.
 ```
 
-Routes should overlap so robots can later verify each other's reports.
+### 2. Trust Confidence
 
-## Webots + ROS 2 Architecture
-
-Webots provides:
-
-- robot models
-- physics
-- LiDAR
-- movement
-- simulation world
-
-ROS 2 provides:
-
-- publishers and subscribers
-- robot-to-robot communication
-- shared map updates
-- control messages
-
-Each robot should have its own Python controller and ROS 2 node.
-
-Recommended flow:
+Trust confidence means:
 
 ```text
-Webots Robot -> Python Controller -> ROS 2 Node -> Topics/Services -> Other Robots
+How sure am I that this trust score is accurate?
 ```
 
-## ROS 2 Data Plan
+This is different from the trust score itself.
 
-Start with simple coordinate messages before wiring everything into full mapping.
+Two robots can have the same trust score but different trust confidence.
 
-Useful message shape:
-
-```json
-{
-  "x": 5,
-  "y": 8,
-  "z": 0,
-  "occupied": true,
-  "reporting_robot": "robot_2"
-}
-```
-
-Useful topics:
-
-- `/scan`
-- `/robot_pose`
-- `/map`
-- `/map_updates`
-- `/control/start`
-- `/control/attack_trigger`
-
-Useful commands/services:
-
-- start simulation
-- stop simulation
-- trigger malicious behavior
-- publish fake object
-- reset trust
-- reset maps
-- switch trial mode
-
-## LiDAR Mapping Plan
-
-LiDAR gives distance readings, not objects.
-
-Convert scan points to world coordinates:
+Example:
 
 ```text
-x = robot_x + distance * cos(robot_heading + lidar_angle)
-y = robot_y + distance * sin(robot_heading + lidar_angle)
+Robot 2:
+trust = 0.90
+trust confidence = 0.15
+
+Robot 4:
+trust = 0.90
+trust confidence = 0.95
+
 ```
 
-Use these readings to fill an occupancy grid.
+Both robots currently look trustworthy, but they should not be treated the same.
 
-## Attack Scenario
+Robot 2 may have only sent 2 reports, and both happened to be correct. Its trust score looks high, but there is not much evidence yet. So its trust confidence is low.
 
-One robot is compromised and publishes fake occupied cells or blocked paths.
+Robot 4 may have sent 100 reports, and 90 were correct. Its trust score is also high, but now the system has a lot of evidence. So its trust confidence is high.
+
+This matters because a robot should not become highly influential after only a few correct reports. A malicious robot could behave honestly at first, gain trust too quickly, and then start injecting fake obstacles.
+
+Trust confidence prevents that by asking:
+
+```text
+Do I trust this robot?
+How much evidence do I have to support that trust?
+```
+
+### 3. Map Cell Confidence
+
+Map cell confidence means:
+
+```text
+How sure am I that this specific map coordinate is occupied or clear?
+```
+
+For example:
+
+```text
+Cell (10, 12)
+occupied confidence = 0.75
+```
+
+This means the system is fairly confident that something is located at that coordinate.
+
+Map confidence is updated using robot trust and trust confidence. A report from a high-trust robot with high trust confidence affects the map strongly. A report from a high-trust robot with low trust confidence affects the map only slightly.
+
+## 4. How the Three Values Work Together
+
+When a robot receives a map update, it should not immediately accept it.
+
+Instead, it should check:
+
+```text
+Who sent this update?
+How much do I trust that robot?
+How confident am I in that trust score?
+How much should this update affect the map cell?
+```
+
+A simple formula is:
+
+```text
+update_weight = robot_trust * trust_confidence
+```
+
+Example 1:
+
+```text
+Robot 3 trust = 0.90
+Trust confidence = 0.10
+
+update_weight = 0.90 * 0.10 = 0.09
+```
+
+Even though Robot 3 has high trust, its report only has a small effect because there is not enough evidence yet.
+
+Example 2:
+
+```text
+Robot 4 trust = 0.90
+Trust confidence = 0.90
+
+update_weight = 0.90 * 0.90 = 0.81
+```
+
+Robot 4’s report has a strong effect because the system both trusts Robot 4 and has enough evidence to support that trust.
+
+This helps the system avoid trusting robots too quickly.
+
+## 5. System Overview
+
+The system has two main layers.
+
+### Robot Trust Layer
+
+Each robot keeps a trust table for the other robots.
+
+Example:
+
+
+| Reporting Robot | Trust Score | Trust Confidence | Status      |
+| --------------- | ----------- | ---------------- | ----------- |
+| Robot 2         | 0.85        | 0.80             | Trusted     |
+| Robot 3         | 0.45        | 0.30             | Uncertain   |
+| Robot 4         | 0.20        | 0.85             | Quarantined |
+
+
+The trust score says how reliable the robot seems.
+
+The trust confidence says how much evidence supports that trust score.
+
+The status tells the system how much influence that robot should have.
+
+### Map Confidence Layer
+
+Each map coordinate or occupancy-grid cell has confidence values.
+
+Example:
+
+```text
+Cell (10, 12)
+occupied evidence = 4.2
+clear evidence = 1.1
+occupied confidence = high
+state = occupied
+```
+
+The cell can be classified as:
+
+
+| State      | Meaning                           |
+| ---------- | --------------------------------- |
+| Unknown    | Not enough evidence               |
+| Occupied   | Likely a real obstacle            |
+| Clear      | Likely empty                      |
+| Suspicious | Possible fake or uncertain object |
+| Disputed   | Robots disagree about the cell    |
+
+
+## 6. Attack Scenario
+
+One robot becomes compromised and sends fake map updates.
 
 Example:
 
@@ -208,154 +221,224 @@ Example:
   "cell_x": 10,
   "cell_y": 12,
   "occupied": true,
-  "reporting_robot": "robot_1"
+  "reporting_robot": "robot_3"
 }
 ```
 
-The real world may be empty at that cell.
+This means Robot 3 is claiming that there is an obstacle at cell `(10, 12)`, even though the real world may be empty there.
 
-Later, an honest robot revisits the area, detects the mismatch, and reduces trust in the reporter.
+The other robots do not automatically accept the update. Instead, they use Robot 3’s trust score and trust confidence to decide how much the report should affect the map cell.
 
-## Experimental Groups
+## 7. Trust and Confidence Logic
 
-Keep the world, routes, attack timing, and robot start positions constant.
+When a robot receives a map update, it calculates how much weight to give the update.
 
-Only the trust strategy changes.
+Simple formula:
 
-Compare:
-
-1. No trust
-2. Basic trust
-3. Differential trust with decay
-4. Differential trust with decay + quarantine
-
-Purpose of each:
-
-- no trust: baseline damage from poisoning
-- basic trust: simple verification without decay
-- differential trust: stale trust matters, false reports hurt more
-- quarantine: stop continued poisoning once the attacker is detected
-
-## Metrics
-
-Track:
-
-- fake objects accepted
-- time to identify the compromised robot
-- map accuracy over time
-- trust score over time
-- optional navigation impact
-
-Map accuracy should compare each robot's map with the Webots ground truth.
-
-## Implementation Roadmap
-
-1. Keep robots moving in Webots
-2. Get ROS 2 communication working
-3. Get LiDAR mapping working
-4. Build a local occupancy grid
-5. Share map updates through ROS 2
-6. Merge maps from multiple robots
-7. Add map poisoning
-8. Add verification of received reports
-9. Add trust scores, decay, and quarantine
-
-## Current ROS 2 / RViz / Nav2 Direction
-
-Recommended path:
-
-- ROS 2 Jazzy in Docker
-- `rviz2`
-- `sensor_msgs`
-- `geometry_msgs`
-- `webots_ros2`
-- Known static map
-- AMCL localization
-- Nav2 checkpoint navigation
-
-Run the current one-command smoke test from WSL or macOS Terminal:
-
-```bash
-bash scripts/quick_test.sh
+```text
+update_weight = robot_trust * trust_confidence
 ```
 
-Current mapping loop:
+A slightly more detailed version could be:
 
-- publish `/scan` as `sensor_msgs/LaserScan`
-- publish `/robot_pose` as `geometry_msgs/Pose2D`
-- build `/map` as `nav_msgs/OccupancyGrid`
-- visualize in RViz with fixed frame `map`
-
-Current AMCL + Nav2 quick-test loop:
-
-- generate or refresh `webots/worlds/testRvizMap/amcl_map/arena.yaml`
-- start `udp_bridge`, `map_server`, AMCL, lifecycle manager, initial pose publisher, Nav2, and the checkpoint patrol node
-- publish `/robot_pose` and `/scan` from Webots packets
-- publish `/odom` from the bridge for AMCL and the test harness
-- publish TF for `map -> odom`, `odom -> base_link`, and `base_link -> laser`
-- visualize `/map`, `/scan`, AMCL particles, and TF in RViz through `amcl.rviz`
-- use Regulated Pure Pursuit and tighter obstacle-aware costmaps for checkpoint patrols
-
-Navigation direction:
-
-- Use a known occupancy-grid map for the planned Webots world
-- Put checkpoint poses on that known map
-- Use AMCL to localize each robot on the known map from LiDAR plus robot motion
-- Use Nav2 to move robots from checkpoint to checkpoint
-- Use RViz2 for visualization, initial pose setting, goal debugging, maps, paths, TF, and costmaps
-- Do not use SLAM for the main implementation path
-
-Why no SLAM for the main path:
-
-- The experiment uses a known map and predefined patrol checkpoints
-- SLAM would add map-building complexity that is not central to the map-poisoning defense question
-- AMCL keeps localization separate from the trust and map-sharing experiments
-- Nav2 still provides navigation either way, so SLAM is not a replacement for Nav2
-
-## Current Controller / Bridge Notes
-
-Current `testRvizMap` checkpoint patrol controller:
-
-`webots/robot_controllers/patrol_robot/patrol_robot.py`
-
-This controller receives `/cmd_vel` from Nav2 through the bridge, tracks the active checkpoint sent from ROS, and reports checkpoint contact events back to ROS. The current patrol behavior waits for centered arrival on the checkpoint marker and uses final centering assist before it declares success.
-
-User-controlled controller for the office and live map-building worlds:
-
-`webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`
-
-The Webots controllers send packets over TCP by default; the ROS bridge listens on both UDP and TCP on port `5005`.
-
-They:
-
-- read GPS, IMU, and LiDAR
-- send pose and scan data to Docker on port `5005`
-- bridge publishes `/odom` from those packets for AMCL and the test harness
-- defaults to `172.28.64.1` first, then `127.0.0.1`, for the host bridge
-- also accepts UDP on port `5005` as fallback/debug
-- use `/cmd_vel`, `/active_checkpoint`, and checkpoint contact events for the Nav2 checkpoint patrol flow
-
-World file:
-
-`webots/worlds/testRvizMap/turtlebot3_burger.wbt`
-
-Known AMCL map for that world:
-
-`webots/worlds/testRvizMap/amcl_map/arena.yaml`
-
-`webots/worlds/testRvizMap/amcl_map/arena.pgm`
-
-This map is generated from the known `testRvizMap` world geometry in `scripts/quick_test.sh`: circle arena size, wooden box positions, origin, and resolution. It is not automatically parsed from the `.wbt` file yet.
-
-If the robot frame or sensor offset differs, pass mapper parameters such as:
-
-```bash
-laser_frame:=lidar
-laser_x:=0.10
-laser_y:=0.00
-laser_yaw:=0.00
+```text
+update_weight = robot_trust * trust_confidence * report_quality
 ```
 
-## Next Useful AI Task
+`report_quality` could include things like whether the reported cell was close enough to the robot’s LiDAR range, whether the report is recent, or whether the report conflicts with already verified map data.
 
-Build on the current AMCL/Nav2 patrol stack by wiring map sharing, trust scoring, and quarantine decisions into the existing checkpoint flow.
+If the report says a cell is occupied:
+
+```text
+occupied_evidence += update_weight
+```
+
+If the report says a cell is clear:
+
+```text
+clear_evidence += update_weight
+```
+
+Then the cell’s final state depends on the balance between occupied evidence and clear evidence.
+
+## 8. Verification
+
+Robots verify map updates by physically scanning the reported area with LiDAR.
+
+Example:
+
+1. Robot 3 reports an obstacle at `(10, 12)`.
+2. Robot 1 later drives near `(10, 12)`.
+3. Robot 1 scans the area with LiDAR.
+4. If the obstacle exists, Robot 3’s trust increases.
+5. If the obstacle does not exist, Robot 3’s trust decreases.
+6. Either way, the amount of evidence about Robot 3 increases, so Robot 3’s trust confidence also increases.
+
+This last part is important:
+
+```text
+Correct report:
+    trust increases
+    trust confidence increases
+
+False report:
+    trust decreases
+    trust confidence increases
+```
+
+Trust confidence increases in both cases because the system has learned more about that robot.
+
+A false report does not mean the system has less confidence. It means the system is becoming more confident that the robot is unreliable.
+
+## 9. Example of Trust Confidence Changing
+
+At the start:
+
+```text
+Robot 3 trust = 0.50
+Robot 3 trust confidence = 0.00
+```
+
+The system is neutral because it has no evidence.
+
+After 2 correct reports:
+
+```text
+Robot 3 trust = 0.90
+Robot 3 trust confidence = 0.10
+```
+
+Robot 3 looks good, but the system is not very sure yet.
+
+After 20 mostly correct reports:
+
+```text
+Robot 3 trust = 0.85
+Robot 3 trust confidence = 0.80
+```
+
+Robot 3 is trusted and the system has enough evidence to rely on it more.
+
+After repeated fake reports:
+
+```text
+Robot 3 trust = 0.20
+Robot 3 trust confidence = 0.85
+```
+
+Robot 3 is not trusted, and now the system is confident that Robot 3 is unreliable.
+
+## 10. Navigation Decision
+
+The robot uses map confidence to decide what to do.
+
+
+| Map confidence result                        | Robot behavior                       |
+| -------------------------------------------- | ------------------------------------ |
+| High confidence occupied                     | Treat as real obstacle and reroute   |
+| Low confidence occupied                      | Mark suspicious and verify           |
+| High confidence clear                        | Treat as clear                       |
+| Disputed cell                                | Avoid depending on it until verified |
+| Report from low-trust, low-confidence robot  | Add weak evidence only               |
+| Report from low-trust, high-confidence robot | Treat as suspicious or ignore        |
+| Report from quarantined robot                | Ignore for navigation                |
+
+
+This connects the trust system directly to robot behavior. The robot is not just calculating trust scores; it is using those scores to decide whether to reroute, ignore a report, or verify the area.
+
+## 11. Quarantine
+
+If a robot repeatedly sends false information, it can be quarantined.
+
+Simple rule:
+
+```text
+if trust_score < 0.25 and trust_confidence > 0.70:
+    quarantine robot
+```
+
+This rule uses both trust and trust confidence.
+
+A robot should not be quarantined just because its trust score is low after only one or two reports. The system should quarantine a robot only when it has enough evidence that the robot is unreliable.
+
+Robot states:
+
+
+| Status      | Condition                                       | Effect                             |
+| ----------- | ----------------------------------------------- | ---------------------------------- |
+| Trusted     | High trust and high trust confidence            | Updates have strong influence      |
+| Uncertain   | Low trust confidence                            | Updates have limited influence     |
+| Suspicious  | Low trust but not enough evidence to quarantine | Updates have very weak influence   |
+| Quarantined | Low trust and high trust confidence             | Updates are ignored for navigation |
+
+
+A quarantined robot’s map updates can still be logged for analysis, but they should not affect the shared map or route planning.
+
+## 12. Experiment Setup
+
+The experiment will run in Webots with ROS 2 communication.
+
+The setup includes:
+
+- Multiple TurtleBot robots
+- LiDAR-based map observations
+- Occupancy-grid map cells
+- ROS 2 map update messages
+- AMCL/Nav2 checkpoint navigation
+- One compromised robot sending fake obstacle updates
+- Honest robots verifying map updates through LiDAR
+
+The robots should follow overlapping patrol routes so they can verify each other’s reported map cells.
+
+## 13. Evaluation Metrics
+
+The project will measure:
+
+
+| Metric                      | Purpose                                                               |
+| --------------------------- | --------------------------------------------------------------------- |
+| Fake obstacles accepted     | How much poisoned data entered the map                                |
+| Fake obstacles rejected     | How well the system resisted map poisoning                            |
+| Time to detect attacker     | How quickly the malicious robot lost trust                            |
+| Time to quarantine attacker | When the attacker stopped influencing the map                         |
+| Map accuracy                | How close the robot map is to the real map                            |
+| Reroute accuracy            | Whether robots rerouted for real obstacles and ignored fake ones      |
+| False punishment rate       | Whether honest robots were unfairly distrusted                        |
+| Trust confidence growth     | How quickly the system gained enough evidence to rely on trust scores |
+
+
+## 14. Implementation Steps
+
+1. Keep the current Webots + ROS 2 + Nav2 patrol system working.
+2. Add a `/map_updates` topic for robots to share occupied or clear cells.
+3. Give each robot a trust table for the other robots.
+4. Give each robot a trust confidence value for every trust score.
+5. Give each map cell an occupied confidence and clear confidence.
+6. Weight incoming map updates using the reporting robot’s trust and trust confidence.
+7. Add fake obstacle injection from one compromised robot.
+8. Let honest robots verify reported cells using LiDAR.
+9. Update robot trust based on correct or false reports.
+10. Increase trust confidence as more reports are verified.
+11. Use map confidence to decide whether to reroute, ignore, or verify.
+12. Add quarantine for robots with low trust and high trust confidence.
+13. Log trust scores, trust confidence, map confidence, fake objects, and navigation effects.
+
+## 15. Final Summary
+
+This project creates a custom trust-weighted map confidence system for defending against robot-to-robot map poisoning. The system does not blindly accept shared map updates. Instead, it asks:
+
+1. Which robot sent this update?
+2. How much do we trust that robot?
+3. How much evidence supports that trust score?
+4. How confident are we that this map cell is actually occupied or clear?
+5. Should the robot reroute, ignore the report, or verify it?
+
+The key difference is:
+
+```text
+Robot trust = how reliable the robot seems.
+Trust confidence = how much evidence supports that trust judgment.
+Map confidence = how sure we are that a specific map cell is occupied or clear.
+```
+
+The main contribution is using robot trust and trust confidence to control confidence in map coordinates, then using map-coordinate confidence to make navigation decisions.
