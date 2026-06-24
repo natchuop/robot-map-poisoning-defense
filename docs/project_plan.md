@@ -427,9 +427,9 @@ The project will measure:
 
 This project creates a custom trust-weighted map confidence system for defending against robot-to-robot map poisoning. The system does not blindly accept shared map updates. Instead, it asks:
 
-1. Which robot sent this update?How much do we trust that robot?
-2. How much evidence supports that trust score?
-3. 
+1. Which robot sent this update?
+2. How much do we trust that robot?
+3. How much evidence supports that trust score?
 4. How confident are we that this map cell is actually occupied or clear?
 5. Should the robot reroute, ignore the report, or verify it?
 
