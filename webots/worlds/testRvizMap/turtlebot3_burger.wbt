@@ -11,8 +11,8 @@ WorldInfo {
   basicTimeStep 64
 }
 Viewpoint {
-  orientation 0.2619460643425388 0.8141171837116482 -0.5182639004994164 1.1111927711769378
-  position -1.4997343992521464 1.2056545311882318 2.8055914095821066
+  orientation 0.2897632929173838 0.7502243233592126 -0.5943069061670798 1.152599135256952
+  position -5.113846462469125 4.662821208901812 8.881552611656621
   follow "TurtleBot3Burger"
   followType "Pan and Tilt Shot"
 }
@@ -34,8 +34,33 @@ WoodenBox {
   size 0.3 0.3 0.3
 }
 WoodenBox {
+  translation 1.26618 0.36342 0.15
+  name "wooden box(13)"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
+  translation 0.82618 0.03342 0.15
+  name "wooden box(14)"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
   translation -0.15697 0.782967 0.15
   name "wooden box(2)"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
+  translation -0.67697 0.252967 0.15
+  name "wooden box(11)"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
+  translation -0.15697 1.58297 0.15
+  name "wooden box(10)"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
+  translation -0.15697 2.21297 0.15
+  name "wooden box(12)"
   size 0.3 0.3 0.3
 }
 WoodenBox {
@@ -75,7 +100,6 @@ WoodenBox {
 }
 Solid {
   translation -1.49882 1.84407 0.03
-  name "checkpoint_A"
   children [
     Shape {
       appearance Appearance {
@@ -89,12 +113,10 @@ Solid {
       }
     }
   ]
-  boundingObject NULL
-  physics NULL
+  name "checkpoint_A"
 }
 Solid {
   translation 1.5267 -0.221987 0.03
-  name "checkpoint_B"
   children [
     Shape {
       appearance Appearance {
@@ -108,12 +130,10 @@ Solid {
       }
     }
   ]
-  boundingObject NULL
-  physics NULL
+  name "checkpoint_B"
 }
 Solid {
   translation -0.416565 -1.35783 0.03
-  name "checkpoint_C"
   children [
     Shape {
       appearance Appearance {
@@ -127,12 +147,10 @@ Solid {
       }
     }
   ]
-  boundingObject NULL
-  physics NULL
+  name "checkpoint_C"
 }
 Solid {
   translation -2.63149 -0.778393 0.03
-  name "checkpoint_D"
   children [
     Shape {
       appearance Appearance {
@@ -146,12 +164,32 @@ Solid {
       }
     }
   ]
-  boundingObject NULL
-  physics NULL
+  name "checkpoint_D"
 }
 TurtleBot3Burger {
-  translation 0 0 0
-  rotation 0 1 0 0
+  hidden position_0_0 50.70454517014963
+  hidden position_0_1 29.213621689637034
+  hidden position_0_2 -46.6312832855401
+  hidden position2_0_2 -6.1533996542381635
+  hidden position3_0_2 106.03600164005357
+  hidden linearVelocity_0 -0.08492038293350332 0.09509068091048098 -1.212864518843085e-06
+  hidden angularVelocity_0 -0.0002653233671152067 -0.00010052098661270136 -0.7886937004314539
+  hidden position_3_0 1351.7977600000029
+  hidden position_3_1 2613.5961600000023
+  hidden rotation_4 0.8213701927285765 -0.40332977290056565 -0.4033312544162668 4.516861843927835
+  hidden translation_5 -0.0010003221656127506 -0.01 0.009540911633662535
+  hidden rotation_5 -0.9891854463159903 -0.1037113151446982 -0.10371169609832992 1.5816732415469459
+  hidden rotation_10 0 -0.9999999999999999 0 1.131733287287062
+  hidden linearVelocity_10 -0.03207894873102799 0.05046589409685774 -1.2565597989780397e-05
+  hidden angularVelocity_10 -1.6162861392547332 -0.8625551564036933 -0.8039740691091326
+  hidden rotation_11 -0.3105362190478198 2.074871656283894e-06 0.9505615480626068 3.1415947596592133
+  hidden linearVelocity_11 -0.09047816791945185 0.16376846719787427 -8.049155809673672e-06
+  hidden angularVelocity_11 -4.766379261125169 -2.6255371694755696 -0.8642791867485479
+  hidden rotation_12 0.9202775944738136 0.35984390124780163 0.15362784853096534 3.546893762466255
+  hidden linearVelocity_12 -0.11843129098093969 0.0776450779151986 1.1695306404310452e-05
+  hidden angularVelocity_12 -19.411269455915914 -29.607822760595738 5.760422394720825e-14
+  translation 0.026778957487531615 -0.0044110658678217195 -0.0004796484706623
+  rotation 0.0047112425515452565 -0.0031435936567386657 0.9999839608776441 2.0301109695325765
   controller "patrol_robot"
   extensionSlot [
     GPS {

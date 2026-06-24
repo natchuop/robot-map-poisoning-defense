@@ -26,11 +26,10 @@ BRIDGE_PORT = int(os.environ.get('WEBOTS_BRIDGE_PORT', '5005'))
 WHEEL_RADIUS = float(os.environ.get('WEBOTS_WHEEL_RADIUS', '0.033'))
 WHEEL_BASE = float(os.environ.get('WEBOTS_WHEEL_BASE', '0.16'))
 DEFAULT_MAX_WHEEL_SPEED = float(os.environ.get('WEBOTS_MAX_WHEEL_SPEED', '1000.0'))
-CMD_VEL_SCALE = float(os.environ.get('WEBOTS_CMD_VEL_SCALE', '4.0'))
+CMD_VEL_SCALE = float(os.environ.get('WEBOTS_CMD_VEL_SCALE', '2.0'))
 CMD_TIMEOUT_SEC = float(os.environ.get('WEBOTS_CMD_TIMEOUT_SEC', '1.0'))
 LOG_INTERVAL_STEPS = int(os.environ.get('WEBOTS_LOG_INTERVAL_STEPS', '300'))
-CHECKPOINT_TOUCH_ROBOT_RADIUS = float(os.environ.get('WEBOTS_CHECKPOINT_TOUCH_ROBOT_RADIUS', '0.18'))
-CHECKPOINT_TOUCH_SLACK = float(os.environ.get('WEBOTS_CHECKPOINT_TOUCH_SLACK', '0.01'))
+CHECKPOINT_CENTER_RADIUS = float(os.environ.get('WEBOTS_CHECKPOINT_CENTER_RADIUS', '0.08'))
 HEADING_SIGN = float(os.environ.get('WEBOTS_HEADING_SIGN', '1.0'))
 HEADING_OFFSET = float(os.environ.get('WEBOTS_HEADING_OFFSET', '0.0'))
 FORWARD_AXIS = os.environ.get('WEBOTS_FORWARD_AXIS', 'x').strip().lower()
@@ -42,7 +41,6 @@ CHECKPOINTS = {
     'C': (-0.416565, -1.35783),
     'D': (-2.63149, -0.778393),
 }
-
 
 def clamp(value, low, high):
     return max(low, min(high, value))
@@ -100,22 +98,14 @@ def checkpoint_touch_event(checkpoint_name, robot_x, robot_y):
         return None
 
     marker_x, marker_y = marker
-    half_size = CHECKPOINT_BLOCK_SIZE * 0.5
-    dx = abs(robot_x - marker_x)
-    dy = abs(robot_y - marker_y)
-    outside_x = max(dx - half_size, 0.0)
-    outside_y = max(dy - half_size, 0.0)
-    edge_gap = math.hypot(outside_x, outside_y)
-    touched = edge_gap <= CHECKPOINT_TOUCH_ROBOT_RADIUS + CHECKPOINT_TOUCH_SLACK
-    if not touched:
+    center_distance = math.hypot(robot_x - marker_x, robot_y - marker_y)
+    if center_distance > CHECKPOINT_CENTER_RADIUS:
         return None
 
-    center_distance = math.hypot(robot_x - marker_x, robot_y - marker_y)
     return {
         'name': checkpoint_name,
         'distance': float(center_distance),
-        'edge_gap': float(edge_gap),
-        'robot_radius': float(CHECKPOINT_TOUCH_ROBOT_RADIUS),
+        'center_radius': float(CHECKPOINT_CENTER_RADIUS),
     }
 
 
@@ -469,7 +459,7 @@ def main():
             packet['checkpoint_contact'] = contact_event
             if last_reported_touch != active_checkpoint:
                 print(
-                    f'[checkpoint] TOUCHING checkpoint {active_checkpoint} '
+                    f'[checkpoint] CENTERED checkpoint {active_checkpoint} '
                     f'(center distance {contact_event["distance"]:.2f} m)',
                     flush=True,
                 )

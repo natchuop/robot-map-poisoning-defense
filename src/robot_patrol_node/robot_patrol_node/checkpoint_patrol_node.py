@@ -26,47 +26,12 @@ CHECKPOINTS = {
     'B': Checkpoint(1.5267, -0.221987),
     'C': Checkpoint(-0.416565, -1.35783),
     'D': Checkpoint(-2.63149, -0.778393),
-    '_B_EXIT': Checkpoint(-1.05, 2.20),
-    '_B_CRUISE': Checkpoint(0.65, 1.75),
-    '_B_APPROACH': Checkpoint(1.55, 0.65),
-    '_D_APPROACH': Checkpoint(-1.65, -1.25),
-    '_A_RETURN_0': Checkpoint(-2.20, -0.20),
-    '_A_RETURN_1': Checkpoint(-1.45, 0.15),
-    '_A_RETURN_2': Checkpoint(-0.85, 0.55),
-    '_A_RETURN_3': Checkpoint(-0.90, 1.20),
 }
 
-HELPER_TARGETS = {
-    '_B_EXIT': 'B',
-    '_B_CRUISE': 'B',
-    '_B_APPROACH': 'B',
-    '_D_APPROACH': 'D',
-    '_A_RETURN_0': 'A',
-    '_A_RETURN_1': 'A',
-    '_A_RETURN_2': 'A',
-    '_A_RETURN_3': 'A',
-}
+HELPER_TARGETS = {}
 
-CHECKPOINT_ROUTE = [
-    'A',
-    '_B_EXIT',
-    '_B_CRUISE',
-    '_B_APPROACH',
-    'B',
-    'C',
-    '_D_APPROACH',
-    'D',
-    '_A_RETURN_0',
-    '_A_RETURN_1',
-    '_A_RETURN_2',
-    '_A_RETURN_3',
-    'A',
-]
+CHECKPOINT_ROUTE = ['A', 'B', 'C', 'D', 'A']
 VISIBLE_ROUTE = ['A', 'B', 'C', 'D', 'A']
-
-DEPARTURE_RECOVERIES = {
-    'A': (3.0, -0.10, -0.55),
-}
 
 
 class CheckpointPatrolNode(Node):
@@ -76,16 +41,28 @@ class CheckpointPatrolNode(Node):
         self.declare_parameter('loop', True)
         self.declare_parameter('frame_id', 'map')
         self.declare_parameter('goal_reached_radius', 0.52)
-        self.declare_parameter('helper_reached_radius', 0.75)
-        self.declare_parameter('helper_stalled_pass_radius', 0.95)
+        self.declare_parameter('helper_reached_radius', 0.50)
+        self.declare_parameter('helper_stalled_pass_radius', 0.65)
         self.declare_parameter('retry_delay_sec', 1.5)
         self.declare_parameter('stalled_timeout_sec', 12.0)
         self.declare_parameter('feedback_log_interval_sec', 5.0)
         self.declare_parameter('blocked_front_range_m', 0.30)
         self.declare_parameter('blocked_progress_timeout_sec', 4.0)
-        self.declare_parameter('retry_recovery_duration_sec', 1.4)
+        self.declare_parameter('retry_recovery_duration_sec', 0.0)
         self.declare_parameter('retry_recovery_linear_x', -0.10)
         self.declare_parameter('retry_recovery_angular_z', 0.75)
+        self.declare_parameter('contact_wait_timeout_sec', 3.0)
+        self.declare_parameter('contact_wait_radius', 0.16)
+        self.declare_parameter('contact_assist_timeout_sec', 2.5)
+        self.declare_parameter('contact_assist_linear_x', 0.05)
+        self.declare_parameter('contact_assist_angular_z_max', 0.8)
+        self.declare_parameter('contact_assist_heading_tolerance', 0.30)
+        self.declare_parameter('contact_assist_min_front_clearance', 0.10)
+        self.declare_parameter('departure_assist_timeout_sec', 2.5)
+        self.declare_parameter('departure_assist_front_clearance', 0.20)
+        self.declare_parameter('departure_assist_heading_tolerance', 0.35)
+        self.declare_parameter('departure_assist_backoff_linear_x', -0.06)
+        self.declare_parameter('departure_assist_turn_speed', 0.8)
 
         self.loop = bool(self.get_parameter('loop').value)
         self.frame_id = str(self.get_parameter('frame_id').value)
@@ -111,6 +88,40 @@ class CheckpointPatrolNode(Node):
         )
         self.retry_recovery_angular_z = float(
             self.get_parameter('retry_recovery_angular_z').value
+        )
+        self.contact_wait_timeout_sec = float(
+            self.get_parameter('contact_wait_timeout_sec').value
+        )
+        self.contact_wait_radius = float(self.get_parameter('contact_wait_radius').value)
+        self.contact_assist_timeout_sec = float(
+            self.get_parameter('contact_assist_timeout_sec').value
+        )
+        self.contact_assist_linear_x = float(
+            self.get_parameter('contact_assist_linear_x').value
+        )
+        self.contact_assist_angular_z_max = float(
+            self.get_parameter('contact_assist_angular_z_max').value
+        )
+        self.contact_assist_heading_tolerance = float(
+            self.get_parameter('contact_assist_heading_tolerance').value
+        )
+        self.contact_assist_min_front_clearance = float(
+            self.get_parameter('contact_assist_min_front_clearance').value
+        )
+        self.departure_assist_timeout_sec = float(
+            self.get_parameter('departure_assist_timeout_sec').value
+        )
+        self.departure_assist_front_clearance = float(
+            self.get_parameter('departure_assist_front_clearance').value
+        )
+        self.departure_assist_heading_tolerance = float(
+            self.get_parameter('departure_assist_heading_tolerance').value
+        )
+        self.departure_assist_backoff_linear_x = float(
+            self.get_parameter('departure_assist_backoff_linear_x').value
+        )
+        self.departure_assist_turn_speed = float(
+            self.get_parameter('departure_assist_turn_speed').value
         )
         self.route = list(CHECKPOINT_ROUTE)
 
@@ -162,9 +173,16 @@ class CheckpointPatrolNode(Node):
         self.retry_timer = None
         self.next_goal_timer = None
         self.departure_timer = None
+        self.departure_mode = None
+        self.contact_wait_timer = None
+        self.contact_assist_timer = None
+        self.contact_assist_deadline = None
+        self.contact_assist_reason = None
         self.departure_end_time = None
         self.departure_twist = None
         self.departure_followup = None
+        self.departure_target_name = None
+        self.departure_checkpoint_name = None
         self.last_feedback_log_time = None
         self.last_progress_distance = None
         self.last_progress_time = None
@@ -183,7 +201,7 @@ class CheckpointPatrolNode(Node):
         )
         self.get_logger().info(
             'Visible checkpoints complete only after Webots reports robot '
-            'footprint contact with the colored block.'
+            'center arrival at the colored block.'
         )
 
     def robot_pose_callback(self, msg):
@@ -211,6 +229,10 @@ class CheckpointPatrolNode(Node):
             angle += increment
         return min(finite) if finite else None
 
+    @staticmethod
+    def wrap_angle(angle):
+        return math.atan2(math.sin(angle), math.cos(angle))
+
     def checkpoint_contact_callback(self, msg):
         if self.active_goal_sequence is None or not self.active_checkpoint_name:
             return
@@ -230,11 +252,11 @@ class CheckpointPatrolNode(Node):
         distance = event.get('distance')
         if isinstance(distance, (int, float)):
             reason = (
-                'touching colored block in Webots at '
+                'centered on colored block in Webots at '
                 f'{float(distance):.2f} m from marker center'
             )
         else:
-            reason = 'touching colored block in Webots'
+            reason = 'centered on colored block in Webots'
 
         self.active_checkpoint_touched = True
         self.complete_active_checkpoint(reason)
@@ -267,6 +289,29 @@ class CheckpointPatrolNode(Node):
             return None
         x, y, source = pose
         return math.dist((x, y), (checkpoint.x, checkpoint.y)), source
+
+    def heading_error_to_checkpoint(self, checkpoint_name):
+        if self.current_robot_pose is None:
+            return None
+        checkpoint = CHECKPOINTS.get(checkpoint_name)
+        if checkpoint is None:
+            return None
+
+        heading = math.atan2(
+            checkpoint.y - self.current_robot_pose.y,
+            checkpoint.x - self.current_robot_pose.x,
+        )
+        return self.wrap_angle(heading - self.current_robot_pose.theta)
+
+    def next_route_checkpoint_name(self):
+        next_index = self.current_index
+        if next_index >= len(self.route):
+            if not self.loop:
+                return None
+            next_index = 1
+        if next_index < 0 or next_index >= len(self.route):
+            return None
+        return self.route[next_index]
 
     def start_when_ready(self):
         if self.started:
@@ -305,6 +350,8 @@ class CheckpointPatrolNode(Node):
 
         self.cancel_timer('retry')
         self.cancel_timer('next')
+        self.cancel_timer('contact_wait')
+        self.cancel_timer('contact_assist')
 
         self.goal_sequence += 1
         sequence = self.goal_sequence
@@ -474,9 +521,15 @@ class CheckpointPatrolNode(Node):
                     self.retry_active_checkpoint(
                         'Nav2 succeeded before marker pose/contact was available'
                     )
+                elif distance[0] <= self.contact_wait_radius:
+                    self.start_contact_assist(
+                        sequence,
+                        f'Nav2 succeeded but Webots has not reported colored-block center arrival; '
+                        f'marker is {distance[0]:.2f} m away using {distance[1]}'
+                    )
                 else:
                     self.retry_active_checkpoint(
-                        f'Nav2 succeeded but Webots has not reported colored-block contact; '
+                        f'Nav2 succeeded but Webots has not reported colored-block center arrival; '
                         f'marker is {distance[0]:.2f} m away using {distance[1]}'
                     )
                 return
@@ -502,10 +555,116 @@ class CheckpointPatrolNode(Node):
 
         self.retry_active_checkpoint(f'Nav2 status {result.status}')
 
+    def start_contact_assist(self, sequence, reason):
+        self.cancel_timer('contact_wait')
+        self.cancel_timer('contact_assist')
+
+        if self.current_robot_pose is None:
+            self.wait_for_checkpoint_contact(sequence, reason)
+            return
+
+        self.contact_assist_reason = reason
+        self.contact_assist_deadline = (
+            self.get_clock().now() + Duration(seconds=self.contact_assist_timeout_sec)
+        )
+        self.get_logger().info(
+            f'Starting final centering assist for checkpoint {self.active_checkpoint_name}: '
+            f'{reason}'
+        )
+        self.contact_assist_timer = self.create_timer(
+            0.1,
+            lambda seq=sequence: self.contact_assist_tick(seq),
+        )
+
+    def contact_assist_tick(self, sequence):
+        if sequence != self.active_goal_sequence:
+            self.cancel_timer('contact_assist')
+            return
+
+        if self.contact_assist_deadline is None or self.active_checkpoint_name is None:
+            self.cancel_timer('contact_assist')
+            return
+
+        if self.current_robot_pose is None:
+            self.cancel_timer('contact_assist')
+            self.retry_active_checkpoint('final centering assist lost robot pose')
+            return
+
+        now = self.get_clock().now()
+        if now >= self.contact_assist_deadline:
+            self.cmd_vel_pub.publish(Twist())
+            reason = self.contact_assist_reason or 'final centering assist timed out'
+            self.cancel_timer('contact_assist')
+            self.wait_for_checkpoint_contact(sequence, reason)
+            return
+
+        distance = self.distance_to_active_checkpoint()
+        checkpoint = self.active_checkpoint()
+        if distance is None or checkpoint is None:
+            self.cmd_vel_pub.publish(Twist())
+            self.cancel_timer('contact_assist')
+            self.retry_active_checkpoint('final centering assist lost checkpoint distance')
+            return
+
+        dx = checkpoint.x - self.current_robot_pose.x
+        dy = checkpoint.y - self.current_robot_pose.y
+        heading = math.atan2(dy, dx)
+        heading_error = self.wrap_angle(heading - self.current_robot_pose.theta)
+
+        if (
+            self.scan_front_min is not None
+            and self.scan_front_min <= self.contact_assist_min_front_clearance
+            and distance[0] > self.contact_wait_radius / 2.0
+        ):
+            self.cmd_vel_pub.publish(Twist())
+            self.cancel_timer('contact_assist')
+            self.retry_active_checkpoint(
+                f'final centering assist blocked ahead at {self.scan_front_min:.2f} m'
+            )
+            return
+
+        twist = Twist()
+        angular_limit = abs(self.contact_assist_angular_z_max)
+        if abs(heading_error) > self.contact_assist_heading_tolerance:
+            twist.angular.z = max(
+                -angular_limit,
+                min(angular_limit, 1.5 * heading_error),
+            )
+        else:
+            twist.linear.x = min(
+                self.contact_assist_linear_x,
+                max(0.025, distance[0] * 0.8),
+            )
+            twist.angular.z = max(
+                -angular_limit,
+                min(angular_limit, heading_error),
+            )
+
+        self.cmd_vel_pub.publish(twist)
+
+    def wait_for_checkpoint_contact(self, sequence, reason):
+        self.cancel_timer('contact_wait')
+        self.get_logger().info(
+            f'Waiting up to {self.contact_wait_timeout_sec:.1f}s for Webots center arrival: '
+            f'{reason}'
+        )
+        self.contact_wait_timer = self.create_timer(
+            self.contact_wait_timeout_sec,
+            lambda seq=sequence, why=reason: self.contact_wait_timeout(seq, why),
+        )
+
+    def contact_wait_timeout(self, sequence, reason):
+        self.cancel_timer('contact_wait')
+        if sequence != self.active_goal_sequence:
+            return
+        self.retry_active_checkpoint(reason)
+
     def complete_active_checkpoint(self, reason):
         if self.active_goal_sequence is None:
             return
 
+        self.cancel_timer('contact_wait')
+        self.cancel_timer('contact_assist')
         checkpoint_name = self.active_checkpoint_name
         if checkpoint_name in HELPER_TARGETS:
             target_name = HELPER_TARGETS[checkpoint_name]
@@ -526,6 +685,7 @@ class CheckpointPatrolNode(Node):
         self.get_logger().info(message)
         self.publish_webots_checkpoint_event(message)
 
+        self.cmd_vel_pub.publish(Twist())
         if self.current_goal_handle is not None:
             self.current_goal_handle.cancel_goal_async()
 
@@ -536,15 +696,18 @@ class CheckpointPatrolNode(Node):
         self.retry_count = 0
         self.current_index += 1
 
-        if checkpoint_name in DEPARTURE_RECOVERIES:
-            self.start_departure_recovery(checkpoint_name)
+        next_checkpoint_name = self.next_route_checkpoint_name()
+        if checkpoint_name not in HELPER_TARGETS and next_checkpoint_name is not None:
+            self.start_departure_assist(checkpoint_name, next_checkpoint_name)
         else:
-            self.schedule_next_goal(0.25)
+            self.schedule_next_goal(0.75)
 
     def retry_active_checkpoint(self, reason):
         if self.active_goal_sequence is None:
             return
 
+        self.cancel_timer('contact_wait')
+        self.cancel_timer('contact_assist')
         checkpoint_name = self.active_checkpoint_name
         distance = self.distance_to_active_checkpoint()
         if (
@@ -562,6 +725,7 @@ class CheckpointPatrolNode(Node):
             f'Replanning checkpoint {checkpoint_name}: {reason}; retry {self.retry_count}'
         )
 
+        self.cmd_vel_pub.publish(Twist())
         if self.current_goal_handle is not None:
             self.current_goal_handle.cancel_goal_async()
 
@@ -573,18 +737,18 @@ class CheckpointPatrolNode(Node):
         else:
             self.schedule_retry()
 
-    def start_departure_recovery(self, checkpoint_name):
+    def start_departure_assist(self, checkpoint_name, next_checkpoint_name):
         self.cancel_timer('departure')
-        duration, linear_x, angular_z = DEPARTURE_RECOVERIES[checkpoint_name]
-        twist = Twist()
-        twist.linear.x = linear_x
-        twist.angular.z = angular_z
-        self.departure_twist = twist
-        self.departure_end_time = self.get_clock().now() + Duration(seconds=duration)
+        self.departure_mode = 'assist'
+        self.departure_checkpoint_name = checkpoint_name
+        self.departure_target_name = next_checkpoint_name
+        self.departure_end_time = (
+            self.get_clock().now() + Duration(seconds=self.departure_assist_timeout_sec)
+        )
         self.departure_followup = 'next'
         self.get_logger().info(
-            f'Departing checkpoint {checkpoint_name}: recovery cmd_vel '
-            f'linear={linear_x:.2f}, angular={angular_z:.2f} for {duration:.1f}s'
+            f'Departing checkpoint {checkpoint_name}: orienting toward {next_checkpoint_name} '
+            f'using live pose + LiDAR'
         )
         self.departure_timer = self.create_timer(0.1, self.departure_recovery_tick)
 
@@ -592,11 +756,12 @@ class CheckpointPatrolNode(Node):
         if self.retry_recovery_duration_sec <= 0.0:
             return False
         if self.scan_front_min is None:
-            return self.retry_count >= 2
-        return self.scan_front_min <= self.blocked_front_range_m or self.retry_count >= 2
+            return False
+        return self.scan_front_min <= self.blocked_front_range_m
 
     def start_retry_recovery(self, checkpoint_name, reason):
         self.cancel_timer('departure')
+        self.departure_mode = 'open_loop'
         twist = Twist()
         twist.linear.x = self.retry_recovery_linear_x
         turn_direction = self.choose_recovery_turn_direction(checkpoint_name)
@@ -614,15 +779,87 @@ class CheckpointPatrolNode(Node):
         self.departure_timer = self.create_timer(0.1, self.departure_recovery_tick)
 
     def choose_recovery_turn_direction(self, checkpoint_name):
+        heading_error = self.heading_error_to_checkpoint(checkpoint_name)
         if self.scan_left_min is None and self.scan_right_min is None:
-            return -1.0 if checkpoint_name == 'A' else 1.0
+            if heading_error is None:
+                return 1.0
+            return -1.0 if heading_error < 0.0 else 1.0
         if self.scan_left_min is None:
             return 1.0
         if self.scan_right_min is None:
             return -1.0
         return -1.0 if self.scan_left_min >= self.scan_right_min else 1.0
 
+    def departure_assist_tick(self):
+        if self.departure_end_time is None or self.departure_target_name is None:
+            self.cancel_timer('departure')
+            self.schedule_next_goal(0.2)
+            return
+
+        if self.get_clock().now() >= self.departure_end_time:
+            self.get_logger().info(
+                f'Departure assist timed out after checkpoint '
+                f'{self.departure_checkpoint_name}; handing off to Nav2'
+            )
+            self.cmd_vel_pub.publish(Twist())
+            self.cancel_timer('departure')
+            self.schedule_next_goal(0.2)
+            return
+
+        if self.current_robot_pose is None:
+            self.cmd_vel_pub.publish(Twist())
+            self.cancel_timer('departure')
+            self.schedule_next_goal(0.2)
+            return
+
+        heading_error = self.heading_error_to_checkpoint(self.departure_target_name)
+        if heading_error is None:
+            self.cmd_vel_pub.publish(Twist())
+            self.cancel_timer('departure')
+            self.schedule_next_goal(0.2)
+            return
+
+        front_clearance = (
+            float('inf') if self.scan_front_min is None else float(self.scan_front_min)
+        )
+
+        twist = Twist()
+        if front_clearance <= self.departure_assist_front_clearance:
+            if self.scan_left_min == self.scan_right_min:
+                turn_direction = -1.0 if heading_error < 0.0 else 1.0
+            elif self.scan_left_min is None:
+                turn_direction = 1.0
+            elif self.scan_right_min is None:
+                turn_direction = -1.0
+            else:
+                turn_direction = -1.0 if self.scan_left_min >= self.scan_right_min else 1.0
+
+            twist.linear.x = self.departure_assist_backoff_linear_x
+            twist.angular.z = turn_direction * abs(self.departure_assist_turn_speed)
+            self.cmd_vel_pub.publish(twist)
+            return
+
+        if abs(heading_error) > self.departure_assist_heading_tolerance:
+            twist.angular.z = max(
+                -abs(self.departure_assist_turn_speed),
+                min(abs(self.departure_assist_turn_speed), 1.5 * heading_error),
+            )
+            self.cmd_vel_pub.publish(twist)
+            return
+
+        self.get_logger().info(
+            f'Departure assist cleared checkpoint {self.departure_checkpoint_name} '
+            f'toward {self.departure_target_name}; handing off to Nav2'
+        )
+        self.cmd_vel_pub.publish(Twist())
+        self.cancel_timer('departure')
+        self.schedule_next_goal(0.2)
+
     def departure_recovery_tick(self):
+        if self.departure_mode == 'assist':
+            self.departure_assist_tick()
+            return
+
         if self.departure_end_time is None or self.departure_twist is None:
             self.cancel_timer('departure')
             return
@@ -678,14 +915,28 @@ class CheckpointPatrolNode(Node):
             self.next_goal_timer.cancel()
             self.destroy_timer(self.next_goal_timer)
             self.next_goal_timer = None
+        if timer_name == 'contact_wait' and self.contact_wait_timer is not None:
+            self.contact_wait_timer.cancel()
+            self.destroy_timer(self.contact_wait_timer)
+            self.contact_wait_timer = None
+        if timer_name == 'contact_assist':
+            if self.contact_assist_timer is not None:
+                self.contact_assist_timer.cancel()
+                self.destroy_timer(self.contact_assist_timer)
+                self.contact_assist_timer = None
+            self.contact_assist_deadline = None
+            self.contact_assist_reason = None
         if timer_name == 'departure':
             if self.departure_timer is not None:
                 self.departure_timer.cancel()
                 self.destroy_timer(self.departure_timer)
                 self.departure_timer = None
+            self.departure_mode = None
             self.departure_end_time = None
             self.departure_twist = None
             self.departure_followup = None
+            self.departure_target_name = None
+            self.departure_checkpoint_name = None
 
 
 def main(args=None):
@@ -703,3 +954,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+

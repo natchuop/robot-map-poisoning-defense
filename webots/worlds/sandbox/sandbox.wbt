@@ -11,8 +11,8 @@ WorldInfo {
   basicTimeStep 64
 }
 Viewpoint {
-  orientation -0.21454348474018958 0.14589405998388233 0.9657567066383518 1.9794024067487057
-  position 2.3472095226630176 1.121572074471091 0.44096300993843346
+  orientation -0.3851506922453098 -0.517684086375244 0.763977834087343 4.738899889404241
+  position -1.2092213878348892 12.69526952966714 15.094881232751497
   follow "TurtleBot3Burger"
   followType "Pan and Tilt Shot"
 }
@@ -250,6 +250,23 @@ DEF OBS3 Solid {
     size 0.16 0.16 0.4
   }
 }
+DEF OBS3 Solid {
+  translation -1.7 -1.31 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs3(1)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
 DEF OBS4 Solid {
   translation 1.6 0 0.06
   children [
@@ -420,47 +437,31 @@ DEF OBS4_9 Solid {
     size 0.16 0.16 0.4
   }
 }
-DEF OBS5 Solid {
-  translation -1.6 -1.2 0.06
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.8 0.1 0.8
-      }
-      geometry Box {
-        size 0.16 0.16 0.4
-      }
-    }
-  ]
-  name "obs5"
-  boundingObject Box {
-    size 0.16 0.16 0.4
-  }
-}
 TurtleBot3Burger {
-  hidden position_0_0 1.0374876005908189e-09
-  hidden position_0_1 1.0200824379776625e-09
-  hidden position_0_2 2.4608072764200237e-06
-  hidden position2_0_2 0.0012337026434980916
-  hidden position3_0_2 4.008871473192077e-05
-  hidden linearVelocity_0 -6.0341403834868476e-05 1.2107456001285328e-07 -0.00010474569593280174
-  hidden angularVelocity_0 -2.5249671723903796e-06 -0.0012498154409710724 2.4933274040575456e-08
-  hidden position_3_0 63705.71775995754
-  hidden position_3_1 127321.43615991515
-  hidden rotation_4 0.940117465391062 -0.24101734845943537 -0.24101823376721568 4.650674072082983
-  hidden translation_5 -0.022354023184941434 -0.01 0.0394571638674362
-  hidden rotation_5 -0.7804096026038605 -0.44213087207538865 -0.44213249611574695 1.8162344009349531
-  hidden rotation_10 0 -1 0 1.5707959989625122
-  hidden linearVelocity_10 -4.124449080637205e-05 8.332579291079849e-08 -6.293526513112617e-05
-  hidden angularVelocity_10 -2.524967686920205e-06 -0.0012498154799951825 2.4933299402907174e-08
-  hidden rotation_11 -0.7071047815449927 1.1867613053987812e-15 -0.7071087808224477 3.141588
-  hidden linearVelocity_11 -4.124449048162135e-05 8.332436789045819e-08 -6.33392192037775e-05
-  hidden angularVelocity_11 -2.52496606538844e-06 -0.0012498154799739736 2.493205400451201e-08
-  hidden rotation_12 0.002013629067120079 0.9994704010295495 0.03247865089272412 0.0012343563078051254
-  hidden linearVelocity_12 -4.045530436727387e-06 6.157121285142032e-09 -0.00016400871274697255
-  hidden angularVelocity_12 -1.5392803279594392e-06 -0.0010113826134245016 2.3612106544602183e-08
-  translation 2.0000012059794567 1.9999999969964533 -0.0004775333596183373
-  rotation -0.002099950040801313 -0.9999977950983996 -2.8575423788581536e-06 0.009043530136577766
+  hidden position_0_0 1.0107667528341406e-09
+  hidden position_0_1 9.973904678566673e-10
+  hidden position_0_2 2.7082139337086254e-06
+  hidden position2_0_2 0.0012939739057400033
+  hidden position3_0_2 4.0082425930238724e-05
+  hidden linearVelocity_0 4.251655848712895e-14 -2.0785304990749448e-16 3.183094948827945e-14
+  hidden angularVelocity_0 1.968939938879076e-14 8.806403315567916e-13 -1.9425829209966417e-16
+  hidden position_3_0 69089.51551995268
+  hidden position_3_1 137999.03231990561
+  hidden rotation_4 -0.9631121442388398 -0.19028233184471618 -0.19028303079203207 1.608376572234015
+  hidden translation_5 -0.03970047029276689 -0.010000000000000002 -0.04556660976491107
+  hidden rotation_5 0.6301670770020297 -0.5490388148965858 -0.5490408316324665 4.266202020880755
+  hidden translation_10 0 -0.08 0.033
+  hidden linearVelocity_10 2.906201276671676e-14 3.126937628742692e-16 3.739827375883135e-16
+  hidden angularVelocity_10 7.031523766860338e-15 8.805383200005665e-13 -2.1897461347427447e-16
+  hidden translation_11 0 0.08 0.033
+  hidden linearVelocity_11 2.909887339753265e-14 -8.289175909532315e-16 1.8699145413977365e-15
+  hidden angularVelocity_11 3.308169370871659e-14 8.822078893083488e-13 -2.988568228763861e-16
+  hidden translation_12 -0.081 0 0.004
+  hidden rotation_12 0.002111966444022146 0.9995183108209732 0.03096265381597116 0.0012945974450175174
+  hidden linearVelocity_12 2.8187427668071194e-15 7.298242800196669e-16 1.0094533901129326e-13
+  hidden angularVelocity_12 -1.8245606694783597e-13 7.046856798946579e-13 2.893466910544753e-31
+  translation 2.000001205408321 1.9999999969987243 -0.0004935078559719155
+  rotation -0.0020966706849694762 -0.9999978019813879 -2.1052027647190993e-06 0.009367550973918864
   controller "user_controlled_robot"
   extensionSlot [
     GPS {
@@ -470,4 +471,106 @@ TurtleBot3Burger {
     RobotisLds01 {
     }
   ]
+}
+Solid {
+  translation -1.52 2.1 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.2 0.2
+          emissiveColor 0.45 0.05 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_A"
+}
+Solid {
+  translation -1.52 -1.06 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.2 0.95 0.2
+          emissiveColor 0.05 0.45 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_B"
+}
+Solid {
+  translation -2.13 -0.25 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.2 0.4 0.95
+          emissiveColor 0.05 0.1 0.45
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_C"
+}
+Solid {
+  translation 0.78 1.97 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.95 0.2
+          emissiveColor 0.45 0.45 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_D"
+}
+Solid {
+  translation 2.34 -2.24 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.2 0.75
+          emissiveColor 0.45 0.05 0.3
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_E"
+}
+Solid {
+  translation 2.67 2.28 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.55 0.2
+          emissiveColor 0.45 0.2 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_F"
 }

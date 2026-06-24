@@ -3,11 +3,38 @@ import math
 import socket
 import threading
 
-from geometry_msgs.msg import Pose2D, Twist
+from geometry_msgs.msg import Pose2D, Quaternion, TransformStamped, Twist
+from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String
+from tf2_ros import TransformBroadcaster
+
+
+def normalize_angle(angle: float) -> float:
+    return math.atan2(math.sin(angle), math.cos(angle))
+
+
+def yaw_to_quaternion(yaw: float) -> Quaternion:
+    half_yaw = yaw * 0.5
+    return Quaternion(
+        x=0.0,
+        y=0.0,
+        z=math.sin(half_yaw),
+        w=math.cos(half_yaw),
+    )
+
+
+def covariance_matrix(xy: float, yaw: float):
+    covariance = [0.0] * 36
+    covariance[0] = xy
+    covariance[7] = xy
+    covariance[14] = 1e-6
+    covariance[21] = 1e-6
+    covariance[28] = 1e-6
+    covariance[35] = yaw
+    return covariance
 
 
 class UdpBridgeNode(Node):
@@ -20,17 +47,30 @@ class UdpBridgeNode(Node):
         self.declare_parameter('listen_port', 5005)
         self.declare_parameter('scan_frame', 'laser')
         self.declare_parameter('max_publish_hz', 25.0)
+        self.declare_parameter('publish_odom', True)
+        self.declare_parameter('odom_topic', '/odom')
+        self.declare_parameter('odom_frame', 'odom')
+        self.declare_parameter('base_frame', 'base_link')
+        self.declare_parameter('covariance_xy', 0.05)
+        self.declare_parameter('covariance_yaw', 0.1)
 
         self.listen_host = self.get_parameter('listen_host').value
         self.listen_port = int(self.get_parameter('listen_port').value)
         self.scan_frame = self.get_parameter('scan_frame').value
         self.max_publish_hz = float(self.get_parameter('max_publish_hz').value)
+        self.publish_odom = bool(self.get_parameter('publish_odom').value)
+        self.odom_topic = self.get_parameter('odom_topic').value
+        self.odom_frame = self.get_parameter('odom_frame').value
+        self.base_frame = self.get_parameter('base_frame').value
+        self.covariance_xy = float(self.get_parameter('covariance_xy').value)
+        self.covariance_yaw = float(self.get_parameter('covariance_yaw').value)
         self.min_publish_period_ns = int(
             1_000_000_000 / max(self.max_publish_hz, 1.0)
         )
 
         self.scan_pub = self.create_publisher(LaserScan, '/scan', 10)
         self.pose_pub = self.create_publisher(Pose2D, '/robot_pose', 10)
+        self.odom_pub = self.create_publisher(Odometry, self.odom_topic, 10)
         self.checkpoint_contact_pub = self.create_publisher(
             String,
             '/webots_checkpoint_contact',
@@ -56,11 +96,14 @@ class UdpBridgeNode(Node):
             10,
         )
 
+        self.tf_broadcaster = TransformBroadcaster(self)
         self._shutdown = threading.Event()
         self._tcp_clients = []
         self._tcp_clients_lock = threading.Lock()
         self._last_udp_addr = None
         self._last_publish_ns = None
+        self._previous_pose = None
+        self._previous_pose_stamp_ns = None
 
         self._udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -87,6 +130,15 @@ class UdpBridgeNode(Node):
         self.get_logger().info(
             f'Publishing /robot_pose and /scan at up to {self.max_publish_hz:.1f} Hz'
         )
+        if self.publish_odom:
+            self.get_logger().info(
+                f'Publishing synchronized {self.odom_topic} and '
+                f'{self.odom_frame}->{self.base_frame} TF from Webots packets'
+            )
+            self.get_logger().info(
+                f'Pose-to-odom ready: pose=/robot_pose, odom={self.odom_topic}, '
+                f'frames={self.odom_frame}->{self.base_frame}'
+            )
         self.get_logger().info('Forwarding ROS /cmd_vel and checkpoint state back to Webots')
 
     def _send_to_webots(self, packet: dict) -> bool:
@@ -273,11 +325,18 @@ class UdpBridgeNode(Node):
         pose = packet.get('pose', {})
         scan = packet.get('scan', {})
 
+        x = float(pose.get('x', 0.0))
+        y = float(pose.get('y', 0.0))
+        theta = float(pose.get('theta', 0.0))
+
         pose_msg = Pose2D()
-        pose_msg.x = float(pose.get('x', 0.0))
-        pose_msg.y = float(pose.get('y', 0.0))
-        pose_msg.theta = float(pose.get('theta', 0.0))
+        pose_msg.x = x
+        pose_msg.y = y
+        pose_msg.theta = theta
         self.pose_pub.publish(pose_msg)
+
+        if self.publish_odom:
+            self._publish_odom(x, y, theta, stamp)
 
         ranges = scan.get('ranges', [])
         if not ranges:
@@ -301,6 +360,49 @@ class UdpBridgeNode(Node):
         scan_msg.ranges = [float(value) for value in ranges]
         scan_msg.intensities = []
         self.scan_pub.publish(scan_msg)
+
+    def _publish_odom(self, x: float, y: float, theta: float, stamp) -> None:
+        stamp_ns = stamp.nanoseconds
+        linear_x = 0.0
+        linear_y = 0.0
+        angular_z = 0.0
+
+        if self._previous_pose is not None and self._previous_pose_stamp_ns is not None:
+            dt = (stamp_ns - self._previous_pose_stamp_ns) / 1_000_000_000.0
+            if dt > 1e-4:
+                prev_x, prev_y, prev_theta = self._previous_pose
+                world_vx = (x - prev_x) / dt
+                world_vy = (y - prev_y) / dt
+                angular_z = normalize_angle(theta - prev_theta) / dt
+                linear_x = (math.cos(theta) * world_vx) + (math.sin(theta) * world_vy)
+                linear_y = (-math.sin(theta) * world_vx) + (math.cos(theta) * world_vy)
+
+        odom = Odometry()
+        odom.header.stamp = stamp.to_msg()
+        odom.header.frame_id = self.odom_frame
+        odom.child_frame_id = self.base_frame
+        odom.pose.pose.position.x = x
+        odom.pose.pose.position.y = y
+        odom.pose.pose.position.z = 0.0
+        odom.pose.pose.orientation = yaw_to_quaternion(theta)
+        odom.twist.twist.linear.x = linear_x
+        odom.twist.twist.linear.y = linear_y
+        odom.twist.twist.angular.z = angular_z
+        odom.pose.covariance = covariance_matrix(self.covariance_xy, self.covariance_yaw)
+        self.odom_pub.publish(odom)
+
+        transform = TransformStamped()
+        transform.header.stamp = odom.header.stamp
+        transform.header.frame_id = self.odom_frame
+        transform.child_frame_id = self.base_frame
+        transform.transform.translation.x = x
+        transform.transform.translation.y = y
+        transform.transform.translation.z = 0.0
+        transform.transform.rotation = yaw_to_quaternion(theta)
+        self.tf_broadcaster.sendTransform(transform)
+
+        self._previous_pose = (x, y, theta)
+        self._previous_pose_stamp_ns = stamp_ns
 
     def destroy_node(self) -> bool:
         self._shutdown.set()
