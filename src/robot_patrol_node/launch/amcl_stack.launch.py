@@ -50,17 +50,6 @@ def generate_launch_description():
             }],
         ),
 
-        Node(
-            package='robot_patrol_node',
-            executable='pose_to_odom',
-            output='screen',
-            parameters=[{
-                'pose_topic': pose_topic,
-                'odom_topic': odom_topic,
-                'odom_frame': odom_frame,
-                'base_frame': base_frame,
-            }],
-        ),
 
         Node(
             package='tf2_ros',
