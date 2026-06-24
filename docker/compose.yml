@@ -18,6 +18,7 @@ services:
     ports:
       - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT:-5005}:5005/udp"
       - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT:-5005}:5005/tcp"
+      - "8765:8765"
     stdin_open: true
     tty: true
     command: bash

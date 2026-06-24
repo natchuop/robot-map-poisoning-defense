@@ -7,7 +7,14 @@ ARG RMPD_INSTALL_FULL_STACK=true
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update -o Acquire::Retries=3 && apt-get install -y --no-install-recommends \
+    printf '%s\n' \
+        'Acquire::http::Proxy::packages.ros.org "DIRECT";' \
+        'Acquire::http::No-Cache "true";' \
+        'Acquire::http::Pipeline-Depth "0";' \
+        > /etc/apt/apt.conf.d/99rmpd-http \
+    && sed -i 's|http://ports.ubuntu.com/ubuntu-ports/|https://ports.ubuntu.com/ubuntu-ports/|g' /etc/apt/sources.list.d/ubuntu.sources \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/* \
+    && apt-get update -o Acquire::Retries=3 && apt-get install -y --no-install-recommends \
     python3-colcon-common-extensions \
     python3-numpy \
     python3-pip \
@@ -54,7 +61,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         ros-jazzy-turtlebot3-msgs \
         ros-jazzy-webots-ros2 \
         ros-jazzy-webots-ros2-driver \
-        ros-jazzy-webots-ros2-turtlebot; \
+        ros-jazzy-webots-ros2-turtlebot \
+        ros-jazzy-foxglove-bridge; \
     fi \
     && rm -rf /var/lib/apt/lists/*
 
