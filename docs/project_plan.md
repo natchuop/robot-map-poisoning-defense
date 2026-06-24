@@ -8,10 +8,14 @@ This is the main context file for future AI work on the project.
 - 360-degree LDS-01 LiDAR works
 - GPS works
 - IMU works
-- Current controller is Python and does obstacle avoidance
+- Current controller is Python and can do obstacle avoidance plus checkpoint patrol
 - Controller can print robot `x`, `y`, and heading (`yaw`)
 - `bash scripts/quick_test.sh` runs the default AMCL + Nav2 checkpoint patrol smoke test
 - RViz opens with `amcl.rviz` and fixed frame `map`
+- `bash scripts/runOffice.sh` runs the office world with its own AMCL map, RViz config, and startup pose
+- `bash scripts/runConfusingMaze.sh` runs the confusing maze world with its own AMCL map and startup pose
+- `bash scripts/runSandbox.sh` runs the sandbox world with its own AMCL map and startup pose
+- `bash scripts/runTestBuildingMapForRobot.sh` runs the test-building world with the same AMCL default as the main quick test
 
 ## Project Goal
 
@@ -242,7 +246,7 @@ Track:
 - trust score over time
 - optional navigation impact
 
-Map accuracy should compare each robot’s map with the Webots ground truth.
+Map accuracy should compare each robot's map with the Webots ground truth.
 
 ## Implementation Roadmap
 
@@ -285,11 +289,12 @@ Current mapping loop:
 Current AMCL + Nav2 quick-test loop:
 
 - generate or refresh `webots/worlds/testRvizMap/amcl_map/arena.yaml`
-- start `udp_bridge`, `pose_to_odom`, `map_server`, AMCL, lifecycle manager, initial pose publisher, Nav2, and the checkpoint patrol node
+- start `udp_bridge`, `map_server`, AMCL, lifecycle manager, initial pose publisher, Nav2, and the checkpoint patrol node
 - publish `/robot_pose` and `/scan` from Webots packets
-- mirror Webots pose into `/odom` for the test harness
-- publish test-harness TF for `map -> odom`, `odom -> base_link`, and `base_link -> laser`
+- publish `/odom` from the bridge for AMCL and the test harness
+- publish TF for `map -> odom`, `odom -> base_link`, and `base_link -> laser`
 - visualize `/map`, `/scan`, AMCL particles, and TF in RViz through `amcl.rviz`
+- use Regulated Pure Pursuit and tighter obstacle-aware costmaps for checkpoint patrols
 
 Navigation direction:
 
@@ -313,7 +318,7 @@ Current `testRvizMap` checkpoint patrol controller:
 
 `webots/robot_controllers/patrol_robot/patrol_robot.py`
 
-This controller receives `/cmd_vel` from Nav2 through the bridge, tracks the active checkpoint sent from ROS, and reports checkpoint contact events back to ROS.
+This controller receives `/cmd_vel` from Nav2 through the bridge, tracks the active checkpoint sent from ROS, and reports checkpoint contact events back to ROS. The current patrol behavior waits for centered arrival on the checkpoint marker and uses final centering assist before it declares success.
 
 User-controlled controller for the office and live map-building worlds:
 
@@ -324,10 +329,11 @@ The Webots controllers send packets over TCP by default; the ROS bridge listens 
 They:
 
 - read GPS, IMU, and LiDAR
-- sends pose and scan data to Docker over TCP on port `5005`
+- send pose and scan data to Docker on port `5005`
+- bridge publishes `/odom` from those packets for AMCL and the test harness
 - defaults to `172.28.64.1` first, then `127.0.0.1`, for the host bridge
 - also accepts UDP on port `5005` as fallback/debug
-- use `/cmd_vel` and checkpoint contact events for the Nav2 checkpoint patrol flow
+- use `/cmd_vel`, `/active_checkpoint`, and checkpoint contact events for the Nav2 checkpoint patrol flow
 
 World file:
 
@@ -352,4 +358,4 @@ laser_yaw:=0.00
 
 ## Next Useful AI Task
 
-Build on the AMCL smoke test by adding real Nav2 waypoint navigation against `webots/worlds/testRvizMap/amcl_map/arena.yaml`, then define checkpoint patrol routes for trust and map-poisoning experiments.
+Build on the current AMCL/Nav2 patrol stack by wiring map sharing, trust scoring, and quarantine decisions into the existing checkpoint flow.

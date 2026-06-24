@@ -7,9 +7,11 @@ This repo currently uses a TurtleBot3 Burger world in Webots and a ROS 2 bridge 
 - Main AMCL world: `webots/worlds/testRvizMap/turtlebot3_burger.wbt`
 - Office world: `webots/worlds/office/office.wbt`
 - Live map-building world: `webots/worlds/testBuildingMapForRobot/turtlebot3_burger.wbt`
+- Sandbox world: `webots/worlds/sandbox/sandbox.wbt`
 - Known AMCL map: `webots/worlds/testRvizMap/amcl_map/arena.yaml` and `arena.pgm`
 - Office AMCL map: `webots/worlds/office/amcl_map/office.yaml` and `office.pgm`
 - Confusing maze AMCL map: `webots/worlds/confusingMaze/amcl_map/confusing_maze.yaml` and `confusing_maze.pgm`
+- Sandbox AMCL map: `webots/worlds/sandbox/amcl_map/sandbox.yaml` and `sandbox.pgm`
 - Checkpoint patrol controller: `webots/robot_controllers/patrol_robot/patrol_robot.py`
 - User-controlled controller: `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`
 - Webots wrapper: `webots/worlds/controllers/patrol_robot/patrol_robot.py`
@@ -21,9 +23,9 @@ The wrappers exist only because the world tree is nested. Keep behavior in `webo
 
 ## Data Flow
 
-Webots world -> Python controller -> ROS bridge -> `/robot_pose` and `/scan` -> AMCL / Nav2 -> `/cmd_vel` -> ROS bridge -> Webots
+Webots world -> Python controller -> ROS bridge -> `/robot_pose`, `/scan`, and `/odom` -> AMCL / Nav2 -> `/cmd_vel` -> ROS bridge -> Webots
 
-The bridge also forwards `/active_checkpoint` to Webots and publishes `/webots_checkpoint_contact` when the robot footprint touches the active colored checkpoint block.
+The bridge also forwards `/active_checkpoint` to Webots and publishes `/webots_checkpoint_contact` when the robot center reaches the active colored checkpoint block.
 
 ## Nav2 In 2D
 
@@ -34,7 +36,7 @@ Nav2 works from a 2D occupancy grid:
 - The global planner picks a route to the goal using the static map.
 - The local costmap uses live sensor data to react to new obstacles like boxes, chairs, or people.
 
-So the map gives Nav2 the room layout, and lidar gives it the chance to slow down, stop, or route around things that are not in the static map.
+So the map gives Nav2 the room layout, and lidar gives it the chance to slow down, stop, or route around things that are not in the static map. The current Nav2 tuning uses Regulated Pure Pursuit and tighter obstacle-aware costmaps to keep the patrol behavior conservative near walls and furniture.
 
 ## Quick Test
 
@@ -68,9 +70,11 @@ For convenience, `bash scripts/runOffice.sh` launches the office world with its 
 
 For convenience, `bash scripts/runConfusingMaze.sh` launches `webots/worlds/confusingMaze/confusing_maze.wbt` with its generated AMCL map and the `user_controlled_robot` controller. The maze robot starts at `x=-3.5`, `y=-3.5`, `yaw=0.0`.
 
+For convenience, `bash scripts/runSandbox.sh` launches `webots/worlds/sandbox/sandbox.wbt` with its generated AMCL map and the `user_controlled_robot` controller. The sandbox robot starts at `x=2.0`, `y=2.0`, `yaw=0.0`.
+
 Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes against the known map.
 
-In default AMCL mode, RViz uses `amcl.rviz` and displays both the static `/map` and the robot-built `/live_map`. The live map uses RViz's costmap color scheme and can appear pink or purple. The office script uses `office_amcl.rviz` plus office-specific startup pose settings so the larger office map and remembered overlay remain visible. The test-building script now also uses AMCL mode by default so it matches the quick-test remembered-map behavior.
+In default AMCL mode, RViz uses `amcl.rviz` and displays both the static `/map` and the robot-built `/live_map`. The live map uses RViz's costmap color scheme and can appear pink or purple. The office script uses `office_amcl.rviz` plus office-specific startup pose settings so the larger office map and remembered overlay remain visible. The test-building script now also uses AMCL mode by default so it matches the quick-test remembered-map behavior. The confusing maze and sandbox scripts reuse the same AMCL flow with world-specific map sizes and initial poses.
 
 ## Controller Contract
 
@@ -84,7 +88,7 @@ The controllers expect these Webots devices:
 - `left wheel motor`
 - `right wheel motor`
 
-They send newline-delimited JSON over TCP by default. The default bridge target is `tcp://172.28.64.1:5005`, with `127.0.0.1` as fallback.
+They send newline-delimited JSON over TCP by default. The default bridge target is `tcp://172.28.64.1:5005`, with `127.0.0.1` as fallback. The ROS bridge listens on both TCP and UDP port `5005`, and in AMCL mode it also publishes `/odom` for the localization stack and the initial-pose helper.
 
 ## Controller Choices
 
