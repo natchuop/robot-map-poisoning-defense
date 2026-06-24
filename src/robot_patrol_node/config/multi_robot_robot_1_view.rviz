@@ -6,7 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Robot 1 Shared Map1
-        - /Robot 1 Confidence Heat Map1
+        - /Robot 1 Confidence Overlay1
         - /Robot 1 Scan1
         - /Robot 2 Scan1
         - /TF1
@@ -31,7 +31,7 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 60
       Reference Frame: <Fixed Frame>
-    - Alpha: 0.22
+    - Alpha: 0.08
       Class: rviz_default_plugins/Map
       Color Scheme: map
       Draw Behind: true
@@ -41,16 +41,11 @@ Visualization Manager:
         Value: /robot_1/shared_live_map
       Unreliable: false
       Use Timestamp: false
-    - Alpha: 0.95
-      Class: rviz_default_plugins/Map
-      Color Scheme: costmap
-      Draw Behind: false
+    - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: Robot 1 Confidence Heat Map
+      Name: Robot 1 Confidence Overlay
       Topic:
-        Value: /robot_1/shared_confidence_map
-      Unreliable: false
-      Use Timestamp: false
+        Value: /robot_1/confidence_markers
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 255; 210; 0

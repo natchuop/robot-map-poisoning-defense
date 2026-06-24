@@ -69,6 +69,28 @@ def map_builder_node(robot_name, pose_topic, scan_topic, map_topic, confidence_m
     )
 
 
+def confidence_marker_node(robot_name, input_topic, output_topic, title):
+    return Node(
+        package='robot_patrol_node',
+        executable='confidence_marker',
+        name=f'{robot_name}_confidence_marker',
+        output='screen',
+        parameters=[{
+            'map_topic': f'/{robot_name}/shared_live_map',
+            'input_topic': input_topic,
+            'source_map_topics': ['/robot_1/live_map', '/robot_2/live_map'],
+            'output_topic': output_topic,
+            'marker_namespace': f'{robot_name}_confidence',
+            'overlay_alpha': 1.0,
+            'cell_scale_z': 0.02,
+            'legend_title': title,
+            'occupied_confident_threshold': 70,
+            'occupied_possible_threshold': 30,
+            'free_confident_threshold': 60,
+        }],
+    )
+
+
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('live_map_width_m', default_value='10.0'),
@@ -129,6 +151,12 @@ def generate_launch_description():
                 'confidence_visual_gamma': 2.6,
             }],
         ),
+        confidence_marker_node(
+            'robot_1',
+            '/robot_1/shared_confidence_map',
+            '/robot_1/confidence_markers',
+            'Robot 1 Confidence',
+        ),
         Node(
             package='robot_patrol_node',
             executable='map_merge',
@@ -145,5 +173,11 @@ def generate_launch_description():
                 'confidence_weights': [0.8, 1.0],
                 'confidence_visual_gamma': 2.6,
             }],
+        ),
+        confidence_marker_node(
+            'robot_2',
+            '/robot_2/shared_confidence_map',
+            '/robot_2/confidence_markers',
+            'Robot 2 Confidence',
         ),
     ])

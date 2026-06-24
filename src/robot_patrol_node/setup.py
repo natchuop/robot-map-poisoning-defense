@@ -40,6 +40,7 @@ setup(
             'initial_pose_publisher = robot_patrol_node.initial_pose_publisher_node:main',
             'map_builder = robot_patrol_node.map_builder_node:main',
             'localized_pose2d = robot_patrol_node.localized_pose2d_node:main',
+            'confidence_marker = robot_patrol_node.confidence_marker_node:main',
             'map_merge = robot_patrol_node.map_merge_node:main',
             'pose_to_odom = robot_patrol_node.pose_to_odom_node:main',
             'udp_bridge = robot_patrol_node.udp_bridge_node:main',
