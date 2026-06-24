@@ -33,6 +33,7 @@ class MapBuilderNode(Node):
         self.declare_parameter('scan_topic', '/scan')
         self.declare_parameter('pose_topic', '/robot_pose')
         self.declare_parameter('map_topic', '/map')
+        self.declare_parameter('confidence_map_topic', '')
         self.declare_parameter('map_frame', 'map')
         self.declare_parameter('base_frame', 'base_link')
         self.declare_parameter('laser_frame', 'laser')
@@ -66,6 +67,7 @@ class MapBuilderNode(Node):
         self.scan_topic = self.get_parameter('scan_topic').value
         self.pose_topic = self.get_parameter('pose_topic').value
         self.map_topic = self.get_parameter('map_topic').value
+        self.confidence_map_topic = str(self.get_parameter('confidence_map_topic').value).strip()
         self.map_frame = self.get_parameter('map_frame').value
         self.base_frame = self.get_parameter('base_frame').value
         self.laser_frame = self.get_parameter('laser_frame').value
@@ -135,6 +137,13 @@ class MapBuilderNode(Node):
         map_qos.reliability = ReliabilityPolicy.RELIABLE
         map_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
         self.map_pub = self.create_publisher(OccupancyGrid, self.map_topic, map_qos)
+        self.confidence_map_pub = None
+        if self.confidence_map_topic:
+            self.confidence_map_pub = self.create_publisher(
+                OccupancyGrid,
+                self.confidence_map_topic,
+                map_qos,
+            )
         self.scan_sub = self.create_subscription(
             LaserScan,
             self.scan_topic,
@@ -150,7 +159,8 @@ class MapBuilderNode(Node):
 
         self.get_logger().info(
             f'Map builder ready: scan={self.scan_topic}, '
-            f'pose={self.pose_topic}, map={self.map_topic}'
+            f'pose={self.pose_topic}, map={self.map_topic}, '
+            f'confidence_map={self.confidence_map_topic or "disabled"}'
         )
         self.publish_current_map()
 
@@ -318,10 +328,21 @@ class MapBuilderNode(Node):
         msg.info.origin.orientation.w = 1.0
         msg.data = self.grid.reshape(-1).tolist()
         self.map_pub.publish(msg)
+        if self.confidence_map_pub is not None:
+            confidence_msg = OccupancyGrid()
+            confidence_msg.header = msg.header
+            confidence_msg.info = msg.info
+            confidence_msg.data = self.confidence_grid().reshape(-1).tolist()
+            self.confidence_map_pub.publish(confidence_msg)
 
     def publish_current_map(self) -> None:
         stamp = self.get_clock().now().to_msg()
         self.publish_map(stamp.sec, stamp.nanosec)
+
+    def confidence_grid(self):
+        confidence = np.full((self.height_cells, self.width_cells), -1, dtype=np.int8)
+        confidence[self.observed] = np.int8(100)
+        return confidence
 
     def world_to_grid(self, x: float, y: float):
         col = math.floor((x - self.origin_x) / self.resolution)

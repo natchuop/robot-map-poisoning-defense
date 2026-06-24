@@ -9,6 +9,7 @@ The longer-term Webots direction is to support trust-based shared mapping, verif
 - Office world: `webots/worlds/office/office.wbt`
 - Live map-building world: `webots/worlds/testBuildingMapForRobot/turtlebot3_burger.wbt`
 - Sandbox world: `webots/worlds/sandbox/sandbox.wbt`
+- Shared-map sandbox copy: `webots/worlds/TestCombineRvizMap/TestCombineRvizMap.wbt`
 - Known AMCL map: `webots/worlds/testRvizMap/amcl_map/arena.yaml` and `arena.pgm`
 - Office AMCL map: `webots/worlds/office/amcl_map/office.yaml` and `office.pgm`
 - Confusing maze AMCL map: `webots/worlds/confusingMaze/amcl_map/confusing_maze.yaml` and `confusing_maze.pgm`
@@ -100,7 +101,11 @@ For convenience, `bash scripts/runConfusingMaze.sh` launches `webots/worlds/conf
 
 For convenience, `bash scripts/runSandbox.sh` launches `webots/worlds/sandbox/sandbox.wbt` with its generated AMCL map and the `user_controlled_robot` controller. The sandbox robot starts at `x=2.0`, `y=2.0`, `yaw=0.0`.
 
+For convenience, `bash scripts/runTestCombineRvizMap.sh` launches `webots/worlds/TestCombineRvizMap/TestCombineRvizMap.wbt` with two `user_controlled_robot` TurtleBots, two identical RViz windows, a merged `/shared_live_map`, and a `/shared_confidence_map` overlay. `robot_1` starts at `x=2.0`, `y=2.0`, `yaw=0.0` and uses WASD. `robot_2` starts at `x=-2.0`, `y=-2.0`, `yaw=1.5708` and uses the arrow keys.
+
 Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes against the known map.
+
+The shared two-robot mapping flow uses separate bridge ports and topics per robot, then merges the per-robot maps into `/shared_live_map`. The confidence overlay currently marks every observed cell with full confidence so both RViz windows show a single-color heat-map layer until trust weighting is added later.
 
 In default AMCL mode, RViz uses `amcl.rviz` and displays both the static `/map` and the robot-built `/live_map`. The live map uses RViz's costmap color scheme and can appear pink or purple. The office script uses `office_amcl.rviz` plus office-specific startup pose settings so the larger office map and remembered overlay remain visible. The test-building script now also uses AMCL mode by default so it matches the quick-test remembered-map behavior. The confusing maze and sandbox scripts reuse the same AMCL flow with world-specific map sizes and initial poses.
 

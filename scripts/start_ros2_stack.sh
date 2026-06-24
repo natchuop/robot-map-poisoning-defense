@@ -46,5 +46,18 @@ if [ "${RMPD_TEST_MODE:-mapping}" = "amcl" ]; then
         live_map_origin_y:="$LIVE_MAP_ORIGIN_Y"
 fi
 
+if [ "${RMPD_TEST_MODE:-mapping}" = "multi_mapping" ]; then
+    LIVE_MAP_WIDTH_M="${RMPD_LIVE_MAP_WIDTH_M:-10.0}"
+    LIVE_MAP_HEIGHT_M="${RMPD_LIVE_MAP_HEIGHT_M:-10.0}"
+    LIVE_MAP_ORIGIN_X="${RMPD_LIVE_MAP_ORIGIN_X:--4.0}"
+    LIVE_MAP_ORIGIN_Y="${RMPD_LIVE_MAP_ORIGIN_Y:--4.0}"
+    echo "Launching multi-robot shared mapping stack"
+    exec ros2 launch robot_patrol_node multi_robot_mapping.launch.py \
+        live_map_width_m:="$LIVE_MAP_WIDTH_M" \
+        live_map_height_m:="$LIVE_MAP_HEIGHT_M" \
+        live_map_origin_x:="$LIVE_MAP_ORIGIN_X" \
+        live_map_origin_y:="$LIVE_MAP_ORIGIN_Y"
+fi
+
 echo "Launching live mapping stack (Webots GPS/IMU pose + LiDAR, no AMCL)"
 exec ros2 launch robot_patrol_node mapping_stack.launch.py

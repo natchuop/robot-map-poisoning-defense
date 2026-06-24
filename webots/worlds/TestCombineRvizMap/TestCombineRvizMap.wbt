@@ -7,7 +7,7 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/devices/robotis/protos/RobotisLds01.proto"
 
 WorldInfo {
-  title "Sandbox"
+  title "TestCombineRvizMap"
   basicTimeStep 64
 }
 Viewpoint {
@@ -248,7 +248,7 @@ DEF OBS3 Solid {
     size 0.16 0.16 0.4
   }
 }
-DEF OBS3 Solid {
+DEF OBS3_1 Solid {
   translation -1.7 -1.31 0.06
   children [
     Shape {
@@ -435,32 +435,27 @@ DEF OBS4_9 Solid {
     size 0.16 0.16 0.4
   }
 }
-TurtleBot3Burger {
-  hidden position_0_0 1.0107667528341406e-09
-  hidden position_0_1 9.973904678566673e-10
-  hidden position_0_2 2.7082139337086254e-06
-  hidden position2_0_2 0.0012939739057400033
-  hidden position3_0_2 4.0082425930238724e-05
-  hidden linearVelocity_0 4.251655848712895e-14 -2.0785304990749448e-16 3.183094948827945e-14
-  hidden angularVelocity_0 1.968939938879076e-14 8.806403315567916e-13 -1.9425829209966417e-16
-  hidden position_3_0 69089.51551995268
-  hidden position_3_1 137999.03231990561
-  hidden rotation_4 -0.9631121442388398 -0.19028233184471618 -0.19028303079203207 1.608376572234015
-  hidden translation_5 -0.03970047029276689 -0.010000000000000002 -0.04556660976491107
-  hidden rotation_5 0.6301670770020297 -0.5490388148965858 -0.5490408316324665 4.266202020880755
-  hidden translation_10 0 -0.08 0.033
-  hidden linearVelocity_10 2.906201276671676e-14 3.126937628742692e-16 3.739827375883135e-16
-  hidden angularVelocity_10 7.031523766860338e-15 8.805383200005665e-13 -2.1897461347427447e-16
-  hidden translation_11 0 0.08 0.033
-  hidden linearVelocity_11 2.909887339753265e-14 -8.289175909532315e-16 1.8699145413977365e-15
-  hidden angularVelocity_11 3.308169370871659e-14 8.822078893083488e-13 -2.988568228763861e-16
-  hidden translation_12 -0.081 0 0.004
-  hidden rotation_12 0.002111966444022146 0.9995183108209732 0.03096265381597116 0.0012945974450175174
-  hidden linearVelocity_12 2.8187427668071194e-15 7.298242800196669e-16 1.0094533901129326e-13
-  hidden angularVelocity_12 -1.8245606694783597e-13 7.046856798946579e-13 2.893466910544753e-31
-  translation 2.000001205408321 1.9999999969987243 -0.0004935078559719155
-  rotation -0.0020966706849694762 -0.9999978019813879 -2.1052027647190993e-06 0.009367550973918864
+DEF ROBOT_1 TurtleBot3Burger {
+  translation 2.0 2.0 0.0
+  rotation 0 0 1 0
+  name "robot_1"
   controller "user_controlled_robot"
+  customData "{\"robot_id\":\"robot_1\",\"bridge_port\":5005,\"key_mode\":\"wasd\"}"
+  extensionSlot [
+    GPS {
+    }
+    InertialUnit {
+    }
+    RobotisLds01 {
+    }
+  ]
+}
+DEF ROBOT_2 TurtleBot3Burger {
+  translation -2.0 -2.0 0.0
+  rotation 0 0 1 1.5708
+  name "robot_2"
+  controller "user_controlled_robot"
+  customData "{\"robot_id\":\"robot_2\",\"bridge_port\":5006,\"key_mode\":\"arrows\"}"
   extensionSlot [
     GPS {
     }
@@ -520,55 +515,4 @@ Solid {
     }
   ]
   name "checkpoint_C"
-}
-Solid {
-  translation 0.78 1.97 0
-  children [
-    Shape {
-      appearance Appearance {
-        material Material {
-          diffuseColor 0.95 0.95 0.2
-          emissiveColor 0.45 0.45 0.05
-        }
-      }
-      geometry Box {
-        size 0.12 0.12 0.04
-      }
-    }
-  ]
-  name "checkpoint_D"
-}
-Solid {
-  translation 2.34 -2.24 0
-  children [
-    Shape {
-      appearance Appearance {
-        material Material {
-          diffuseColor 0.95 0.2 0.75
-          emissiveColor 0.45 0.05 0.3
-        }
-      }
-      geometry Box {
-        size 0.12 0.12 0.04
-      }
-    }
-  ]
-  name "checkpoint_E"
-}
-Solid {
-  translation 2.67 2.28 0
-  children [
-    Shape {
-      appearance Appearance {
-        material Material {
-          diffuseColor 0.95 0.55 0.2
-          emissiveColor 0.45 0.2 0.05
-        }
-      }
-      geometry Box {
-        size 0.12 0.12 0.04
-      }
-    }
-  ]
-  name "checkpoint_F"
 }

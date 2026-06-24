@@ -48,6 +48,12 @@ class UdpBridgeNode(Node):
         self.declare_parameter('scan_frame', 'laser')
         self.declare_parameter('max_publish_hz', 25.0)
         self.declare_parameter('publish_odom', True)
+        self.declare_parameter('pose_topic', '/robot_pose')
+        self.declare_parameter('scan_topic', '/scan')
+        self.declare_parameter('cmd_vel_topic', '/cmd_vel')
+        self.declare_parameter('checkpoint_contact_topic', '/webots_checkpoint_contact')
+        self.declare_parameter('checkpoint_event_topic', '/webots_checkpoint_event')
+        self.declare_parameter('active_checkpoint_topic', '/active_checkpoint')
         self.declare_parameter('odom_topic', '/odom')
         self.declare_parameter('odom_frame', 'odom')
         self.declare_parameter('base_frame', 'base_link')
@@ -59,6 +65,12 @@ class UdpBridgeNode(Node):
         self.scan_frame = self.get_parameter('scan_frame').value
         self.max_publish_hz = float(self.get_parameter('max_publish_hz').value)
         self.publish_odom = bool(self.get_parameter('publish_odom').value)
+        self.pose_topic = self.get_parameter('pose_topic').value
+        self.scan_topic = self.get_parameter('scan_topic').value
+        self.cmd_vel_topic = self.get_parameter('cmd_vel_topic').value
+        self.checkpoint_contact_topic = self.get_parameter('checkpoint_contact_topic').value
+        self.checkpoint_event_topic = self.get_parameter('checkpoint_event_topic').value
+        self.active_checkpoint_topic = self.get_parameter('active_checkpoint_topic').value
         self.odom_topic = self.get_parameter('odom_topic').value
         self.odom_frame = self.get_parameter('odom_frame').value
         self.base_frame = self.get_parameter('base_frame').value
@@ -68,30 +80,30 @@ class UdpBridgeNode(Node):
             1_000_000_000 / max(self.max_publish_hz, 1.0)
         )
 
-        self.scan_pub = self.create_publisher(LaserScan, '/scan', 10)
-        self.pose_pub = self.create_publisher(Pose2D, '/robot_pose', 10)
+        self.scan_pub = self.create_publisher(LaserScan, self.scan_topic, 10)
+        self.pose_pub = self.create_publisher(Pose2D, self.pose_topic, 10)
         self.odom_pub = self.create_publisher(Odometry, self.odom_topic, 10)
         self.checkpoint_contact_pub = self.create_publisher(
             String,
-            '/webots_checkpoint_contact',
+            self.checkpoint_contact_topic,
             10,
         )
 
         self.cmd_sub = self.create_subscription(
             Twist,
-            '/cmd_vel',
+            self.cmd_vel_topic,
             self._cmd_vel_callback,
             10,
         )
         self.checkpoint_event_sub = self.create_subscription(
             String,
-            '/webots_checkpoint_event',
+            self.checkpoint_event_topic,
             self._checkpoint_event_callback,
             10,
         )
         self.active_checkpoint_sub = self.create_subscription(
             String,
-            '/active_checkpoint',
+            self.active_checkpoint_topic,
             self._active_checkpoint_callback,
             10,
         )
@@ -128,7 +140,8 @@ class UdpBridgeNode(Node):
             f'Listening for Webots packets on udp/tcp://{self.listen_host}:{self.listen_port}'
         )
         self.get_logger().info(
-            f'Publishing /robot_pose and /scan at up to {self.max_publish_hz:.1f} Hz'
+            f'Publishing {self.pose_topic} and {self.scan_topic} at up to '
+            f'{self.max_publish_hz:.1f} Hz'
         )
         if self.publish_odom:
             self.get_logger().info(
@@ -136,10 +149,12 @@ class UdpBridgeNode(Node):
                 f'{self.odom_frame}->{self.base_frame} TF from Webots packets'
             )
             self.get_logger().info(
-                f'Pose-to-odom ready: pose=/robot_pose, odom={self.odom_topic}, '
+                f'Pose-to-odom ready: pose={self.pose_topic}, odom={self.odom_topic}, '
                 f'frames={self.odom_frame}->{self.base_frame}'
             )
-        self.get_logger().info('Forwarding ROS /cmd_vel and checkpoint state back to Webots')
+        self.get_logger().info(
+            f'Forwarding ROS {self.cmd_vel_topic} and checkpoint state back to Webots'
+        )
 
     def _send_to_webots(self, packet: dict) -> bool:
         payload = json.dumps(packet, separators=(',', ':')).encode('utf-8') + b'\n'
@@ -183,7 +198,7 @@ class UdpBridgeNode(Node):
 
         if not sent_any:
             self.get_logger().warning(
-                'Received /cmd_vel, but no Webots bridge connection is available yet'
+                f'Received {self.cmd_vel_topic}, but no Webots bridge connection is available yet'
             )
 
     def _active_checkpoint_callback(self, msg: String) -> None:
