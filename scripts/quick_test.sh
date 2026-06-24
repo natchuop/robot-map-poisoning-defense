@@ -141,9 +141,13 @@ if [[ -n "${WSL_DISTRO_NAME:-}" && -f "$REPO_DIR/docker/compose.wslg.yml" ]]; th
   COMPOSE_FILES+=("-f" "$REPO_DIR/docker/compose.wslg.yml")
 fi
 if [[ "$(uname -s)" = "Darwin" && -f "$REPO_DIR/docker/compose.xquartz.yml" ]]; then
-  if [ -n "${DISPLAY:-}" ] || [[ "$RVIZ_MODE" =~ ^(1|true|yes|on)$ ]]; then
-    COMPOSE_FILES+=("-f" "$REPO_DIR/docker/compose.xquartz.yml")
-  fi
+  case "$RVIZ_MODE" in
+    0|false|no|off|skip)
+      ;;
+    *)
+      COMPOSE_FILES+=("-f" "$REPO_DIR/docker/compose.xquartz.yml")
+      ;;
+  esac
 fi
 
 docker_compose() {
@@ -162,6 +166,9 @@ should_launch_rviz() {
       if [ -n "${WSL_DISTRO_NAME:-}" ]; then
         return 0
       fi
+      if [[ "$(uname -s)" = "Darwin" ]] && [ -f "$REPO_DIR/docker/compose.xquartz.yml" ]; then
+        return 0
+      fi
       if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
         return 0
       fi
@@ -173,6 +180,22 @@ should_launch_rviz() {
       exit 1
       ;;
   esac
+}
+
+prepare_xquartz_access() {
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    return 0
+  fi
+  if [ ! -f "$REPO_DIR/docker/compose.xquartz.yml" ]; then
+    return 0
+  fi
+  if ! command -v xhost >/dev/null 2>&1; then
+    echo "Warning: xhost is not available; XQuartz auth may block RViz." >&2
+    return 0
+  fi
+
+  DISPLAY="${DISPLAY:-:0}" xhost +localhost +127.0.0.1 >/dev/null 2>&1 || \
+    echo "Warning: could not relax XQuartz access control; RViz may still be blocked." >&2
 }
 
 log_step() {
@@ -893,6 +916,7 @@ if should_launch_rviz; then
   fi
 
   log_step "Launching RViz in Docker"
+  prepare_xquartz_access
   RVIZ_CONFIG_PATH=''
 
   if [ "$TEST_MODE" = "amcl" ]; then
@@ -935,9 +959,9 @@ if should_launch_rviz; then
   rm -f "$RVIZ_HOST_LOG"
 
   if [ -n "$RVIZ_CONFIG_PATH" ]; then
-    docker exec -e RMPD_RVIZ_CONFIG_PATH="$RVIZ_CONFIG_PATH" "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py rviz_config:="$RMPD_RVIZ_CONFIG_PATH"' >"$RVIZ_HOST_LOG" 2>&1 &
+    docker exec -e RMPD_RVIZ_CONFIG_PATH="$RVIZ_CONFIG_PATH" "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_INDIRECT=1 && export LIBGL_ALWAYS_SOFTWARE=1 && export MESA_GL_VERSION_OVERRIDE=2.1 && export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && export QT_OPENGL=software && exec ros2 launch robot_patrol_node rviz.launch.py rviz_config:="$RMPD_RVIZ_CONFIG_PATH"' >"$RVIZ_HOST_LOG" 2>&1 &
   else
-    docker exec "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py' >"$RVIZ_HOST_LOG" 2>&1 &
+    docker exec "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_INDIRECT=1 && export LIBGL_ALWAYS_SOFTWARE=1 && export MESA_GL_VERSION_OVERRIDE=2.1 && export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && export QT_OPENGL=software && exec ros2 launch robot_patrol_node rviz.launch.py' >"$RVIZ_HOST_LOG" 2>&1 &
   fi
   RVIZ_EXEC_PID=$!
 
