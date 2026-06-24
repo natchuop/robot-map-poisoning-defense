@@ -40,6 +40,8 @@ DEFAULT_BRIDGE_PORT="$(env_file_value RMPD_BRIDGE_PORT 5005)"
 DEFAULT_HOLD_OPEN="$(env_file_value RMPD_QUICK_TEST_HOLD_OPEN true)"
 DEFAULT_RVIZ_MODE="$(env_file_value RMPD_QUICK_TEST_RVIZ auto)"
 DEFAULT_RVIZ_CONFIG="$(env_file_value RMPD_QUICK_TEST_RVIZ_CONFIG '')"
+DEFAULT_RVIZ_CONFIG_FILES="$(env_file_value RMPD_RVIZ_CONFIG_FILES '')"
+DEFAULT_RVIZ_WINDOW_COUNT="$(env_file_value RMPD_RVIZ_WINDOW_COUNT 1)"
 DEFAULT_STREAM_ROS_LOGS="$(env_file_value RMPD_STREAM_ROS_LOGS true)"
 
 CONTAINER_NAME="${RMPD_CONTAINER_NAME:-ros2_dev}"
@@ -51,12 +53,17 @@ HOLD_OPEN="${RMPD_QUICK_TEST_HOLD_OPEN:-$DEFAULT_HOLD_OPEN}"
 RVIZ_CHECK_SECONDS="${RMPD_RVIZ_CHECK_SECONDS:-10}"
 RVIZ_MODE="${RMPD_QUICK_TEST_RVIZ:-$DEFAULT_RVIZ_MODE}"
 RVIZ_CONFIG_FILE="${RMPD_QUICK_TEST_RVIZ_CONFIG:-$DEFAULT_RVIZ_CONFIG}"
+RVIZ_CONFIG_FILES="${RMPD_RVIZ_CONFIG_FILES:-$DEFAULT_RVIZ_CONFIG_FILES}"
+RVIZ_WINDOW_COUNT="${RMPD_RVIZ_WINDOW_COUNT:-$DEFAULT_RVIZ_WINDOW_COUNT}"
 STREAM_ROS_LOGS="${RMPD_STREAM_ROS_LOGS:-$DEFAULT_STREAM_ROS_LOGS}"
 HOST_BRIDGE_PORT="${RMPD_BRIDGE_PORT:-$DEFAULT_BRIDGE_PORT}"
 HOST_BRIDGE_TARGETS="${WEBOTS_BRIDGE_TARGETS:-}"
-RVIZ_HOST_LOG="${TMPDIR:-/tmp}/rmpd/quick_test/rmpd_rviz.log"
+RVIZ_HOST_LOG_DIR="${TMPDIR:-/tmp}/rmpd/quick_test"
 export RMPD_INSTALL_FULL_STACK=true
 ROS_LOG_FOLLOW_PID=""
+RVIZ_EXEC_PIDS=()
+RVIZ_HOST_LOGS=()
+RVIZ_CONFIG_PATHS=()
 
 find_default_world() {
   local worlds_dir="$REPO_DIR/webots/worlds"
@@ -140,16 +147,6 @@ COMPOSE_FILES=("-f" "$REPO_DIR/docker/compose.yml")
 if [[ -n "${WSL_DISTRO_NAME:-}" && -f "$REPO_DIR/docker/compose.wslg.yml" ]]; then
   COMPOSE_FILES+=("-f" "$REPO_DIR/docker/compose.wslg.yml")
 fi
-if [[ "$(uname -s)" = "Darwin" && -f "$REPO_DIR/docker/compose.xquartz.yml" ]]; then
-  case "$RVIZ_MODE" in
-    0|false|no|off|skip)
-      ;;
-    *)
-      COMPOSE_FILES+=("-f" "$REPO_DIR/docker/compose.xquartz.yml")
-      ;;
-  esac
-fi
-
 docker_compose() {
   docker compose "${COMPOSE_FILES[@]}" "$@"
 }
@@ -166,9 +163,6 @@ should_launch_rviz() {
       if [ -n "${WSL_DISTRO_NAME:-}" ]; then
         return 0
       fi
-      if [[ "$(uname -s)" = "Darwin" ]] && [ -f "$REPO_DIR/docker/compose.xquartz.yml" ]; then
-        return 0
-      fi
       if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
         return 0
       fi
@@ -182,22 +176,6 @@ should_launch_rviz() {
   esac
 }
 
-prepare_xquartz_access() {
-  if [[ "$(uname -s)" != "Darwin" ]]; then
-    return 0
-  fi
-  if [ ! -f "$REPO_DIR/docker/compose.xquartz.yml" ]; then
-    return 0
-  fi
-  if ! command -v xhost >/dev/null 2>&1; then
-    echo "Warning: xhost is not available; XQuartz auth may block RViz." >&2
-    return 0
-  fi
-
-  DISPLAY="${DISPLAY:-:0}" xhost +localhost +127.0.0.1 >/dev/null 2>&1 || \
-    echo "Warning: could not relax XQuartz access control; RViz may still be blocked." >&2
-}
-
 log_step() {
   printf '\n[%s] %s\n' "$(date +%H:%M:%S)" "$1"
 }
@@ -206,6 +184,12 @@ cleanup() {
   if [ -n "${RVIZ_EXEC_PID:-}" ] && kill -0 "$RVIZ_EXEC_PID" >/dev/null 2>&1; then
     kill "$RVIZ_EXEC_PID" >/dev/null 2>&1 || true
   fi
+
+  for rviz_pid in "${RVIZ_EXEC_PIDS[@]:-}"; do
+    if [ -n "$rviz_pid" ] && kill -0 "$rviz_pid" >/dev/null 2>&1; then
+      kill "$rviz_pid" >/dev/null 2>&1 || true
+    fi
+  done
 
   if [ -n "${ROS_LOG_FOLLOW_PID:-}" ] && kill -0 "$ROS_LOG_FOLLOW_PID" >/dev/null 2>&1; then
     kill "$ROS_LOG_FOLLOW_PID" >/dev/null 2>&1 || true
@@ -796,6 +780,7 @@ echo "Container workspace: $CONTAINER_WORKSPACE"
 echo "Mode: $TEST_MODE"
 echo "Hold open: $HOLD_OPEN"
 echo "RViz mode: $RVIZ_MODE"
+echo "RViz windows: $RVIZ_WINDOW_COUNT"
 echo "Host bridge port: $HOST_BRIDGE_PORT"
 
 if [ -z "$WORLD_PATH" ] || [ ! -f "$WORLD_PATH" ]; then
@@ -866,6 +851,11 @@ else
     --service-ports \
     --name "$CONTAINER_NAME" \
     -e RMPD_CONTAINER_WORKSPACE="$CONTAINER_WORKSPACE" \
+    -e RMPD_TEST_MODE="$TEST_MODE" \
+    -e RMPD_LIVE_MAP_WIDTH_M="${RMPD_LIVE_MAP_WIDTH_M:-8.0}" \
+    -e RMPD_LIVE_MAP_HEIGHT_M="${RMPD_LIVE_MAP_HEIGHT_M:-8.0}" \
+    -e RMPD_LIVE_MAP_ORIGIN_X="${RMPD_LIVE_MAP_ORIGIN_X:-nan}" \
+    -e RMPD_LIVE_MAP_ORIGIN_Y="${RMPD_LIVE_MAP_ORIGIN_Y:-nan}" \
     ros2 bash scripts/start_ros2_stack.sh >/dev/null
 fi
 
@@ -881,6 +871,9 @@ if [ "$TEST_MODE" = "amcl" ]; then
   stream_ros_logs
 else
   wait_for_log 'Map builder ready' 180 'map builder'
+  if [ "$TEST_MODE" = "multi_mapping" ]; then
+    wait_for_log 'Map merge ready' 180 'shared map merge'
+  fi
   stream_ros_logs
 fi
 
@@ -916,15 +909,41 @@ if should_launch_rviz; then
   fi
 
   log_step "Launching RViz in Docker"
-  prepare_xquartz_access
   RVIZ_CONFIG_PATH=''
+  RVIZ_CONFIG_PATHS=()
 
-  if [ "$TEST_MODE" = "amcl" ]; then
+  if [ -n "$RVIZ_CONFIG_FILES" ]; then
+    IFS=',' read -r -a requested_rviz_configs <<< "$RVIZ_CONFIG_FILES"
+    for rviz_config_file in "${requested_rviz_configs[@]}"; do
+      rviz_config_file="${rviz_config_file#"${rviz_config_file%%[![:space:]]*}"}"
+      rviz_config_file="${rviz_config_file%"${rviz_config_file##*[![:space:]]}"}"
+      [ -n "$rviz_config_file" ] || continue
+      rviz_config_path="$(
+        docker exec -e RMPD_RVIZ_CONFIG_FILE="$rviz_config_file" "$CONTAINER_NAME" bash -lc '
+          source /opt/ros/jazzy/setup.bash
+          source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash"
+          rviz_config_file="${RMPD_RVIZ_CONFIG_FILE}"
+          if [[ "$rviz_config_file" = /* ]]; then
+            printf "%s\n" "$rviz_config_file"
+          else
+            pkg_prefix="$(ros2 pkg prefix robot_patrol_node)"
+            printf "%s/share/robot_patrol_node/config/%s\n" "$pkg_prefix" "$rviz_config_file"
+          fi
+        ' | tr -d '\r'
+      )"
+      if docker exec "$CONTAINER_NAME" test -f "$rviz_config_path"; then
+        RVIZ_CONFIG_PATHS+=("$rviz_config_path")
+        echo "Using RViz config: $rviz_config_path"
+      else
+        echo "Warning: RViz config was not found at $rviz_config_path; skipping it." >&2
+      fi
+    done
+  elif [ -n "$RVIZ_CONFIG_FILE" ]; then
     RVIZ_CONFIG_PATH="$(
       docker exec -e RMPD_RVIZ_CONFIG_FILE="$RVIZ_CONFIG_FILE" "$CONTAINER_NAME" bash -lc '
         source /opt/ros/jazzy/setup.bash
         source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash"
-        rviz_config_file="${RMPD_RVIZ_CONFIG_FILE:-amcl.rviz}"
+        rviz_config_file="${RMPD_RVIZ_CONFIG_FILE}"
         if [[ "$rviz_config_file" = /* ]]; then
           printf "%s\n" "$rviz_config_file"
         else
@@ -935,58 +954,82 @@ if should_launch_rviz; then
     )"
 
     if ! docker exec "$CONTAINER_NAME" test -f "$RVIZ_CONFIG_PATH"; then
-      echo "Warning: AMCL RViz config was not found at $RVIZ_CONFIG_PATH; falling back to default.rviz" >&2
+      echo "Warning: RViz config was not found at $RVIZ_CONFIG_PATH; falling back to default.rviz" >&2
       RVIZ_CONFIG_PATH=''
     else
-      echo "Using AMCL RViz config: $RVIZ_CONFIG_PATH"
-    fi
-  else
-    RVIZ_CONFIG_PATH="$(
-      docker exec "$CONTAINER_NAME" bash -lc '
-        source /opt/ros/jazzy/setup.bash
-        source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash"
-        pkg_prefix="$(ros2 pkg prefix robot_patrol_node)"
-        printf "%s/share/robot_patrol_node/config/default.rviz\n" "$pkg_prefix"
-      ' | tr -d '\r'
-    )"
-    if ! docker exec "$CONTAINER_NAME" test -f "$RVIZ_CONFIG_PATH"; then
-      echo "Warning: default RViz config was not found at $RVIZ_CONFIG_PATH; letting ros2 launch choose its own default." >&2
-      RVIZ_CONFIG_PATH=''
+      echo "Using RViz config: $RVIZ_CONFIG_PATH"
     fi
   fi
 
-  mkdir -p "$(dirname "$RVIZ_HOST_LOG")"
-  rm -f "$RVIZ_HOST_LOG"
-
-  if [ -n "$RVIZ_CONFIG_PATH" ]; then
-    docker exec -e RMPD_RVIZ_CONFIG_PATH="$RVIZ_CONFIG_PATH" "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_INDIRECT=1 && export LIBGL_ALWAYS_SOFTWARE=1 && export MESA_GL_VERSION_OVERRIDE=2.1 && export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && export QT_OPENGL=software && exec ros2 launch robot_patrol_node rviz.launch.py rviz_config:="$RMPD_RVIZ_CONFIG_PATH"' >"$RVIZ_HOST_LOG" 2>&1 &
-  else
-    docker exec "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_INDIRECT=1 && export LIBGL_ALWAYS_SOFTWARE=1 && export MESA_GL_VERSION_OVERRIDE=2.1 && export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && export QT_OPENGL=software && exec ros2 launch robot_patrol_node rviz.launch.py' >"$RVIZ_HOST_LOG" 2>&1 &
+  if [ -z "$RVIZ_CONFIG_PATH" ]; then
+    if [ "${#RVIZ_CONFIG_PATHS[@]}" -eq 0 ]; then
+      RVIZ_CONFIG_PATH="$(
+        docker exec "$CONTAINER_NAME" bash -lc '
+          source /opt/ros/jazzy/setup.bash
+          source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash"
+          pkg_prefix="$(ros2 pkg prefix robot_patrol_node)"
+          printf "%s/share/robot_patrol_node/config/default.rviz\n" "$pkg_prefix"
+        ' | tr -d '\r'
+      )"
+      if ! docker exec "$CONTAINER_NAME" test -f "$RVIZ_CONFIG_PATH"; then
+        echo "Warning: default RViz config was not found at $RVIZ_CONFIG_PATH; letting ros2 launch choose its own default." >&2
+        RVIZ_CONFIG_PATH=''
+      fi
+    fi
   fi
-  RVIZ_EXEC_PID=$!
 
-  echo "RViz launch command submitted to $CONTAINER_NAME"
-  echo "RViz host log: $RVIZ_HOST_LOG"
+  mkdir -p "$RVIZ_HOST_LOG_DIR"
+  for ((rviz_index = 1; rviz_index <= RVIZ_WINDOW_COUNT; rviz_index++)); do
+    rviz_host_log="$RVIZ_HOST_LOG_DIR/rmpd_rviz_${rviz_index}.log"
+    RVIZ_HOST_LOGS+=("$rviz_host_log")
+    rm -f "$rviz_host_log"
+    rviz_config_path_for_window=''
+    if [ "${#RVIZ_CONFIG_PATHS[@]}" -gt 0 ]; then
+      rviz_config_array_index=$((rviz_index - 1))
+      if [ "$rviz_config_array_index" -lt "${#RVIZ_CONFIG_PATHS[@]}" ]; then
+        rviz_config_path_for_window="${RVIZ_CONFIG_PATHS[$rviz_config_array_index]}"
+      else
+        rviz_config_path_for_window="${RVIZ_CONFIG_PATHS[$((${#RVIZ_CONFIG_PATHS[@]} - 1))]}"
+      fi
+    else
+      rviz_config_path_for_window="$RVIZ_CONFIG_PATH"
+    fi
+
+    if [ -n "$rviz_config_path_for_window" ]; then
+      docker exec -e RMPD_RVIZ_CONFIG_PATH="$rviz_config_path_for_window" "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py rviz_config:="$RMPD_RVIZ_CONFIG_PATH"' >"$rviz_host_log" 2>&1 &
+    else
+      docker exec "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py' >"$rviz_host_log" 2>&1 &
+    fi
+    RVIZ_EXEC_PIDS+=("$!")
+    echo "RViz window $rviz_index launch command submitted to $CONTAINER_NAME"
+    echo "RViz window $rviz_index host log: $rviz_host_log"
+  done
 
   log_step "Checking RViz startup"
   sleep "$RVIZ_CHECK_SECONDS"
 
-  if ! kill -0 "$RVIZ_EXEC_PID" >/dev/null 2>&1; then
-    echo "RViz appears to have exited during startup. RViz log:" >&2
-    tail -120 "$RVIZ_HOST_LOG" >&2 || true
-    exit 1
-  fi
+  for rviz_index in "${!RVIZ_EXEC_PIDS[@]}"; do
+    rviz_pid="${RVIZ_EXEC_PIDS[$rviz_index]}"
+    rviz_host_log="${RVIZ_HOST_LOGS[$rviz_index]}"
+    window_number=$((rviz_index + 1))
 
-  # RViz's Map display can emit a known GLSL shader warning under WSLg/Docker
-  # even when the process stays alive and the map continues to render.
-  if grep -Eqi 'rviz2-[0-9]+.*process has died|Invalid parentWindowHandle|Unable to create the rendering window|Qt.*could not connect to display|Could not load the Qt platform plugin|Aborted|segmentation fault|core dumped' "$RVIZ_HOST_LOG" 2>/dev/null; then
-    echo "RViz appears to have failed during startup. RViz log:" >&2
-    tail -120 "$RVIZ_HOST_LOG" >&2 || true
-    exit 1
-  fi
+    if ! kill -0 "$rviz_pid" >/dev/null 2>&1; then
+      echo "RViz window $window_number appears to have exited during startup. RViz log:" >&2
+      tail -120 "$rviz_host_log" >&2 || true
+      exit 1
+    fi
+
+    # RViz's Map display can emit a known GLSL shader warning under WSLg/Docker
+    # even when the process stays alive and the map continues to render.
+    if grep -Eqi 'rviz2-[0-9]+.*process has died|Invalid parentWindowHandle|Unable to create the rendering window|Qt.*could not connect to display|Could not load the Qt platform plugin|Aborted|segmentation fault|core dumped' "$rviz_host_log" 2>/dev/null; then
+      echo "RViz window $window_number appears to have failed during startup. RViz log:" >&2
+      tail -120 "$rviz_host_log" >&2 || true
+      exit 1
+    fi
+  done
 else
   log_step "Skipping RViz GUI startup"
-  echo "No Docker-visible display was detected. Set RMPD_QUICK_TEST_RVIZ=true after configuring XQuartz/WSLg to require RViz GUI startup."
+  echo "No Docker-visible display was detected. Set RMPD_QUICK_TEST_RVIZ=true after configuring a Docker-visible display to require RViz GUI startup."
   docker exec "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && command -v rviz2 >/dev/null'
 fi
 
@@ -995,6 +1038,11 @@ echo "Docker stack started, Webots bridge data arrived, and RViz availability/st
 
 log_step "Quick test is running"
 echo "If you want to stop everything, close Webots or press Ctrl-C here."
-echo "RViz log will remain available at: $RVIZ_HOST_LOG"
+if [ "${#RVIZ_HOST_LOGS[@]}" -gt 0 ]; then
+  echo "RViz logs will remain available at:"
+  for rviz_host_log in "${RVIZ_HOST_LOGS[@]}"; do
+    echo "  $rviz_host_log"
+  done
+fi
 
 wait "$WEBOTS_PID"

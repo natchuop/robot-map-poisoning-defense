@@ -5,8 +5,9 @@ This repo is built around one active ROS 2 + Webots demo, plus a roadmap for tru
 ## Where To Work
 
 - `webots/robot_controllers/patrol_robot/patrol_robot.py` is the Nav2-capable checkpoint patrol controller used by `testRvizMap`.
-- `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py` is the WASD controller used by the office and live map-building worlds.
+- `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py` is the operator controller used by the office, live map-building, and multi-robot shared-mapping worlds.
 - `webots/worlds/<world_name>/` holds each Webots world and its world-specific assets.
+- `webots/worlds/TestCombineRvizMap/TestCombineRvizMap.wbt` is the sandbox copy used for two-robot shared-map testing.
 - `webots/worlds/controllers/<controller_name>/<controller_name>.py` files are only Webots lookup wrappers.
 - `src/robot_patrol_node/` is the active ROS 2 package for the bridge, map builder, AMCL helpers, launches, RViz configs, and the logic that will grow into trust scoring and map-confidence handling.
 - `scripts/quick_test.sh` runs the end-to-end demo.
@@ -14,6 +15,7 @@ This repo is built around one active ROS 2 + Webots demo, plus a roadmap for tru
 - `scripts/runConfusingMaze.sh` runs the confusing maze world with its own AMCL map and configured initial pose.
 - `scripts/runSandbox.sh` runs the sandbox world with its own AMCL map and configured initial pose.
 - `scripts/runTestBuildingMapForRobot.sh` runs the test-building world with the same AMCL default as the main quick test.
+- `scripts/runTestCombineRvizMap.sh` runs the shared two-robot mapping test with two identical RViz windows.
 - `scripts/verify.sh` runs the headless environment check.
 - `docker/` holds the Dockerfile and compose files.
 - `docs/` holds the project notes, structure guide, Webots setup guide, verification guide, and the main [project plan](project_plan.md).

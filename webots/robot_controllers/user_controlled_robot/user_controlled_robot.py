@@ -44,6 +44,67 @@ def env_float(name, default):
     return float(value)
 
 
+def load_robot_config(robot):
+    config = {
+        'robot_id': ROBOT_ID,
+        'map_id': MAP_ID,
+        'bridge_port': BRIDGE_PORT,
+        'bridge_targets': list(BRIDGE_TARGETS),
+        'key_mode': 'wasd',
+    }
+
+    config['robot_id'] = robot.getName() or config['robot_id']
+
+    try:
+        custom_data = robot.getCustomData().strip()
+    except Exception:
+        custom_data = ''
+
+    if custom_data:
+        try:
+            loaded = json.loads(custom_data)
+        except json.JSONDecodeError as exc:
+            print(f'Ignored malformed robot customData: {exc}', flush=True)
+            loaded = {}
+
+        if isinstance(loaded, dict):
+            if str(loaded.get('robot_id', '')).strip():
+                config['robot_id'] = str(loaded['robot_id']).strip()
+            if str(loaded.get('map_id', '')).strip():
+                config['map_id'] = str(loaded['map_id']).strip()
+            if isinstance(loaded.get('bridge_port'), int):
+                config['bridge_port'] = int(loaded['bridge_port'])
+            key_mode = str(loaded.get('key_mode', '')).strip().lower()
+            if key_mode:
+                config['key_mode'] = key_mode
+            bridge_targets = loaded.get('bridge_targets')
+            if isinstance(bridge_targets, list):
+                parsed_targets = [str(target).strip() for target in bridge_targets if str(target).strip()]
+                if parsed_targets:
+                    config['bridge_targets'] = parsed_targets
+
+    return config
+
+
+def control_keys_for_mode(key_mode):
+    if key_mode == 'arrows':
+        return {
+            'forward': {Keyboard.UP},
+            'backward': {Keyboard.DOWN},
+            'left': {Keyboard.LEFT},
+            'right': {Keyboard.RIGHT},
+            'label': 'arrow keys',
+        }
+
+    return {
+        'forward': {ord('W'), ord('w')},
+        'backward': {ord('S'), ord('s')},
+        'left': {ord('A'), ord('a')},
+        'right': {ord('D'), ord('d')},
+        'label': 'WASD',
+    }
+
+
 def local_forward_vector():
     axes = {
         'x': (1.0, 0.0, 0.0),
@@ -204,8 +265,14 @@ class BridgeSender:
 def main():
     robot = Robot()
     timestep = int(robot.getBasicTimeStep()) or TIME_STEP
+    robot_config = load_robot_config(robot)
+    robot_id = robot_config['robot_id']
+    map_id = robot_config['map_id']
+    bridge_port = int(robot_config['bridge_port'])
+    bridge_targets = robot_config['bridge_targets']
+    control_keys = control_keys_for_mode(robot_config['key_mode'])
 
-    print(f'user_controlled_robot starting robot_id={ROBOT_ID} map_id={MAP_ID or "unknown"}', flush=True)
+    print(f'user_controlled_robot starting robot_id={robot_id} map_id={map_id or "unknown"}', flush=True)
 
     try:
         gps = robot.getDevice('gps')
@@ -248,12 +315,15 @@ def main():
         lidar_fov = float(lidar.getFov())
         lidar_max_range = lidar.getMaxRange()
 
-        sender = BridgeSender(BRIDGE_TARGETS, BRIDGE_PORT)
+        sender = BridgeSender(bridge_targets, bridge_port)
         counter = 0
 
-        print(f'ROS bridge targets {", ".join(f"tcp://{target}:{BRIDGE_PORT}" for target in BRIDGE_TARGETS)}', flush=True)
+        print(
+            f'ROS bridge targets {", ".join(f"tcp://{target}:{bridge_port}" for target in bridge_targets)}',
+            flush=True,
+        )
         print('GPS, IMU, LiDAR, and keyboard initialized', flush=True)
-        print('keyboard teleop ready: W forward, S backward, A left, D right', flush=True)
+        print(f'keyboard teleop ready: {control_keys["label"]}', flush=True)
         print(
             f'user_controlled_robot wheel speed cap {max_wheel_speed:.2f} rad/s '
             f'(drive={drive_speed:.2f}, turn={turn_speed:.2f})',
@@ -271,10 +341,10 @@ def main():
                 pressed_keys.add(key)
                 key = keyboard.getKey()
 
-            forward = ord('W') in pressed_keys or ord('w') in pressed_keys
-            backward = ord('S') in pressed_keys or ord('s') in pressed_keys
-            turn_left = ord('A') in pressed_keys or ord('a') in pressed_keys
-            turn_right = ord('D') in pressed_keys or ord('d') in pressed_keys
+            forward = any(key in pressed_keys for key in control_keys['forward'])
+            backward = any(key in pressed_keys for key in control_keys['backward'])
+            turn_left = any(key in pressed_keys for key in control_keys['left'])
+            turn_right = any(key in pressed_keys for key in control_keys['right'])
 
             linear = 0.0
             angular = 0.0
