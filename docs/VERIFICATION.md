@@ -94,13 +94,13 @@ bash scripts/runTestFakeObstacle.sh
 
 That demo launches the two-robot shared-mapping stack, two RViz windows, and the per-robot fake-obstacle injectors. The default setup is:
 
-- `robot_1` honest
+- `robot_1` compromised
 - `robot_2` compromised
 - `robot_1` RViz publish-point tool sends to `/robot_1/clicked_point`
 - `robot_2` RViz publish-point tool sends to `/robot_2/clicked_point`
 - `robot_1` displays `/robot_1/shared_live_map`, `/robot_1/shared_confidence_map`, and `/robot_1/confidence_markers`
 - `robot_2` displays `/robot_2/shared_live_map`, `/robot_2/shared_confidence_map`, `/robot_2/confidence_markers`, and `/robot_2/fake_obstacle_markers`
-- the confidence heatmap is trust-weighted so the compromised robot contributes less by default
+- the confidence heatmap is trust-weighted so each robot can inject and receive fake data while still keeping its own trust bias
 - the shared-mapping launch activates the static `/map` server, which is what makes the gray floor appear in RViz
 
 `bash scripts/runTestFakeObstacle.sh` now enables force-clean by default, so it will remove a stale `ros2_dev` demo before starting a new one. If you want to keep an existing stack alive, set `RMPD_QUICK_TEST_FORCE_CLEAN=false`.
