@@ -1,7 +1,7 @@
 # Webots Guide
 
 This repo currently uses TurtleBot3 Burger worlds in Webots and a ROS 2 bridge running in Docker.
-The longer-term Webots direction is to support trust-based shared mapping, verification, and quarantine across multiple robots.
+The current Webots direction is to support trust-based shared mapping, verification, and quarantine across multiple robots.
 
 ## Current Demo
 
@@ -10,6 +10,7 @@ The longer-term Webots direction is to support trust-based shared mapping, verif
 - Live map-building world: `webots/worlds/testBuildingMapForRobot/turtlebot3_burger.wbt`
 - Sandbox world: `webots/worlds/sandbox/sandbox.wbt`
 - Shared-map sandbox copy: `webots/worlds/TestCombineRvizMap/TestCombineRvizMap.wbt`
+- Fake-obstacle sandbox copy: `webots/worlds/TestFakeObstacle/TestFakeObstacle.wbt`
 - Known AMCL map: `webots/worlds/testRvizMap/amcl_map/arena.yaml` and `arena.pgm`
 - Office AMCL map: `webots/worlds/office/amcl_map/office.yaml` and `office.pgm`
 - Confusing maze AMCL map: `webots/worlds/confusingMaze/amcl_map/confusing_maze.yaml` and `confusing_maze.pgm`
@@ -18,6 +19,8 @@ The longer-term Webots direction is to support trust-based shared mapping, verif
 - User-controlled controller: `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`
 - Webots wrapper: `webots/worlds/controllers/patrol_robot/patrol_robot.py`
 - User-controlled wrapper: `webots/worlds/controllers/user_controlled_robot/user_controlled_robot.py`
+
+The current two-robot shared-mapping baseline is driven by `webots/worlds/TestCombineRvizMap/TestCombineRvizMap.wbt` and `src/robot_patrol_node/config/multi_robot_config.json`. That setup keeps the shared-map world, the trust table, the per-robot spawn poses, and the per-robot RViz config names in one place.
 
 The office map is built from the world walls and floor bounds only. Furniture and other movable objects are left out so AMCL keys off the room structure.
 
@@ -53,6 +56,43 @@ Example planned update shape:
 ```
 
 The idea is not to accept that report automatically. Instead, the system would weight it using the reporting robot's trust and trust confidence before deciding how much it should change the shared map.
+
+## Shared Mapping World
+
+`webots/worlds/TestFakeObstacle/TestFakeObstacle.wbt` is the current fake-obstacle shared-mapping world.
+
+That world is paired with:
+
+- `scripts/runTestFakeObstacle.sh`
+- `src/robot_patrol_node/launch/multi_robot_mapping.launch.py`
+- `src/robot_patrol_node/config/multi_robot_robot_1_view.rviz`
+- `src/robot_patrol_node/config/multi_robot_robot_2_view.rviz`
+
+The multi-robot launch starts a static `/map` server and activates it with a lifecycle manager, so RViz shows the gray floor underneath the live shared maps.
+
+The shared-map demo uses two bridge ports:
+
+- `5005` for `robot_1`
+- `5006` for `robot_2`
+
+The per-robot shared-map view is responsible for:
+
+- `/<robot>/shared_live_map`
+- `/<robot>/occupied_confidence_map`
+- `/<robot>/clear_confidence_map`
+- `/<robot>/fake_obstacle_markers`
+- `/<robot>/clicked_point`
+
+In the current baseline, the per-robot shared view is trust-weighted and robot-specific:
+
+- Robot 1 trusts Robot 2 at `0.80`
+- Robot 2 trusts Robot 1 at `0.20`
+- each robot keeps its own shared live map
+- each robot keeps its own shared confidence map
+- each robot keeps its own fake-obstacle marker topic
+- fake injected cells should disappear once the real scan proves they are clear
+
+The static `/map` layer is separate from the live overlays. That keeps the floor visible while the live maps expand and the confidence overlay stays on top.
 
 ## Nav2 In 2D
 
@@ -101,11 +141,32 @@ For convenience, `bash scripts/runConfusingMaze.sh` launches `webots/worlds/conf
 
 For convenience, `bash scripts/runSandbox.sh` launches `webots/worlds/sandbox/sandbox.wbt` with its generated AMCL map and the `user_controlled_robot` controller. The sandbox robot starts at `x=2.0`, `y=2.0`, `yaw=0.0`.
 
-For convenience, `bash scripts/runTestCombineRvizMap.sh` launches `webots/worlds/TestCombineRvizMap/TestCombineRvizMap.wbt` with two `user_controlled_robot` TurtleBots, two identical RViz windows, a merged `/shared_live_map`, and a `/shared_confidence_map` overlay. `robot_1` starts at `x=2.0`, `y=2.0`, `yaw=0.0` and uses WASD. `robot_2` starts at `x=-2.0`, `y=-2.0`, `yaw=1.5708` and uses the arrow keys.
+For convenience, `bash scripts/runTestCombineRvizMap.sh` launches `webots/worlds/TestCombineRvizMap/TestCombineRvizMap.wbt` with two `user_controlled_robot` TurtleBots and two RViz windows: one centered on `robot_1/shared_live_map` plus its confidence heatmap, and one centered on `robot_2/shared_live_map` plus its confidence heatmap. Both per-robot windows use a costmap-style rendering so previously explored space stays visible. `robot_1` starts at `x=2.0`, `y=2.0`, `yaw=0.0` and uses WASD. `robot_2` starts at `x=-2.0`, `y=-2.0`, `yaw=1.5708` and uses the arrow keys. This is the clean shared-mapping baseline, so the fake-obstacle injectors stay honest unless you explicitly enable compromise flags.
+
+For the fake-obstacle experiment shell, `bash scripts/runTestFakeObstacle.sh` launches `webots/worlds/TestFakeObstacle/TestFakeObstacle.wbt` with the shared-mapping launch path, the static `/map` layer, and two RViz windows. It also starts the click-to-inject fake obstacle node automatically, so you can publish points in RViz without opening a second terminal. The infected robot window is where you publish the fake report, while both windows mirror the merged live map, trust-weighted confidence heatmap, and the gray floor underneath.
+
+To inject a manual fake report at startup, override the default with `RMPD_FAKE_OBSTACLE_INJECTOR_MODE=manual bash scripts/runTestFakeObstacle.sh`. For RViz click-to-inject, just run the test script normally and use the `Publish Point` tool.
+
+To make free space look visible in the RViz views, both test scripts now default to the per-robot configs `multi_robot_robot_1_view.rviz` and `multi_robot_robot_2_view.rviz`. The two per-robot views now use a costmap-style rendering for the merged live map, overlay the merged confidence heatmap, and keep the static `/map` display behind them.
+
+If Webots or RViz refuses to start after a code change, the usual cause is a stale Docker container or a launch node crash. The recurring fixes are:
+
+- rebuild the ROS workspace inside the container
+- remove the stale `ros2_dev` container
+- make sure ports `5005` and `5006` are free
+- check for confidence-marker parameter errors before blaming Webots itself
+
+To publish a point in RViz:
+
+1. Start `bash scripts/runTestFakeObstacle.sh`.
+2. Open the RViz window from the test.
+3. Click the `Publish Point` tool in the RViz toolbar.
+4. Click on the map where you want the fake obstacle claim to land.
+5. The click publishes `/robot_1/clicked_point` or `/robot_2/clicked_point`, and the injector republishes it as a fake `/map_updates` message. The victim map updates right away, and the infected window shows a red marker for a few seconds before it disappears.
 
 Mapping mode builds `/map` from Webots pose and LiDAR. AMCL mode localizes against the known map.
 
-The shared two-robot mapping flow uses separate bridge ports and topics per robot, then merges the per-robot maps into `/shared_live_map`. The confidence overlay currently marks every observed cell with full confidence so both RViz windows show a single-color heat-map layer until trust weighting is added later.
+The shared two-robot mapping flow uses separate bridge ports and topics per robot, then merges the per-robot maps into `/shared_live_map`. The confidence overlay is trust-weighted, and the static `/map` layer is activated so the gray floor remains visible under the live shared maps.
 
 In default AMCL mode, RViz uses `amcl.rviz` and displays both the static `/map` and the robot-built `/live_map`. The live map uses RViz's costmap color scheme and can appear pink or purple. The office script uses `office_amcl.rviz` plus office-specific startup pose settings so the larger office map and remembered overlay remain visible. The test-building script now also uses AMCL mode by default so it matches the quick-test remembered-map behavior. The confusing maze and sandbox scripts reuse the same AMCL flow with world-specific map sizes and initial poses.
 
@@ -138,6 +199,7 @@ They send newline-delimited JSON over TCP by default. The default bridge target 
 
 - `patrol_robot` is the Nav2-capable checkpoint patrol controller and is used by `testRvizMap`.
 - `user_controlled_robot` is the WASD controller used by the office and live map-building demos.
+- `fake_obstacle_injector` publishes manual or RViz click-driven fake obstacle claims to `/map_updates`.
 
 ## Adding A World
 

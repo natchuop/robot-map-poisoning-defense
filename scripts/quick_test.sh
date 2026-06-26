@@ -43,9 +43,11 @@ DEFAULT_RVIZ_CONFIG="$(env_file_value RMPD_QUICK_TEST_RVIZ_CONFIG '')"
 DEFAULT_RVIZ_CONFIG_FILES="$(env_file_value RMPD_RVIZ_CONFIG_FILES '')"
 DEFAULT_RVIZ_WINDOW_COUNT="$(env_file_value RMPD_RVIZ_WINDOW_COUNT 1)"
 DEFAULT_STREAM_ROS_LOGS="$(env_file_value RMPD_STREAM_ROS_LOGS true)"
+DEFAULT_FORCE_CLEAN="$(env_file_value RMPD_QUICK_TEST_FORCE_CLEAN false)"
 
 CONTAINER_NAME="${RMPD_CONTAINER_NAME:-ros2_dev}"
 CONTAINER_WORKSPACE="${RMPD_CONTAINER_WORKSPACE:-$DEFAULT_CONTAINER_WORKSPACE}"
+CONTAINER_INSTALL_BASE="${RMPD_COLCON_INSTALL_BASE:-/tmp/rmpd_colcon_install}"
 export RMPD_CONTAINER_WORKSPACE="$CONTAINER_WORKSPACE"
 WEBOTS_CMD="${WEBOTS_CMD:-}"
 TEST_MODE="${RMPD_TEST_MODE:-amcl}"
@@ -56,6 +58,7 @@ RVIZ_CONFIG_FILE="${RMPD_QUICK_TEST_RVIZ_CONFIG:-$DEFAULT_RVIZ_CONFIG}"
 RVIZ_CONFIG_FILES="${RMPD_RVIZ_CONFIG_FILES:-$DEFAULT_RVIZ_CONFIG_FILES}"
 RVIZ_WINDOW_COUNT="${RMPD_RVIZ_WINDOW_COUNT:-$DEFAULT_RVIZ_WINDOW_COUNT}"
 STREAM_ROS_LOGS="${RMPD_STREAM_ROS_LOGS:-$DEFAULT_STREAM_ROS_LOGS}"
+FORCE_CLEAN="${RMPD_QUICK_TEST_FORCE_CLEAN:-$DEFAULT_FORCE_CLEAN}"
 HOST_BRIDGE_PORT="${RMPD_BRIDGE_PORT:-$DEFAULT_BRIDGE_PORT}"
 HOST_BRIDGE_TARGETS="${WEBOTS_BRIDGE_TARGETS:-}"
 RVIZ_HOST_LOG_DIR="${TMPDIR:-/tmp}/rmpd/quick_test"
@@ -64,6 +67,13 @@ ROS_LOG_FOLLOW_PID=""
 RVIZ_EXEC_PIDS=()
 RVIZ_HOST_LOGS=()
 RVIZ_CONFIG_PATHS=()
+
+if [ "$TEST_MODE" = "multi_mapping" ] && [ -z "${RMPD_QUICK_TEST_RVIZ_CONFIG:-}" ] && [ -z "${RMPD_RVIZ_CONFIG_FILES:-}" ]; then
+  RVIZ_CONFIG_FILES="multi_robot_robot_1_view.rviz,multi_robot_robot_2_view.rviz"
+  if [ -z "${RMPD_RVIZ_WINDOW_COUNT:-}" ]; then
+    RVIZ_WINDOW_COUNT=2
+  fi
+fi
 
 find_default_world() {
   local worlds_dir="$REPO_DIR/webots/worlds"
@@ -243,6 +253,164 @@ wait_for_log() {
   echo "Timed out waiting for '$label'." >&2
   echo "Last container logs:" >&2
   docker logs "$CONTAINER_NAME" 2>&1 | tail -80 >&2 || true
+  return 1
+}
+
+wait_for_file_log() {
+  local log_file="$1"
+  local pattern="$2"
+  local timeout_seconds="${3:-120}"
+  local label="${4:-$pattern}"
+  local elapsed=0
+
+  echo "Waiting: $label"
+  while [ "$elapsed" -lt "$timeout_seconds" ]; do
+    if [ -f "$log_file" ] && grep -Fq "$pattern" "$log_file" 2>/dev/null; then
+      echo "Ready: $label"
+      return 0
+    fi
+
+    if [ "$elapsed" -gt 0 ] && [ $((elapsed % 15)) -eq 0 ]; then
+      echo "  still waiting (${elapsed}s/${timeout_seconds}s): $label"
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  echo "Timed out waiting for '$label'." >&2
+  if [ -f "$log_file" ]; then
+    echo "Last log lines:" >&2
+    tail -80 "$log_file" >&2 || true
+  else
+    echo "Log file did not appear: $log_file" >&2
+  fi
+  return 1
+}
+
+wait_for_ros2_nodes() {
+  local node_patterns="$1"
+  local timeout_seconds="${2:-120}"
+  local label="${3:-$node_patterns}"
+  local elapsed=0
+  local nodes_output
+
+  echo "Waiting: $label"
+  while [ "$elapsed" -lt "$timeout_seconds" ]; do
+    if ! docker inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
+      echo "Container $CONTAINER_NAME stopped before it was ready." >&2
+      docker logs "$CONTAINER_NAME" >&2 || true
+      return 1
+    fi
+
+    nodes_output="$(
+      docker exec "$CONTAINER_NAME" bash -lc '
+        source /opt/ros/jazzy/setup.bash
+        source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash"
+        ros2 node list
+      ' 2>/dev/null || true
+    )"
+
+    local all_found=true
+    for node_pattern in $node_patterns; do
+      if ! grep -Fq "$node_pattern" <<<"$nodes_output"; then
+        all_found=false
+        break
+      fi
+    done
+
+    if [ "$all_found" = true ]; then
+      echo "Ready: $label"
+      return 0
+    fi
+
+    if [ "$elapsed" -gt 0 ] && [ $((elapsed % 15)) -eq 0 ]; then
+      echo "  still waiting (${elapsed}s/${timeout_seconds}s): $label"
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  echo "Timed out waiting for '$label'." >&2
+  if [ -n "$nodes_output" ]; then
+    echo "Last visible ros2 node list:" >&2
+    printf '%s\n' "$nodes_output" >&2
+  fi
+  return 1
+}
+
+check_bridge_ports_available() {
+  local ports=("5005" "5006")
+  local in_use=()
+  local port
+  local listen_output
+
+  for port in "${ports[@]}"; do
+    listen_output="$(ss -H -ltnup "sport = :$port" 2>/dev/null || true)"
+    if [ -n "$listen_output" ]; then
+      in_use+=("$port")
+      echo "Bridge port $port is already in use:" >&2
+      printf '%s\n' "$listen_output" >&2
+    fi
+  done
+
+  if [ "${#in_use[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  echo "Stop the existing fake-obstacle/demo session, then rerun." >&2
+  echo "If the old stack is in this WSL instance, use:" >&2
+  echo "  ps -ef | egrep 'ros2 launch robot_patrol_node multi_robot_mapping|docker-proxy' | egrep -v 'egrep|grep'" >&2
+  echo "  kill <ros2-pid>" >&2
+  return 1
+}
+
+cleanup_existing_demo() {
+  echo "Force clean requested; removing any stale demo container and waiting for bridge ports."
+  local stale_container_ids=""
+  stale_container_ids="$(
+    {
+      docker ps -aq --filter "publish=5005"
+      docker ps -aq --filter "publish=5006"
+      docker ps -aq --filter "name=${CONTAINER_NAME}"
+    } | awk 'NF { print }' | sort -u
+  )"
+
+  if [ -n "$stale_container_ids" ]; then
+    echo "Removing stale demo containers:"
+    printf '%s\n' "$stale_container_ids"
+    while IFS= read -r container_id; do
+      [ -n "$container_id" ] || continue
+      docker rm -f "$container_id" >/dev/null 2>&1 || true
+    done <<< "$stale_container_ids"
+  else
+    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+  fi
+
+  local elapsed=0
+  local timeout_seconds=30
+  local listen_output=""
+  while [ "$elapsed" -lt "$timeout_seconds" ]; do
+    listen_output="$(
+      {
+        ss -H -ltnup 'sport = :5005' 2>/dev/null || true
+        ss -H -ltnup 'sport = :5006' 2>/dev/null || true
+      }
+    )"
+    if [ -z "$listen_output" ]; then
+      echo "Stale bridge listeners cleared."
+      return 0
+    fi
+
+    if [ "$elapsed" -eq 0 ]; then
+      echo "Waiting for stale bridge listeners to exit:"
+      printf '%s\n' "$listen_output"
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  echo "Bridge ports are still busy after force clean:" >&2
+  printf '%s\n' "$listen_output" >&2
   return 1
 }
 
@@ -812,6 +980,20 @@ if [ "$TEST_MODE" = "amcl" ]; then
   echo "AMCL map YAML: $AMCL_MAP_YAML"
 fi
 
+STATIC_MAP_YAML=''
+STATIC_MAP_YAML_IN_CONTAINER=''
+if [ "$TEST_MODE" = "multi_mapping" ]; then
+  log_step "Generating the static map for the multi-robot demo"
+  generate_rectangular_arena_amcl_map
+  STATIC_MAP_YAML="$AMCL_MAP_YAML"
+  STATIC_MAP_YAML_IN_CONTAINER="$(container_path_for_host_path "$STATIC_MAP_YAML")"
+  if [ ! -f "$STATIC_MAP_YAML" ]; then
+    echo "Failed to generate static map at $STATIC_MAP_YAML" >&2
+    exit 1
+  fi
+  echo "Static map YAML: $STATIC_MAP_YAML"
+fi
+
 WEBOTS_BIN="$(find_webots_cmd || true)"
 if [ -z "$WEBOTS_BIN" ]; then
   echo "Webots was not found." >&2
@@ -831,6 +1013,10 @@ esac
 docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
 log_step "Starting Docker stack"
+if [[ "$FORCE_CLEAN" =~ ^(1|true|yes|on)$ ]]; then
+  cleanup_existing_demo
+fi
+check_bridge_ports_available
 if [ "$TEST_MODE" = "amcl" ]; then
   docker_compose run -d \
     --service-ports \
@@ -856,6 +1042,11 @@ else
     -e RMPD_LIVE_MAP_HEIGHT_M="${RMPD_LIVE_MAP_HEIGHT_M:-8.0}" \
     -e RMPD_LIVE_MAP_ORIGIN_X="${RMPD_LIVE_MAP_ORIGIN_X:-nan}" \
     -e RMPD_LIVE_MAP_ORIGIN_Y="${RMPD_LIVE_MAP_ORIGIN_Y:-nan}" \
+    -e RMPD_STATIC_MAP_YAML="$STATIC_MAP_YAML_IN_CONTAINER" \
+    -e RMPD_ROBOT_1_COMPROMISED="${RMPD_ROBOT_1_COMPROMISED:-false}" \
+    -e RMPD_ROBOT_2_COMPROMISED="${RMPD_ROBOT_2_COMPROMISED:-false}" \
+    -e RMPD_FAKE_REPORT_RADIUS_CELLS="${RMPD_FAKE_REPORT_RADIUS_CELLS:-2}" \
+    -e RMPD_FAKE_OBSTACLE_INJECTOR_MODE="${RMPD_FAKE_OBSTACLE_INJECTOR_MODE:-clicked_point}" \
     ros2 bash scripts/start_ros2_stack.sh >/dev/null
 fi
 
@@ -863,17 +1054,16 @@ log_step "Waiting for ROS 2 build/setup"
 wait_for_log 'ROS 2 workspace ready' 240 'ROS 2 workspace build'
 
 log_step "Waiting for the ROS bridge and localization stack to come up"
-wait_for_log 'Listening for Webots packets' 180 'ROS bridge listener'
 if [ "$TEST_MODE" = "amcl" ]; then
+  wait_for_log 'Listening for Webots packets' 180 'ROS bridge listener'
   wait_for_log 'Pose-to-odom ready' 120 'pose-to-odom node'
   wait_for_log 'Initial pose publisher ready' 120 'initial pose publisher'
   wait_for_log 'Read map' 45 '/map loaded by map_server' || echo 'Warning: map load log was not observed before Webots data wait.'
   stream_ros_logs
 else
+  wait_for_ros2_nodes 'robot_1_bridge robot_2_bridge robot_1_map_builder robot_2_map_builder robot_1_view_belief robot_2_view_belief' 180 'multi-robot mapping nodes' || \
+    echo 'Warning: multi-robot mapping nodes were not confirmed before Webots data wait.'
   wait_for_log 'Map builder ready' 180 'map builder'
-  if [ "$TEST_MODE" = "multi_mapping" ]; then
-    wait_for_log 'Map merge ready' 180 'shared map merge'
-  fi
   stream_ros_logs
 fi
 
@@ -919,9 +1109,9 @@ if should_launch_rviz; then
       rviz_config_file="${rviz_config_file%"${rviz_config_file##*[![:space:]]}"}"
       [ -n "$rviz_config_file" ] || continue
       rviz_config_path="$(
-        docker exec -e RMPD_RVIZ_CONFIG_FILE="$rviz_config_file" "$CONTAINER_NAME" bash -lc '
+        docker exec -e RMPD_RVIZ_CONFIG_FILE="$rviz_config_file" -e RMPD_COLCON_INSTALL_BASE="$CONTAINER_INSTALL_BASE" "$CONTAINER_NAME" bash -lc '
           source /opt/ros/jazzy/setup.bash
-          source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash"
+          source "${RMPD_COLCON_INSTALL_BASE:-/tmp/rmpd_colcon_install}/setup.bash"
           rviz_config_file="${RMPD_RVIZ_CONFIG_FILE}"
           if [[ "$rviz_config_file" = /* ]]; then
             printf "%s\n" "$rviz_config_file"
@@ -940,9 +1130,9 @@ if should_launch_rviz; then
     done
   elif [ -n "$RVIZ_CONFIG_FILE" ]; then
     RVIZ_CONFIG_PATH="$(
-      docker exec -e RMPD_RVIZ_CONFIG_FILE="$RVIZ_CONFIG_FILE" "$CONTAINER_NAME" bash -lc '
+      docker exec -e RMPD_RVIZ_CONFIG_FILE="$RVIZ_CONFIG_FILE" -e RMPD_COLCON_INSTALL_BASE="$CONTAINER_INSTALL_BASE" "$CONTAINER_NAME" bash -lc '
         source /opt/ros/jazzy/setup.bash
-        source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash"
+        source "${RMPD_COLCON_INSTALL_BASE:-/tmp/rmpd_colcon_install}/setup.bash"
         rviz_config_file="${RMPD_RVIZ_CONFIG_FILE}"
         if [[ "$rviz_config_file" = /* ]]; then
           printf "%s\n" "$rviz_config_file"
@@ -964,9 +1154,9 @@ if should_launch_rviz; then
   if [ -z "$RVIZ_CONFIG_PATH" ]; then
     if [ "${#RVIZ_CONFIG_PATHS[@]}" -eq 0 ]; then
       RVIZ_CONFIG_PATH="$(
-        docker exec "$CONTAINER_NAME" bash -lc '
+      docker exec -e RMPD_COLCON_INSTALL_BASE="$CONTAINER_INSTALL_BASE" "$CONTAINER_NAME" bash -lc '
           source /opt/ros/jazzy/setup.bash
-          source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash"
+          source "${RMPD_COLCON_INSTALL_BASE:-/tmp/rmpd_colcon_install}/setup.bash"
           pkg_prefix="$(ros2 pkg prefix robot_patrol_node)"
           printf "%s/share/robot_patrol_node/config/default.rviz\n" "$pkg_prefix"
         ' | tr -d '\r'
@@ -996,9 +1186,9 @@ if should_launch_rviz; then
     fi
 
     if [ -n "$rviz_config_path_for_window" ]; then
-      docker exec -e RMPD_RVIZ_CONFIG_PATH="$rviz_config_path_for_window" "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py rviz_config:="$RMPD_RVIZ_CONFIG_PATH"' >"$rviz_host_log" 2>&1 &
+      docker exec -e RMPD_RVIZ_CONFIG_PATH="$rviz_config_path_for_window" -e RMPD_COLCON_INSTALL_BASE="$CONTAINER_INSTALL_BASE" "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_COLCON_INSTALL_BASE:-/tmp/rmpd_colcon_install}/setup.bash" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py rviz_config:="$RMPD_RVIZ_CONFIG_PATH"' >"$rviz_host_log" 2>&1 &
     else
-      docker exec "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_CONTAINER_WORKSPACE:-/workspace}/install/setup.bash" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py' >"$rviz_host_log" 2>&1 &
+      docker exec -e RMPD_COLCON_INSTALL_BASE="$CONTAINER_INSTALL_BASE" "$CONTAINER_NAME" bash -lc 'source /opt/ros/jazzy/setup.bash && source "${RMPD_COLCON_INSTALL_BASE:-/tmp/rmpd_colcon_install}/setup.bash" && export LIBGL_ALWAYS_SOFTWARE=1 && export QT_X11_NO_MITSHM=1 && export QT_QPA_PLATFORM=xcb && exec ros2 launch robot_patrol_node rviz.launch.py' >"$rviz_host_log" 2>&1 &
     fi
     RVIZ_EXEC_PIDS+=("$!")
     echo "RViz window $rviz_index launch command submitted to $CONTAINER_NAME"
@@ -1038,11 +1228,16 @@ echo "Docker stack started, Webots bridge data arrived, and RViz availability/st
 
 log_step "Quick test is running"
 echo "If you want to stop everything, close Webots or press Ctrl-C here."
-if [ "${#RVIZ_HOST_LOGS[@]}" -gt 0 ]; then
-  echo "RViz logs will remain available at:"
-  for rviz_host_log in "${RVIZ_HOST_LOGS[@]}"; do
-    echo "  $rviz_host_log"
-  done
-fi
+  if [ "${#RVIZ_HOST_LOGS[@]}" -gt 0 ]; then
+    echo "RViz logs will remain available at:"
+    for rviz_host_log in "${RVIZ_HOST_LOGS[@]}"; do
+      echo "  $rviz_host_log"
+    done
+  fi
 
-wait "$WEBOTS_PID"
+  if [ "$TEST_MODE" = "multi_mapping" ]; then
+    wait_for_ros2_nodes 'robot_1_view_belief robot_2_view_belief' 60 'shared map belief nodes' || \
+      echo 'Warning: shared map belief nodes were not confirmed after RViz launch.'
+  fi
+
+  wait "$WEBOTS_PID"

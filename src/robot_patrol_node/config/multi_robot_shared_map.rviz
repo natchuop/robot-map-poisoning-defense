@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /Static Map1
         - /Shared Live Map1
         - /Shared Confidence Heat Map1
         - /Robot 1 Scan1
@@ -31,6 +32,16 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 60
       Reference Frame: <Fixed Frame>
+    - Alpha: 1
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: true
+      Enabled: true
+      Name: Static Map
+      Topic:
+        Value: /map
+      Unreliable: false
+      Use Timestamp: false
     - Alpha: 0.95
       Class: rviz_default_plugins/Map
       Color Scheme: map
@@ -38,7 +49,7 @@ Visualization Manager:
       Enabled: true
       Name: Shared Live Map
       Topic:
-        Value: /shared_live_map
+        Value: /robot_1/shared_live_map
       Unreliable: false
       Use Timestamp: false
     - Alpha: 0.30
@@ -48,9 +59,24 @@ Visualization Manager:
       Enabled: true
       Name: Shared Confidence Heat Map
       Topic:
-        Value: /shared_confidence_map
+        Value: /robot_1/shared_confidence_map
       Unreliable: false
       Use Timestamp: false
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Robot 1 Confidence Overlay
+      Topic:
+        Value: /robot_1/confidence_markers
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Robot 2 Confidence Overlay
+      Topic:
+        Value: /robot_2/confidence_markers
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Fake Obstacle Markers
+      Topic:
+        Value: /robot_2/fake_obstacle_markers
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 255; 210; 0

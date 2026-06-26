@@ -1,6 +1,6 @@
 # Verification
 
-Last updated: 2026-06-24.
+Last updated: 2026-06-26.
 
 Run verification from the repo root:
 
@@ -50,6 +50,8 @@ On macOS, commands run in macOS Terminal, ROS 2 runs in Docker, and Webots runs 
 - `/scan` receives bridge data
 - `/odom` receives bridge data
 - `/map` publishes an occupancy grid
+- fake-obstacle shared mapping brings up `/robot_1/shared_live_map` and `/robot_2/shared_live_map`
+- fake-obstacle shared mapping activates the static `/map` server so RViz can draw the gray floor behind the shared overlays
 - temporary AMCL/Nav2 stack starts
 - AMCL bridge listens on TCP/UDP inside Docker
 - AMCL stack receives:
@@ -81,6 +83,66 @@ bash scripts/quick_test.sh
 The quick test starts the AMCL localization stack, opens Webots, waits for bridge packets and TF, and launches RViz with `amcl.rviz`. In the current setup, `udp_bridge` publishes `/odom` directly for AMCL and the initial-pose helper, so `verify.sh` checks that path instead of a separate `pose_to_odom` node.
 
 In that default RViz config, the static AMCL map is `/map` and the robot-built LiDAR map is `/live_map`. `/live_map` uses costmap-style colors, so pink or purple cells are expected. `bash scripts/runOffice.sh` uses the same RViz view with the office-world startup pose and keeps `/live_map` enabled so previously explored areas remain visible in RViz. `bash scripts/runTestBuildingMapForRobot.sh` now uses the same AMCL default by default; set `RMPD_TEST_MODE=mapping` if you want the older live-mapping-only flow where the robot-built map is published directly as `/map`.
+
+## Fake Obstacle Demo
+
+To verify the fake-obstacle path, run:
+
+```bash
+bash scripts/runTestFakeObstacle.sh
+```
+
+That demo launches the two-robot shared-mapping stack, two RViz windows, and the per-robot fake-obstacle injectors. The default setup is:
+
+- `robot_1` honest
+- `robot_2` compromised
+- `robot_1` RViz publish-point tool sends to `/robot_1/clicked_point`
+- `robot_2` RViz publish-point tool sends to `/robot_2/clicked_point`
+- `robot_1` displays `/robot_1/shared_live_map`, `/robot_1/shared_confidence_map`, and `/robot_1/confidence_markers`
+- `robot_2` displays `/robot_2/shared_live_map`, `/robot_2/shared_confidence_map`, `/robot_2/confidence_markers`, and `/robot_2/fake_obstacle_markers`
+- the confidence heatmap is trust-weighted so the compromised robot contributes less by default
+- the shared-mapping launch activates the static `/map` server, which is what makes the gray floor appear in RViz
+
+`bash scripts/runTestFakeObstacle.sh` now enables force-clean by default, so it will remove a stale `ros2_dev` demo before starting a new one. If you want to keep an existing stack alive, set `RMPD_QUICK_TEST_FORCE_CLEAN=false`.
+
+Useful checks while the demo is running:
+
+```bash
+ros2 topic echo /map_updates --once
+ros2 topic info /map_updates -v
+ros2 topic info /robot_1/shared_live_map -v
+ros2 topic info /robot_2/shared_live_map -v
+```
+
+Expected behavior:
+
+- a click in the compromised robot's RViz produces one or more `/map_updates` messages
+- the compromised robot ignores its own fake report
+- the victim robot accepts the report only when `target_robot` matches its `view_robot_id`
+- accepted fake reports stay visible until real LiDAR evidence clears them
+
+## Common Failure Modes
+
+These are the regressions that have shown up most often:
+
+- RViz or Webots looks broken right after a code change because the workspace has not rebuilt or an old container is still holding ports `5005` and `5006`.
+- The confidence overlay nodes fail on startup because of ROS parameter typing or missing helper methods.
+- The shared map appears to lose a robot's own cleared areas when the merge logic reweights or replays fake reports incorrectly.
+- Fake obstacle injections stay stuck on the map because the merge path keeps repainting them after the cell has been verified clear.
+
+If one of those happens, check the recent launch logs first, then rebuild and rerun:
+
+```bash
+bash scripts/quick_test.sh
+```
+
+For the combined two-robot demo, `bash scripts/runTestCombineRvizMap.sh` is the quickest way to confirm that the Webots, RViz, merge, and fake-obstacle paths still agree.
+
+If you rerun the demo without force-clean, stop the previous `runTestFakeObstacle.sh` session first. The bridge ports are fixed at `5005` and `5006`, so a still-running stack will block the next launch until you terminate the old run or remove its container/process tree.
+
+`scripts/quick_test.sh` now checks those bridge ports before starting Docker and will print a direct warning if either one is already occupied. With force-clean enabled, it removes the stale container first and waits for the bridge ports to clear before launching again.
+
+In `multi_mapping` mode, the quick test now launches Webots and RViz before it performs the merge-node confirmation, so the GUI cannot be blocked by a slow node graph check.
 
 To override the verification host port:
 
@@ -155,6 +217,7 @@ ros2 topic echo /robot_pose
 ```
 
 If `/robot_pose`, `/scan`, `/map`, `/odom`, `/amcl_pose`, and `/live_map` echo data, the Docker/ROS side is working.
+If you are checking the fake-obstacle demo, also confirm that `/robot_1/shared_live_map`, `/robot_2/shared_live_map`, `/robot_1/shared_confidence_map`, `/robot_2/shared_confidence_map`, `/robot_1/confidence_markers`, and `/robot_2/confidence_markers` are publishing. The older occupied/clear confidence topic names are left in the launch params for compatibility, but the current overlays use the shared confidence map plus the marker overlay.
 
 The AMCL quick test uses this world-local known map:
 

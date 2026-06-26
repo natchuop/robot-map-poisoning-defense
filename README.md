@@ -2,11 +2,13 @@
 
 This repo is a ROS 2 + Webots demo for studying trust-based defenses against robot-to-robot map poisoning.
 The active project direction is documented in [docs/project_plan.md](docs/project_plan.md).
+Short implementation notes and recurring failure modes are in [docs/lessons_learned.md](docs/lessons_learned.md).
 
 ## Start Here
 
 - Run verification: `bash scripts/verify.sh`
 - After verification passes, run the main demo: `bash scripts/quick_test.sh`
+- Run the fake-obstacle shared-mapping demo: `bash scripts/runTestFakeObstacle.sh`
 - Run the office demo: `bash scripts/runOffice.sh`
 - Run the confusing maze demo: `bash scripts/runConfusingMaze.sh`
 - Run the sandbox demo: `bash scripts/runSandbox.sh`
@@ -29,6 +31,13 @@ robot trust -> trust confidence -> map cell confidence -> navigation decision
 ```
 
 The target defense is to reduce the effect of fake obstacle injection while still letting honest robots share useful map updates.
+
+The current shared-mapping baseline uses:
+
+- per-robot live maps and confidence maps
+- a trust-weighted merged shared map per robot
+- per-robot RViz windows for the shared live map and confidence overlay
+- temporary fake obstacle injections that clear when real LiDAR evidence wins
 
 ## What You Need
 
@@ -85,6 +94,8 @@ That launches Webots, ROS 2, RViz, and the AMCL/Nav2 checkpoint patrol demo toge
 
 `quick_test.sh` now launches the default AMCL + Nav2 smoke test, so RViz shows the static `/map` plus the live `/live_map` overlay. The overlay uses RViz's costmap colors, which can appear pink or purple.
 
+`runTestFakeObstacle.sh` launches the two-robot shared-mapping demo in `TestFakeObstacle`, activates the static `/map` layer, and opens two RViz windows so the gray floor stays visible under the live shared maps.
+
 `runOffice.sh` uses the office-specific RViz view and startup pose settings so the larger office map and remembered LiDAR overlay stay visible.
 `runConfusingMaze.sh` and `runSandbox.sh` both reuse the same AMCL pipeline with world-specific maps and initial poses.
 `runTestBuildingMapForRobot.sh` follows the same AMCL + live `/live_map` pattern by default; set `RMPD_TEST_MODE=mapping` if you want the older live-mapping-only path.
@@ -105,5 +116,6 @@ That launches Webots, ROS 2, RViz, and the AMCL/Nav2 checkpoint patrol demo toge
 - `runOffice.sh` starts the office world at `(-4.35, -5.35, 0.00464)` and publishes that configured AMCL initial pose instead of assuming the robot starts at the origin.
 - `runConfusingMaze.sh` starts the maze world at `(-3.5, -3.5, 0.0)` and generates `webots/worlds/confusingMaze/amcl_map/confusing_maze.yaml`.
 - `runSandbox.sh` starts the sandbox world at `(2.0, 2.0, 0.0)` and generates `webots/worlds/sandbox/amcl_map/sandbox.yaml`.
+- `runTestFakeObstacle.sh` starts `webots/worlds/TestFakeObstacle/TestFakeObstacle.wbt`, generates a static map from that world, and launches the two-robot shared-mapping stack with the fake-obstacle injector enabled.
 - The Docker bridge listens on TCP and UDP port `5005`, publishes `/robot_pose`, `/scan`, and `/odom`, and forwards `/cmd_vel` plus checkpoint feedback topics between ROS and Webots.
 - The longer-term goal is to extend that bridge and map flow with trust scoring, trust confidence, map-cell confidence, verification, and quarantine logic.

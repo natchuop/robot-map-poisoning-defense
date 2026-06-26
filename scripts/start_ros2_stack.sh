@@ -6,11 +6,19 @@ cd "$CONTAINER_WORKSPACE"
 set +u
 source /opt/ros/jazzy/setup.bash
 set -u
-rm -rf build install log/latest
+COLCON_BUILD_BASE="${RMPD_COLCON_BUILD_BASE:-/tmp/rmpd_colcon_build}"
+COLCON_INSTALL_BASE="${RMPD_COLCON_INSTALL_BASE:-/tmp/rmpd_colcon_install}"
+COLCON_LOG_BASE="${RMPD_COLCON_LOG_BASE:-/tmp/rmpd_colcon_log}"
+rm -rf "$COLCON_BUILD_BASE" "$COLCON_INSTALL_BASE" "$COLCON_LOG_BASE"
 echo "Building robot_patrol_node..."
-colcon build --base-paths src --packages-select robot_patrol_node --symlink-install
+colcon --log-base "$COLCON_LOG_BASE" build \
+    --base-paths src \
+    --packages-up-to robot_patrol_node \
+    --symlink-install \
+    --build-base "$COLCON_BUILD_BASE" \
+    --install-base "$COLCON_INSTALL_BASE"
 set +u
-source install/setup.bash
+source "$COLCON_INSTALL_BASE/setup.bash"
 set -u
 echo "ROS 2 workspace ready"
 

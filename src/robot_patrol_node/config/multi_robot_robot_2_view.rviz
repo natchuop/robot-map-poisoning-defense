@@ -5,8 +5,14 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /Robot 2 Shared Map1
-        - /Robot 2 Confidence Overlay1
+        - /Static Map1
+        - /Robot Local Map1
+        - /Robot Local Confidence1
+        - /Robot Shared Map1
+        - /Occupied Confidence1
+        - /Clear Confidence1
+        - /Confidence Markers1
+        - /Fake Obstacle Markers1
         - /Robot 1 Scan1
         - /Robot 2 Scan1
         - /TF1
@@ -31,21 +37,76 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 60
       Reference Frame: <Fixed Frame>
-    - Alpha: 0.08
+    - Alpha: 1
       Class: rviz_default_plugins/Map
       Color Scheme: map
       Draw Behind: true
       Enabled: true
-      Name: Robot 2 Shared Map
+      Name: Static Map
+      Topic:
+        Value: /map
+      Unreliable: false
+      Use Timestamp: false
+    - Alpha: 0.60
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: true
+      Enabled: true
+      Name: Robot Local Map
+      Topic:
+        Value: /robot_2/live_map
+      Unreliable: false
+      Use Timestamp: false
+    - Alpha: 0.55
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: true
+      Name: Robot Trust Confidence
+      Topic:
+        Value: /robot_2/shared_confidence_map
+      Unreliable: false
+      Use Timestamp: false
+    - Alpha: 0.55
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: true
+      Name: Robot Shared Map
       Topic:
         Value: /robot_2/shared_live_map
       Unreliable: false
       Use Timestamp: false
+    - Alpha: 0.35
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: false
+      Name: Occupied Confidence
+      Topic:
+        Value: /robot_2/occupied_confidence_map
+      Unreliable: false
+      Use Timestamp: false
+    - Alpha: 0.35
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: false
+      Name: Clear Confidence
+      Topic:
+        Value: /robot_2/clear_confidence_map
+      Unreliable: false
+      Use Timestamp: false
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: Robot 2 Confidence Overlay
+      Name: Confidence Markers
       Topic:
         Value: /robot_2/confidence_markers
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Fake Obstacle Markers
+      Topic:
+        Value: /robot_2/fake_obstacle_markers
     - Alpha: 1
       Class: rviz_default_plugins/LaserScan
       Color: 255; 210; 0
@@ -94,6 +155,7 @@ Visualization Manager:
     - Class: rviz_default_plugins/FocusCamera
     - Class: rviz_default_plugins/Measure
     - Class: rviz_default_plugins/PublishPoint
+      Topic: /robot_2/clicked_point
   Transformation:
     Current:
       Class: rviz_default_plugins/TF

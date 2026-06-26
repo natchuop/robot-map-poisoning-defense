@@ -12,6 +12,16 @@ The main idea is:
 robot trust -> trust confidence -> map cell confidence -> navigation decision
 ```
 
+The current repository already has a working shared-mapping and fake-obstacle demo under `scripts/runTestFakeObstacle.sh`. That demo uses a static `/map` layer, per-robot shared live maps, and trust-weighted confidence overlays as the practical structure for the defense work.
+
+Current implementation snapshot:
+
+- two robots are configured in `src/robot_patrol_node/config/multi_robot_config.json`
+- each robot has its own trust table and its own shared map view
+- the confidence overlay uses robot-specific colors for cleared and occupied cells
+- fake obstacle reports are temporary and should disappear after real LiDAR clears the cell
+- the combined demo lives in `scripts/runTestCombineRvizMap.sh`
+
 If a trusted robot reports an obstacle, the map cell becomes more likely to be treated as occupied. If an untrusted robot reports an obstacle, the map cell receives little confidence and may be marked as suspicious until another robot verifies it.
 
 ## 2. Research Question
@@ -388,6 +398,8 @@ The setup includes:
 - One compromised robot sending fake obstacle updates
 - Honest robots verifying map updates through LiDAR
 
+The current shared-mapping test world is `webots/worlds/TestFakeObstacle/TestFakeObstacle.wbt`. It launches with two bridge ports, one per robot, and keeps the static `/map` floor visible underneath the shared live maps.
+
 The robots should follow overlapping patrol routes so they can verify each other’s reported map cells.
 
 ## 13. Evaluation Metrics
@@ -422,6 +434,7 @@ The project will measure:
 11. Use map confidence to decide whether to reroute, ignore, or verify.
 12. Add quarantine for robots with low trust and high trust confidence.
 13. Log trust scores, trust confidence, map confidence, fake objects, and navigation effects.
+14. Keep the static `/map` layer active so the gray floor remains visible in the shared-map RViz views.
 
 ## 15. Final Summary
 

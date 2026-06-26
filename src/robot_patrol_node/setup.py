@@ -20,10 +20,13 @@ setup(
         ('share/' + package_name + '/launch', ['launch/rviz.launch.py']),
         ('share/' + package_name + '/launch', ['launch/nav2_stack.launch.py']),
         ('share/' + package_name + '/launch', ['launch/nav2_with_amcl.launch.py']),
+        ('share/' + package_name + '/launch', ['launch/fake_obstacle_injector.launch.py']),
 
         ('share/' + package_name + '/config', ['config/amcl.rviz']),
         ('share/' + package_name + '/config', ['config/default.rviz']),
         ('share/' + package_name + '/config', ['config/nav2_params.yaml']),
+        ('share/' + package_name + '/config', ['config/multi_robot_base.rviz']),
+        ('share/' + package_name + '/config', ['config/multi_robot_config.json']),
         ('share/' + package_name + '/config', ['config/office_amcl.rviz']),
         ('share/' + package_name + '/config', ['config/multi_robot_shared_map.rviz']),
         ('share/' + package_name + '/config', ['config/multi_robot_robot_1_view.rviz']),
@@ -46,6 +49,7 @@ setup(
             'udp_bridge = robot_patrol_node.udp_bridge_node:main',
             'checkpoint_patrol = robot_patrol_node.checkpoint_patrol_node:main',
             'navigation_diagnostics = robot_patrol_node.navigation_diagnostics_node:main',
+            'fake_obstacle_injector = robot_patrol_node.fake_obstacle_injector_node:main',
         ],
     },
     extras_require={
