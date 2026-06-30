@@ -63,6 +63,13 @@ HOST_BRIDGE_PORT="${RMPD_BRIDGE_PORT:-$DEFAULT_BRIDGE_PORT}"
 HOST_BRIDGE_TARGETS="${WEBOTS_BRIDGE_TARGETS:-}"
 RVIZ_HOST_LOG_DIR="${TMPDIR:-/tmp}/rmpd/quick_test"
 export RMPD_INSTALL_FULL_STACK=true
+BRIDGE_PORTS=("${RMPD_BRIDGE_PORT:-$DEFAULT_BRIDGE_PORT}" "${RMPD_BRIDGE_PORT_SECONDARY:-5006}")
+if [ -n "${RMPD_BRIDGE_PORT_THIRD:-}" ]; then
+  BRIDGE_PORTS+=("$RMPD_BRIDGE_PORT_THIRD")
+fi
+if [ -n "${RMPD_BRIDGE_PORT_FOURTH:-}" ]; then
+  BRIDGE_PORTS+=("$RMPD_BRIDGE_PORT_FOURTH")
+fi
 ROS_LOG_FOLLOW_PID=""
 RVIZ_EXEC_PIDS=()
 RVIZ_HOST_LOGS=()
@@ -339,7 +346,7 @@ wait_for_ros2_nodes() {
 }
 
 check_bridge_ports_available() {
-  local ports=("5005" "5006")
+  local ports=("${BRIDGE_PORTS[@]}")
   local in_use=()
   local port
   local listen_output
@@ -369,8 +376,9 @@ cleanup_existing_demo() {
   local stale_container_ids=""
   stale_container_ids="$(
     {
-      docker ps -aq --filter "publish=5005"
-      docker ps -aq --filter "publish=5006"
+      for port in "${BRIDGE_PORTS[@]}"; do
+        docker ps -aq --filter "publish=${port}"
+      done
       docker ps -aq --filter "name=${CONTAINER_NAME}"
     } | awk 'NF { print }' | sort -u
   )"
@@ -392,8 +400,9 @@ cleanup_existing_demo() {
   while [ "$elapsed" -lt "$timeout_seconds" ]; do
     listen_output="$(
       {
-        ss -H -ltnup 'sport = :5005' 2>/dev/null || true
-        ss -H -ltnup 'sport = :5006' 2>/dev/null || true
+        for port in "${BRIDGE_PORTS[@]}"; do
+          ss -H -ltnup "sport = :${port}" 2>/dev/null || true
+        done
       }
     )"
     if [ -z "$listen_output" ]; then
@@ -982,11 +991,19 @@ fi
 
 STATIC_MAP_YAML=''
 STATIC_MAP_YAML_IN_CONTAINER=''
+MULTI_ROBOT_CONFIG_IN_CONTAINER=''
+ROUTE_CONFIG_IN_CONTAINER=''
 if [ "$TEST_MODE" = "multi_mapping" ]; then
   log_step "Generating the static map for the multi-robot demo"
   generate_rectangular_arena_amcl_map
   STATIC_MAP_YAML="$AMCL_MAP_YAML"
   STATIC_MAP_YAML_IN_CONTAINER="$(container_path_for_host_path "$STATIC_MAP_YAML")"
+  if [ -n "${RMPD_MULTI_ROBOT_CONFIG:-}" ]; then
+    MULTI_ROBOT_CONFIG_IN_CONTAINER="$(container_path_for_host_path "$RMPD_MULTI_ROBOT_CONFIG")"
+  fi
+  if [ -n "${RMPD_ROUTE_CONFIG:-}" ]; then
+    ROUTE_CONFIG_IN_CONTAINER="$(container_path_for_host_path "$RMPD_ROUTE_CONFIG")"
+  fi
   if [ ! -f "$STATIC_MAP_YAML" ]; then
     echo "Failed to generate static map at $STATIC_MAP_YAML" >&2
     exit 1
@@ -1043,8 +1060,13 @@ else
     -e RMPD_LIVE_MAP_ORIGIN_X="${RMPD_LIVE_MAP_ORIGIN_X:-nan}" \
     -e RMPD_LIVE_MAP_ORIGIN_Y="${RMPD_LIVE_MAP_ORIGIN_Y:-nan}" \
     -e RMPD_STATIC_MAP_YAML="$STATIC_MAP_YAML_IN_CONTAINER" \
+    -e RMPD_MULTI_ROBOT_CONFIG="${MULTI_ROBOT_CONFIG_IN_CONTAINER:-}" \
+    -e RMPD_ROUTE_CONFIG="${ROUTE_CONFIG_IN_CONTAINER:-}" \
+    -e RMPD_START_MULTI_ROUTE_FOLLOWERS="${RMPD_START_MULTI_ROUTE_FOLLOWERS:-false}" \
     -e RMPD_ROBOT_1_COMPROMISED="${RMPD_ROBOT_1_COMPROMISED:-false}" \
     -e RMPD_ROBOT_2_COMPROMISED="${RMPD_ROBOT_2_COMPROMISED:-false}" \
+    -e RMPD_ROBOT_3_COMPROMISED="${RMPD_ROBOT_3_COMPROMISED:-false}" \
+    -e RMPD_ROBOT_4_COMPROMISED="${RMPD_ROBOT_4_COMPROMISED:-false}" \
     -e RMPD_FAKE_REPORT_RADIUS_CELLS="${RMPD_FAKE_REPORT_RADIUS_CELLS:-2}" \
     -e RMPD_FAKE_OBSTACLE_INJECTOR_MODE="${RMPD_FAKE_OBSTACLE_INJECTOR_MODE:-clicked_point}" \
     ros2 bash scripts/start_ros2_stack.sh >/dev/null

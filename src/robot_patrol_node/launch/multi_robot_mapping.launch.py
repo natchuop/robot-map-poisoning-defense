@@ -61,6 +61,8 @@ def _load_configured_robots() -> list[dict]:
                 'compromised': False,
                 'listen_port': 5005,
                 'rviz_config': 'multi_robot_robot_1_view.rviz',
+                'autonomous_patrol': False,
+                'route_name': '',
                 'trust': {
                     'robot_2': {'trust': 0.80, 'trust_confidence': 1.00},
                 },
@@ -74,6 +76,8 @@ def _load_configured_robots() -> list[dict]:
                 'compromised': False,
                 'listen_port': 5006,
                 'rviz_config': 'multi_robot_robot_2_view.rviz',
+                'autonomous_patrol': False,
+                'route_name': '',
                 'trust': {
                     'robot_1': {'trust': 0.20, 'trust_confidence': 1.00},
                 },
@@ -103,6 +107,8 @@ def _load_configured_robots() -> list[dict]:
                 'compromised': bool(robot.get('compromised', False)),
                 'listen_port': int(robot.get('listen_port', 5005)),
                 'rviz_config': str(robot.get('rviz_config', f'{robot_id}_view.rviz')).strip(),
+                'autonomous_patrol': bool(robot.get('autonomous_patrol', False)),
+                'route_name': str(robot.get('route_name', '')).strip(),
                 'trust': trust_table,
             }
         )
@@ -110,13 +116,15 @@ def _load_configured_robots() -> list[dict]:
     for robot in configured:
         robot_key = robot['robot_id'].upper().replace('-', '_')
         robot['compromised'] = env_bool(f'RMPD_{robot_key}_COMPROMISED', robot['compromised'])
-        robot['listen_port'] = env_int(
-            f'RMPD_{robot_key}_BRIDGE_PORT',
-            env_int(
-                'RMPD_BRIDGE_PORT_SECONDARY' if robot['robot_id'].endswith('2') else 'RMPD_BRIDGE_PORT',
-                robot['listen_port'],
-            ),
-        )
+
+        bridge_port_env = {
+            'robot_1': 'RMPD_BRIDGE_PORT',
+            'robot_2': 'RMPD_BRIDGE_PORT_SECONDARY',
+            'robot_3': 'RMPD_BRIDGE_PORT_THIRD',
+            'robot_4': 'RMPD_BRIDGE_PORT_FOURTH',
+        }.get(robot['robot_id'])
+        if bridge_port_env is not None:
+            robot['listen_port'] = env_int(bridge_port_env, robot['listen_port'])
 
         trust_override = env_float(f'RMPD_{robot_key}_TRUST_WEIGHT', float('nan'))
         if not (trust_override != trust_override):
@@ -331,10 +339,31 @@ def _rviz_node(robot: dict) -> ExecuteProcess:
     )
 
 
+def _route_follower_node(robot: dict) -> Node:
+    robot_id = robot['robot_id']
+    return Node(
+        package='robot_patrol_node',
+        executable='route_follower',
+        name=f'{robot_id}_route_follower',
+        output='screen',
+        parameters=[{
+            'robot_id': robot_id,
+            'route_config_path': os.getenv('RMPD_ROUTE_CONFIG', '').strip(),
+            'route_name': str(robot.get('route_name', '')).strip(),
+            'pose_topic': _robot_topic(robot_id, 'robot_pose'),
+            'scan_topic': _robot_topic(robot_id, 'scan'),
+            'cmd_vel_topic': _robot_topic(robot_id, 'cmd_vel'),
+            'active_checkpoint_topic': _robot_topic(robot_id, 'active_checkpoint'),
+            'checkpoint_event_topic': _robot_topic(robot_id, 'webots_checkpoint_event'),
+        }],
+    )
+
+
 def _launch_setup(context, *args, **kwargs):
     robots = _load_configured_robots()
     all_robot_ids = [robot['robot_id'] for robot in robots]
     start_rviz = env_bool('RMPD_START_RVIZ', False)
+    start_route_followers = env_bool('RMPD_START_MULTI_ROUTE_FOLLOWERS', False)
     static_map_yaml = LaunchConfiguration('static_map_yaml').perform(context).strip()
 
     nodes = []
@@ -387,6 +416,8 @@ def _launch_setup(context, *args, **kwargs):
         nodes.append(_belief_node(robot, all_robot_ids))
         nodes.append(_confidence_marker_node(robot, all_robot_ids))
         nodes.append(_fake_obstacle_injector_node(robot, all_robot_ids))
+        if start_route_followers and robot.get('autonomous_patrol', False) and robot.get('route_name'):
+            nodes.append(_route_follower_node(robot))
         if start_rviz:
             nodes.append(_rviz_node(robot))
 

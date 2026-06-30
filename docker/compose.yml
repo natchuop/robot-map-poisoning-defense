@@ -21,6 +21,10 @@ services:
       - "8765:8765"
       - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT_SECONDARY:-5006}:5006/udp"
       - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT_SECONDARY:-5006}:5006/tcp"
+      - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT_THIRD:-5007}:5007/udp"
+      - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT_THIRD:-5007}:5007/tcp"
+      - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT_FOURTH:-5008}:5008/udp"
+      - "${RMPD_BRIDGE_BIND:-127.0.0.1}:${RMPD_BRIDGE_PORT_FOURTH:-5008}:5008/tcp"
     stdin_open: true
     tty: true
     command: bash

@@ -1,0 +1,599 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/robotis/turtlebot/protos/TurtleBot3Burger.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/devices/robotis/protos/RobotisLds01.proto"
+
+WorldInfo {
+  title "RouteMultipleRobots"
+  basicTimeStep 64
+}
+Viewpoint {
+  orientation -0.3851506922453098 -0.517684086375244 0.763977834087343 4.738899889404241
+  position -1.2092213878348892 12.69526952966714 15.094881232751497
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+RectangleArena {
+  floorSize 6 6
+  wallHeight 0.7
+}
+DEF H1 Solid {
+  translation -2 2.4 0.14
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.5 0.5 0.5
+      }
+      geometry Box {
+        size 1.6 0.08 0.28
+      }
+    }
+  ]
+  name "h1"
+  boundingObject Box {
+    size 1.6 0.08 0.28
+  }
+}
+DEF H2 Solid {
+  translation 0.4 2.4 0.14
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.5 0.5 0.5
+      }
+      geometry Box {
+        size 1.2 0.08 0.28
+      }
+    }
+  ]
+  name "h2"
+  boundingObject Box {
+    size 1.2 0.08 0.28
+  }
+}
+DEF V1 Solid {
+  translation -1.2 1.6 0.14
+  rotation 0 0 1 1.5708
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.5 0.5 0.5
+      }
+      geometry Box {
+        size 1.6 0.08 0.28
+      }
+    }
+  ]
+  name "v1"
+  boundingObject Box {
+    size 1.6 0.08 0.28
+  }
+}
+DEF V2 Solid {
+  translation 1.2 1.6 0.14
+  rotation 0 0 1 1.5708
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.5 0.5 0.5
+      }
+      geometry Box {
+        size 1.6 0.08 0.28
+      }
+    }
+  ]
+  name "v2"
+  boundingObject Box {
+    size 1.6 0.08 0.28
+  }
+}
+DEF H4 Solid {
+  translation -1.6 0.8 0.14
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.5 0.5 0.5
+      }
+      geometry Box {
+        size 2 0.08 0.28
+      }
+    }
+  ]
+  name "h4"
+  boundingObject Box {
+    size 2 0.08 0.28
+  }
+}
+DEF V3 Solid {
+  translation -2.4 0 0.14
+  rotation 0 0 1 1.5708
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.5 0.5 0.5
+      }
+      geometry Box {
+        size 1.6 0.08 0.28
+      }
+    }
+  ]
+  name "v3"
+  boundingObject Box {
+    size 1.6 0.08 0.28
+  }
+}
+DEF V4 Solid {
+  translation 0 0 0.14
+  rotation 0 0 1 1.5708
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.5 0.5 0.5
+      }
+      geometry Box {
+        size 1.6 0.08 0.28
+      }
+    }
+  ]
+  name "v4"
+  boundingObject Box {
+    size 1.6 0.08 0.28
+  }
+}
+DEF H6 Solid {
+  translation -1.6 -0.8 0.14
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.5 0.5 0.5
+      }
+      geometry Box {
+        size 1.6 0.08 0.28
+      }
+    }
+  ]
+  name "h6"
+  boundingObject Box {
+    size 1.6 0.08 0.28
+  }
+}
+DEF V6 Solid {
+  translation -1.2 -1.4 0.14
+  rotation 0 0 1 1.5708
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.5 0.5 0.5
+      }
+      geometry Box {
+        size 1.2 0.08 0.28
+      }
+    }
+  ]
+  name "v6"
+  boundingObject Box {
+    size 1.2 0.08 0.28
+  }
+}
+DEF H8 Solid {
+  translation -2 -2.4 0.14
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.5 0.5 0.5
+      }
+      geometry Box {
+        size 1.6 0.08 0.28
+      }
+    }
+  ]
+  name "h8"
+  boundingObject Box {
+    size 1.6 0.08 0.28
+  }
+}
+DEF OBS1 Solid {
+  translation -2 1.6 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs1"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS2 Solid {
+  translation 2 -1.2 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs2"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS3 Solid {
+  translation -0.4 -2 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs3"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS3_1 Solid {
+  translation -1.7 -1.31 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs3(1)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS4 Solid {
+  translation 1.6 0 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs4"
+  boundingObject Box {
+    size 0.33 0.32 0.12
+  }
+}
+DEF OBS4_1 Solid {
+  translation 2.3 1.8 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs4(1)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS4_2 Solid {
+  translation 2.3 -1.9 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs4(2)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS4_3 Solid {
+  translation 0.5 1.5 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs4(3)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS4_4 Solid {
+  translation 1.7 1.5 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs4(4)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS4_5 Solid {
+  translation 0.8 -0.3 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs4(5)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS4_6 Solid {
+  translation -0.6 1.5 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs4(6)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS4_7 Solid {
+  translation 0.5 -1.6 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs4(7)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS4_8 Solid {
+  translation 1.4 -2.2 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs4(8)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF OBS4_9 Solid {
+  translation 2.4 0.3 0.06
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.55 0.27 0.07
+      }
+      geometry Box {
+        size 0.16 0.16 0.4
+      }
+    }
+  ]
+  name "obs4(9)"
+  boundingObject Box {
+    size 0.16 0.16 0.4
+  }
+}
+DEF ROBOT_1 TurtleBot3Burger {
+  translation 2.0 2.0 0.0
+  rotation 0 0 1 0
+  name "robot_1"
+  controller "user_controlled_robot"
+  customData "{\"robot_id\":\"robot_1\",\"bridge_port\":5005,\"key_mode\":\"wasd\"}"
+  extensionSlot [
+    GPS {
+    }
+    InertialUnit {
+    }
+    RobotisLds01 {
+    }
+  ]
+}
+DEF ROBOT_2 TurtleBot3Burger {
+  translation -2.0 -2.0 0.0
+  rotation 0 0 1 1.5708
+  name "robot_2"
+  controller "user_controlled_robot"
+  customData "{\"robot_id\":\"robot_2\",\"bridge_port\":5006,\"key_mode\":\"arrows\"}"
+  extensionSlot [
+    GPS {
+    }
+    InertialUnit {
+    }
+    RobotisLds01 {
+    }
+  ]
+}
+DEF ROBOT_3 TurtleBot3Burger {
+  translation -2.45 2.05 0.0
+  rotation 0 0 1 -1.5708
+  name "robot_3"
+  controller "patrol_robot"
+  customData "{\"robot_id\":\"robot_3\",\"bridge_port\":5007,\"map_id\":\"routeMultipleRobots\"}"
+  extensionSlot [
+    GPS {
+    }
+    InertialUnit {
+    }
+    RobotisLds01 {
+    }
+  ]
+}
+DEF ROBOT_4 TurtleBot3Burger {
+  translation 2.05 -2.45 0.0
+  rotation 0 0 1 1.5708
+  name "robot_4"
+  controller "patrol_robot"
+  customData "{\"robot_id\":\"robot_4\",\"bridge_port\":5008,\"map_id\":\"routeMultipleRobots\"}"
+  extensionSlot [
+    GPS {
+    }
+    InertialUnit {
+    }
+    RobotisLds01 {
+    }
+  ]
+}
+Solid {
+  translation -1.52 2.1 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.2 0.2
+          emissiveColor 0.45 0.05 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_A"
+}
+Solid {
+  translation -1.52 -1.06 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.2 0.95 0.2
+          emissiveColor 0.05 0.45 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_B"
+}
+Solid {
+  translation -2.13 -0.25 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.2 0.4 0.95
+          emissiveColor 0.05 0.1 0.45
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_C"
+}
+Solid {
+  translation 0.78 1.97 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.95 0.2
+          emissiveColor 0.45 0.45 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_D"
+}
+Solid {
+  translation 2.34 -2.24 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.2 0.75
+          emissiveColor 0.45 0.05 0.3
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_E"
+}
+Solid {
+  translation 2.67 2.28 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.95 0.55 0.2
+          emissiveColor 0.45 0.2 0.05
+        }
+      }
+      geometry Box {
+        size 0.12 0.12 0.04
+      }
+    }
+  ]
+  name "checkpoint_F"
+}

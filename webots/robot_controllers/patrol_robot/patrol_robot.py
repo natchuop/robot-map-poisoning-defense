@@ -120,6 +120,56 @@ def cmd_vel_to_wheel_speeds(linear_x, angular_z, max_wheel_speed):
 
     return left_speed, right_speed
 
+def load_robot_config(robot):
+    config = {
+        'robot_id': ROBOT_ID,
+        'map_id': MAP_ID,
+        'bridge_port': BRIDGE_PORT,
+        'bridge_targets': list(BRIDGE_TARGETS),
+    }
+
+    config['robot_id'] = robot.getName() or config['robot_id']
+
+    try:
+        custom_data = robot.getCustomData().strip()
+    except Exception:
+        custom_data = ''
+
+    if not custom_data:
+        return config
+
+    try:
+        loaded = json.loads(custom_data)
+    except json.JSONDecodeError as exc:
+        print(f'Ignored malformed robot customData: {exc}', flush=True)
+        return config
+
+    if not isinstance(loaded, dict):
+        return config
+
+    if str(loaded.get('robot_id', '')).strip():
+        config['robot_id'] = str(loaded['robot_id']).strip()
+    if str(loaded.get('map_id', '')).strip():
+        config['map_id'] = str(loaded['map_id']).strip()
+
+    bridge_port = loaded.get('bridge_port')
+    if isinstance(bridge_port, int):
+        config['bridge_port'] = bridge_port
+    elif isinstance(bridge_port, str) and bridge_port.strip():
+        try:
+            config['bridge_port'] = int(bridge_port)
+        except ValueError:
+            pass
+
+    bridge_targets = loaded.get('bridge_targets')
+    if isinstance(bridge_targets, list):
+        parsed_targets = [str(target).strip() for target in bridge_targets if str(target).strip()]
+        if parsed_targets:
+            config['bridge_targets'] = parsed_targets
+
+    return config
+
+
 
 class BridgeSender:
     """Send sensor packets to ROS and receive cmd_vel packets from ROS."""
@@ -323,8 +373,13 @@ class BridgeSender:
 def main():
     robot = Robot()
     timestep = int(robot.getBasicTimeStep()) or TIME_STEP
+    robot_config = load_robot_config(robot)
+    robot_id = robot_config['robot_id']
+    map_id = robot_config['map_id']
+    bridge_port = int(robot_config['bridge_port'])
+    bridge_targets = robot_config['bridge_targets']
 
-    print(f'patrol_robot starting robot_id={ROBOT_ID} map_id={MAP_ID or "unknown"}', flush=True)
+    print(f'patrol_robot starting robot_id={robot_id} map_id={map_id or "unknown"}', flush=True)
 
     try:
         gps = robot.getDevice('gps')
@@ -360,7 +415,7 @@ def main():
         lidar_fov = float(lidar.getFov())
         lidar_max_range = lidar.getMaxRange()
 
-        sender = BridgeSender(BRIDGE_TARGETS, BRIDGE_PORT)
+        sender = BridgeSender(bridge_targets, bridge_port)
         counter = 0
 
         current_linear_x = 0.0
@@ -370,7 +425,7 @@ def main():
         last_reported_touch = ''
 
         print(
-            f'ROS bridge targets {", ".join(f"tcp://{target}:{BRIDGE_PORT}" for target in BRIDGE_TARGETS)}',
+            f'ROS bridge targets {", ".join(f"tcp://{target}:{bridge_port}" for target in bridge_targets)}',
             flush=True,
         )
         print('GPS, IMU, LiDAR, and cmd_vel motor control initialized', flush=True)

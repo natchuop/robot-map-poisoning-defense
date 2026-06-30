@@ -31,6 +31,10 @@ setup(
         ('share/' + package_name + '/config', ['config/multi_robot_shared_map.rviz']),
         ('share/' + package_name + '/config', ['config/multi_robot_robot_1_view.rviz']),
         ('share/' + package_name + '/config', ['config/multi_robot_robot_2_view.rviz']),
+        ('share/' + package_name + '/config', ['config/multi_robot_robot_3_view.rviz']),
+        ('share/' + package_name + '/config', ['config/multi_robot_robot_4_view.rviz']),
+        ('share/' + package_name + '/config', ['config/route_multiple_robots_config.json']),
+        ('share/' + package_name + '/config', ['config/route_multiple_robots_routes.json']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -50,6 +54,7 @@ setup(
             'checkpoint_patrol = robot_patrol_node.checkpoint_patrol_node:main',
             'navigation_diagnostics = robot_patrol_node.navigation_diagnostics_node:main',
             'fake_obstacle_injector = robot_patrol_node.fake_obstacle_injector_node:main',
+            'route_follower = robot_patrol_node.route_follower_node:main',
         ],
     },
     extras_require={

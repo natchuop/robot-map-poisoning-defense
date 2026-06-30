@@ -1,0 +1,183 @@
+Panels:
+  - Class: rviz_common/Displays
+    Help Height: 78
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Static Map1
+        - /Robot Local Map1
+        - /Robot Local Confidence1
+        - /Robot Shared Map1
+        - /Occupied Confidence1
+        - /Clear Confidence1
+        - /Confidence Markers1
+        - /Fake Obstacle Markers1
+        - /Robot 3 Scan1
+        - /Robot 2 Scan1
+        - /TF1
+      Splitter Ratio: 0.5
+    Tree Height: 420
+  - Class: rviz_common/Views
+    Help Height: 78
+    Name: Views
+    Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.35
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 110; 110; 110
+      Enabled: true
+      Line Style:
+        Line Width: 0.02
+        Value: Lines
+      Name: Grid
+      Plane: XY
+      Plane Cell Count: 60
+      Reference Frame: <Fixed Frame>
+    - Alpha: 1
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: true
+      Enabled: true
+      Name: Static Map
+      Topic:
+        Value: /map
+      Unreliable: false
+      Use Timestamp: false
+    - Alpha: 0.60
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: true
+      Enabled: true
+      Name: Robot Local Map
+      Topic:
+        Value: /robot_3/live_map
+      Unreliable: false
+      Use Timestamp: false
+    - Alpha: 0.55
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: true
+      Name: Robot Trust Confidence
+      Topic:
+        Value: /robot_3/shared_confidence_map
+      Unreliable: false
+      Use Timestamp: false
+    - Alpha: 0.55
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: true
+      Name: Robot Shared Map
+      Topic:
+        Value: /robot_3/shared_live_map
+      Unreliable: false
+      Use Timestamp: false
+    - Alpha: 0.35
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: false
+      Name: Occupied Confidence
+      Topic:
+        Value: /robot_3/occupied_confidence_map
+      Unreliable: false
+      Use Timestamp: false
+    - Alpha: 0.35
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: false
+      Name: Clear Confidence
+      Topic:
+        Value: /robot_3/clear_confidence_map
+      Unreliable: false
+      Use Timestamp: false
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Confidence Markers
+      Topic:
+        Value: /robot_3/confidence_markers
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Fake Obstacle Markers
+      Topic:
+        Value: /robot_3/fake_obstacle_markers
+    - Alpha: 1
+      Class: rviz_default_plugins/LaserScan
+      Color: 255; 210; 0
+      Enabled: true
+      Name: Robot 3 Scan
+      Size (Pixels): 4
+      Size (m): 0.03
+      Style: Points
+      Topic:
+        Value: /robot_3/scan
+      Unreliable: false
+      Use Fixed Frame: true
+      Use Timestamp: false
+    - Alpha: 1
+      Class: rviz_default_plugins/LaserScan
+      Color: 0; 170; 255
+      Enabled: true
+      Name: Robot 4 Scan
+      Size (Pixels): 4
+      Size (m): 0.03
+      Style: Points
+      Topic:
+        Value: /robot_4/scan
+      Unreliable: false
+      Use Fixed Frame: true
+      Use Timestamp: false
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Marker Scale: 0.5
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+  Enabled: true
+  Global Options:
+    Background Color: 42; 42; 42
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+    - Class: rviz_default_plugins/PublishPoint
+      Topic: /robot_3/clicked_point
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+Views:
+  Current:
+    Angle: 0
+    Class: rviz_default_plugins/TopDownOrtho
+    Name: Current View
+    Near Clip Distance: 0.01
+    Scale: 56
+    Target Frame: map
+    Value: TopDownOrtho (rviz_default_plugins)
+    X: 0
+    Y: 0
+  Saved: ~
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 900
+  Hide Left Dock: false
+  Hide Right Dock: false
+  Width: 1600
+  X: 50
+  Y: 50
