@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import json
 import math
+import os
 
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import Pose2D, PoseStamped, PoseWithCovarianceStamped, Twist
@@ -21,7 +22,7 @@ class Checkpoint:
     y: float
 
 
-CHECKPOINTS = {
+DEFAULT_CHECKPOINTS = {
     'A': Checkpoint(-1.49882, 1.84407),
     'B': Checkpoint(1.5267, -0.221987),
     'C': Checkpoint(-0.416565, -1.35783),
@@ -30,8 +31,23 @@ CHECKPOINTS = {
 
 HELPER_TARGETS = {}
 
-CHECKPOINT_ROUTE = ['A', 'B', 'C', 'D', 'A']
-VISIBLE_ROUTE = ['A', 'B', 'C', 'D', 'A']
+DEFAULT_ROUTE = ['A', 'B', 'C', 'D', 'A']
+WORLD_ROUTES = {
+    'simple_corridor': (
+        {
+            'A': Checkpoint(-4.50, 0.00),
+            'B': Checkpoint(4.50, 0.00),
+        },
+        ['A', 'B', 'A'],
+    ),
+    'two_route': (
+        {
+            'A': Checkpoint(-4.50, 1.00),
+            'B': Checkpoint(4.50, 1.00),
+        },
+        ['A', 'B'],
+    ),
+}
 
 
 class CheckpointPatrolNode(Node):
@@ -63,6 +79,7 @@ class CheckpointPatrolNode(Node):
         self.declare_parameter('departure_assist_heading_tolerance', 0.35)
         self.declare_parameter('departure_assist_backoff_linear_x', -0.06)
         self.declare_parameter('departure_assist_turn_speed', 0.8)
+        self.declare_parameter('map_id', '')
 
         self.loop = bool(self.get_parameter('loop').value)
         self.frame_id = str(self.get_parameter('frame_id').value)
@@ -123,7 +140,17 @@ class CheckpointPatrolNode(Node):
         self.departure_assist_turn_speed = float(
             self.get_parameter('departure_assist_turn_speed').value
         )
-        self.route = list(CHECKPOINT_ROUTE)
+        self.map_id = str(self.get_parameter('map_id').value).strip().lower()
+        self.checkpoints = dict(DEFAULT_CHECKPOINTS)
+        self.route = list(DEFAULT_ROUTE)
+        self.visible_route = list(DEFAULT_ROUTE)
+        if self.map_id in WORLD_ROUTES:
+            world_checkpoints, world_route = WORLD_ROUTES[self.map_id]
+            self.checkpoints = dict(world_checkpoints)
+            self.route = list(world_route)
+            self.visible_route = list(world_route)
+            if self.map_id == 'two_route':
+                self.loop = False
 
         self.client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.robot_pose_subscription = self.create_subscription(
@@ -196,7 +223,7 @@ class CheckpointPatrolNode(Node):
             'AMCL mode: Webots GPS/IMU odom + LiDAR scan + known static map.'
         )
         self.get_logger().info(
-            f'Checkpoint route: {" -> ".join(VISIBLE_ROUTE)}; '
+            f'Checkpoint route: {" -> ".join(self.visible_route)}; '
             f'arrival radius={self.goal_reached_radius:.2f} m'
         )
         self.get_logger().info(
@@ -275,7 +302,7 @@ class CheckpointPatrolNode(Node):
     def active_checkpoint(self):
         if self.active_checkpoint_name is None:
             return None
-        return CHECKPOINTS.get(self.active_checkpoint_name)
+        return self.checkpoints.get(self.active_checkpoint_name)
 
     def active_reached_radius(self):
         if self.active_checkpoint_name in HELPER_TARGETS:
@@ -293,7 +320,7 @@ class CheckpointPatrolNode(Node):
     def heading_error_to_checkpoint(self, checkpoint_name):
         if self.current_robot_pose is None:
             return None
-        checkpoint = CHECKPOINTS.get(checkpoint_name)
+        checkpoint = self.checkpoints.get(checkpoint_name)
         if checkpoint is None:
             return None
 
@@ -341,7 +368,7 @@ class CheckpointPatrolNode(Node):
         self.send_checkpoint(checkpoint_name)
 
     def send_checkpoint(self, checkpoint_name):
-        checkpoint = CHECKPOINTS.get(checkpoint_name)
+        checkpoint = self.checkpoints.get(checkpoint_name)
         if checkpoint is None:
             self.get_logger().warning(f'Skipping unknown checkpoint {checkpoint_name}.')
             self.current_index += 1
@@ -389,7 +416,7 @@ class CheckpointPatrolNode(Node):
             checkpoint_number = sum(
                 1 for name in self.route[: self.current_index + 1] if name not in HELPER_TARGETS
             )
-            total = len(VISIBLE_ROUTE)
+            total = len(self.visible_route)
             message = (
                 f'NEXT checkpoint {checkpoint_number}/{total}: {checkpoint_name} '
                 f'({checkpoint.x:.2f}, {checkpoint.y:.2f}); {distance_text}'
@@ -676,7 +703,7 @@ class CheckpointPatrolNode(Node):
             checkpoint_number = sum(
                 1 for name in self.route[: self.current_index + 1] if name not in HELPER_TARGETS
             )
-            total = len(VISIBLE_ROUTE)
+            total = len(self.visible_route)
             message = (
                 f'REACHED checkpoint {checkpoint_number}/{total}: '
                 f'{checkpoint_name} ({reason})'
@@ -954,4 +981,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-

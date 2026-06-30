@@ -1,0 +1,189 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/robotis/turtlebot/protos/TurtleBot3Burger.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/devices/robotis/protos/RobotisLds01.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/RectangleArena.proto"
+
+WorldInfo {
+  title "Simple Corridor — Map Poisoning Test"
+  basicTimeStep 64
+}
+Viewpoint {
+  orientation -0.6272786351043352 0.19648828225063514 0.7536006030251282 2.6779653115204187
+  position -1.6134114797544514 -2.2516801438433616 22.366115247610963
+  follow "TurtleBot3Burger"
+  followType "Pan and Tilt Shot"
+}
+Background {
+  skyColor [
+    0.12 0.12 0.12
+  ]
+}
+DirectionalLight {
+  direction -0.5 -1 -0.5
+}
+RectangleArena {
+  floorSize 12.8 3
+  floorTileSize 1 1
+  wallHeight 0.5
+}
+DEF NORTH_WALL Solid {
+  translation 0 0.85 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.72 0.72 0.72
+        roughness 0.85
+      }
+      geometry Box {
+        size 12.4 0.15 0.5
+      }
+    }
+  ]
+  name "north_wall"
+  boundingObject Box {
+    size 12.4 0.15 0.5
+  }
+}
+DEF SOUTH_WALL Solid {
+  translation 0 -0.85 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.72 0.72 0.72
+        roughness 0.85
+      }
+      geometry Box {
+        size 12.4 0.15 0.5
+      }
+    }
+  ]
+  name "south_wall"
+  boundingObject Box {
+    size 12.4 0.15 0.5
+  }
+}
+DEF WEST_END Solid {
+  translation -6 0 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.72 0.72 0.72
+        roughness 0.85
+      }
+      geometry Box {
+        size 0.15 1.85 0.5
+      }
+    }
+  ]
+  name "west_end"
+  boundingObject Box {
+    size 0.15 1.85 0.5
+  }
+}
+DEF EAST_END Solid {
+  translation 6 0 0.25
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.72 0.72 0.72
+        roughness 0.85
+      }
+      geometry Box {
+        size 0.15 1.85 0.5
+      }
+    }
+  ]
+  name "east_end"
+  boundingObject Box {
+    size 0.15 1.85 0.5
+  }
+}
+Solid {
+  translation -4.5 0 0.03
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0 0.8 0
+          emissiveColor 0 0.8 0
+        }
+      }
+      geometry Box {
+        size 0.16 0.16 0.04
+      }
+    }
+  ]
+  name "start"
+  locked TRUE
+}
+Solid {
+  translation 4.5 0 0.03
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.9 0.1 0.1
+          emissiveColor 0.9 0.1 0.1
+        }
+      }
+      geometry Box {
+        size 0.16 0.16 0.04
+      }
+    }
+  ]
+  name "end"
+  locked TRUE
+}
+TurtleBot3Burger {
+  hidden position_0_0 1.7952954542053278e-06
+  hidden position_0_2 12466.103181502815
+  hidden position2_0_2 -0.10158022061855032
+  hidden position3_0_2 -1436.7897125691325
+  hidden linearVelocity_0 3.636945281122434e-17 3.8687930915823504e-17 0
+  hidden angularVelocity_0 -1.3054895572717318e-15 -6.375382428508867e-16 6.418054618733613e-17
+  hidden position_3_0 8332.917760000266
+  hidden position_3_1 16575.83616000053
+  hidden rotation_4 -0.6375941319799403 0.544734588085812 0.5447365890113558 2.0063868782192853
+  hidden translation_5 -0.013731767746981594 -0.01 -0.03278355055916401
+  hidden rotation_5 -0.8603798348467472 0.3603786797847291 0.3603800035319661 1.7206176605000885
+  hidden translation_10 0 -0.08 0.033
+  hidden rotation_10 0 -1 0 1.570794204704546
+  hidden linearVelocity_10 8.175426391920592e-17 7.855421857828493e-18 -1.7162752946175107e-17
+  hidden angularVelocity_10 -1.185838157311427e-16 -2.7514657821544036e-16 4.4175770513909385e-16
+  hidden translation_11 0 0.08 0.033
+  hidden linearVelocity_11 5.5667283749622916e-15 8.261275972217788e-17 1.9213084281037256e-17
+  hidden angularVelocity_11 2.213136533338718e-16 5.699469888044473e-16 -1.4286293720061788e-16
+  hidden translation_12 -0.081 0 0.004
+  hidden rotation_12 -0.028505118177484357 0.16151533190026032 -0.9864584409891967 4.224852917085816
+  hidden linearVelocity_12 3.6946781817229745e-17 -4.234173269963096e-17 4.970447208693151e-17
+  hidden angularVelocity_12 -78.32216415523418 294.6981829737488 47.94076954901015
+  translation -4.0 0.0 0.034296815881618564
+  rotation 0 0 1 0
+  controller "patrol_robot"
+  supervisor TRUE
+  customData "simple_corridor"
+  extensionSlot [
+    GPS {
+    }
+    InertialUnit {
+    }
+    RobotisLds01 {
+    }
+  ]
+}
+TurtleBot3Burger {
+  translation -5.2 1.25 0.034296815881618564
+  rotation 0 0 1 0
+  name "observer_bot"
+  controller "void"
+  customData "observer_bot"
+  extensionSlot [
+    GPS {
+    }
+    InertialUnit {
+    }
+    RobotisLds01 {
+    }
+  ]
+}

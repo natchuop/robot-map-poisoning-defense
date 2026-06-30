@@ -100,8 +100,10 @@ That launches Webots, ROS 2, RViz, and the AMCL/Nav2 checkpoint patrol demo toge
 ## Notes
 
 - `build/`, `install/`, and `log/` are generated and can be deleted safely.
-- `testRvizMap` uses `webots/robot_controllers/patrol_robot/patrol_robot.py`, the Nav2-capable checkpoint patrol controller.
+- `testRvizMap`, `simpleCorridor`, and `twoRoute` use `webots/robot_controllers/patrol_robot/patrol_robot.py`, the Nav2-capable checkpoint patrol controller.
 - `office`, `testBuildingMapForRobot`, `confusingMaze`, and `sandbox` use `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`.
+- `runSimpleCorridor.sh` starts the simple corridor world at `(-5.25, 0.0, 0.0)` and loads `webots/worlds/simpleCorridor/amcl_map/simple_corridor.yaml`.
+- `runTwoRoute.sh` starts the two-route world at `(-5.25, 0.0, 0.0)` and loads `webots/worlds/twoRoute/amcl_map/two_route.yaml`.
 - `runOffice.sh` starts the office world at `(-4.35, -5.35, 0.00464)` and publishes that configured AMCL initial pose instead of assuming the robot starts at the origin.
 - `runConfusingMaze.sh` starts the maze world at `(-3.5, -3.5, 0.0)` and generates `webots/worlds/confusingMaze/amcl_map/confusing_maze.yaml`.
 - `runSandbox.sh` starts the sandbox world at `(2.0, 2.0, 0.0)` and generates `webots/worlds/sandbox/amcl_map/sandbox.yaml`.

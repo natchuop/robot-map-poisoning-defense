@@ -6,11 +6,15 @@ The longer-term Webots direction is to support trust-based shared mapping, verif
 ## Current Demo
 
 - Main AMCL world: `webots/worlds/testRvizMap/turtlebot3_burger.wbt`
+- Simple corridor world: `webots/worlds/simpleCorridor/simple_corridor.wbt`
+- Two-route world: `webots/worlds/twoRoute/two_route.wbt`
 - Office world: `webots/worlds/office/office.wbt`
 - Live map-building world: `webots/worlds/testBuildingMapForRobot/turtlebot3_burger.wbt`
 - Sandbox world: `webots/worlds/sandbox/sandbox.wbt`
 - Shared-map sandbox copy: `webots/worlds/TestCombineRvizMap/TestCombineRvizMap.wbt`
 - Known AMCL map: `webots/worlds/testRvizMap/amcl_map/arena.yaml` and `arena.pgm`
+- Simple corridor AMCL map: `webots/worlds/simpleCorridor/amcl_map/simple_corridor.yaml` and `simple_corridor.pgm`
+- Two-route AMCL map: `webots/worlds/twoRoute/amcl_map/two_route.yaml` and `two_route.pgm`
 - Office AMCL map: `webots/worlds/office/amcl_map/office.yaml` and `office.pgm`
 - Confusing maze AMCL map: `webots/worlds/confusingMaze/amcl_map/confusing_maze.yaml` and `confusing_maze.pgm`
 - Sandbox AMCL map: `webots/worlds/sandbox/amcl_map/sandbox.yaml` and `sandbox.pgm`
@@ -97,6 +101,10 @@ To launch the office world, point `RMPD_WEBOTS_WORLD` at `webots/worlds/office/o
 
 For convenience, `bash scripts/runOffice.sh` launches the office world with its office-specific AMCL map, startup pose, the office RViz view, and WASD user-controlled robot. The office robot starts at `x=-4.35`, `y=-5.35`, `yaw=0.00464`; the script publishes that configured AMCL initial pose and keeps the live `/live_map` overlay enabled so previously explored areas remain visible.
 
+For convenience, `bash scripts/runSimpleCorridor.sh` launches `webots/worlds/simpleCorridor/simple_corridor.wbt` with its generated AMCL map and the `patrol_robot` controller. The corridor robot starts at `x=-5.25`, `y=0.0`, `yaw=0.0`.
+
+For convenience, `bash scripts/runTwoRoute.sh` launches `webots/worlds/twoRoute/two_route.wbt` with its generated AMCL map and the `patrol_robot` controller. The robot starts at `x=-5.25`, `y=0.0`, `yaw=0.0`.
+
 For convenience, `bash scripts/runConfusingMaze.sh` launches `webots/worlds/confusingMaze/confusing_maze.wbt` with its generated AMCL map and the `user_controlled_robot` controller. The maze robot starts at `x=-3.5`, `y=-3.5`, `yaw=0.0`.
 
 For convenience, `bash scripts/runSandbox.sh` launches `webots/worlds/sandbox/sandbox.wbt` with its generated AMCL map and the `user_controlled_robot` controller. The sandbox robot starts at `x=2.0`, `y=2.0`, `yaw=0.0`.
@@ -136,7 +144,7 @@ They send newline-delimited JSON over TCP by default. The default bridge target 
 
 ## Controller Choices
 
-- `patrol_robot` is the Nav2-capable checkpoint patrol controller and is used by `testRvizMap`.
+- `patrol_robot` is the Nav2-capable checkpoint patrol controller and is used by `testRvizMap`, `simpleCorridor`, and `twoRoute`.
 - `user_controlled_robot` is the WASD controller used by the office and live map-building demos.
 
 ## Adding A World

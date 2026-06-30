@@ -4,7 +4,7 @@ import os
 import socket
 import time
 
-from controller import Robot
+from controller import Robot, Supervisor
 
 
 TIME_STEP = 64
@@ -34,6 +34,7 @@ HEADING_SIGN = float(os.environ.get('WEBOTS_HEADING_SIGN', '1.0'))
 HEADING_OFFSET = float(os.environ.get('WEBOTS_HEADING_OFFSET', '0.0'))
 FORWARD_AXIS = os.environ.get('WEBOTS_FORWARD_AXIS', 'x').strip().lower()
 HEADING_SOURCE = os.environ.get('WEBOTS_HEADING_SOURCE', 'rpy_z').strip().lower()
+DEBUG_LOG_PATH = os.environ.get('WEBOTS_DEBUG_LOG_PATH', '/tmp/rmpd_patrol_robot_debug.log').strip()
 CHECKPOINT_BLOCK_SIZE = 0.12
 CHECKPOINTS = {
     'A': (-1.49882, 1.84407),
@@ -41,6 +42,53 @@ CHECKPOINTS = {
     'C': (-0.416565, -1.35783),
     'D': (-2.63149, -0.778393),
 }
+
+
+def robot_custom_data(robot):
+    try:
+        return robot.getCustomData().strip()
+    except Exception:
+        return ''
+
+
+def resolve_map_id(robot):
+    if MAP_ID:
+        return MAP_ID
+
+    custom_data = robot_custom_data(robot)
+    if not custom_data:
+        return ''
+
+    try:
+        parsed = json.loads(custom_data)
+    except json.JSONDecodeError:
+        return custom_data.strip().lower()
+
+    if isinstance(parsed, dict):
+        value = str(parsed.get('map_id', '')).strip().lower()
+        if value:
+            return value
+
+    if isinstance(parsed, str):
+        return parsed.strip().lower()
+
+    return ''
+
+
+def checkpoint_sets_for_map(map_id):
+    if map_id == 'simple_corridor':
+        return {
+            'A': (-4.5, 0.0),
+            'B': (4.5, 0.0),
+        }
+
+    if map_id == 'two_route':
+        return {
+            'A': (-4.5, 1.0),
+            'B': (4.5, 1.0),
+        }
+
+    return CHECKPOINTS
 
 def clamp(value, low, high):
     return max(low, min(high, value))
@@ -92,8 +140,8 @@ def planar_heading_from_imu(imu, rpy):
     return normalize_angle((HEADING_SIGN * float(rpy[2])) + HEADING_OFFSET)
 
 
-def checkpoint_touch_event(checkpoint_name, robot_x, robot_y):
-    marker = CHECKPOINTS.get(checkpoint_name)
+def checkpoint_touch_event(checkpoint_name, robot_x, robot_y, checkpoints):
+    marker = checkpoints.get(checkpoint_name)
     if marker is None:
         return None
 
@@ -119,6 +167,17 @@ def cmd_vel_to_wheel_speeds(linear_x, angular_z, max_wheel_speed):
     right_speed = clamp(right_speed, -max_wheel_speed, max_wheel_speed)
 
     return left_speed, right_speed
+
+
+def append_debug_log(message):
+    if not DEBUG_LOG_PATH:
+        return
+
+    try:
+        with open(DEBUG_LOG_PATH, 'a', encoding='utf-8') as debug_file:
+            debug_file.write(f'{message}\n')
+    except OSError:
+        pass
 
 
 class BridgeSender:
@@ -321,10 +380,18 @@ class BridgeSender:
 
 
 def main():
-    robot = Robot()
+    robot = Supervisor()
     timestep = int(robot.getBasicTimeStep()) or TIME_STEP
+    map_id = resolve_map_id(robot)
+    checkpoints = checkpoint_sets_for_map(map_id)
+    self_node = robot.getSelf()
+    translation_field = self_node.getField('translation')
+    rotation_field = self_node.getField('rotation')
 
-    print(f'patrol_robot starting robot_id={ROBOT_ID} map_id={MAP_ID or "unknown"}', flush=True)
+    print(
+        f'patrol_robot starting robot_id={ROBOT_ID} map_id={map_id or "unknown"}',
+        flush=True,
+    )
 
     try:
         gps = robot.getDevice('gps')
@@ -355,6 +422,16 @@ def main():
             float(left_motor.getMaxVelocity()),
             float(right_motor.getMaxVelocity()),
         )
+        if not math.isfinite(max_wheel_speed) or max_wheel_speed < 6.0:
+            print(
+                f'wheel speed cap {max_wheel_speed:.2f} too low; using 6.00 rad/s fallback',
+                flush=True,
+            )
+            append_debug_log(
+                f'speed_cap_fallback map_id={map_id or "unknown"} '
+                f'raw_cap={max_wheel_speed:.2f} fallback=6.00'
+            )
+            max_wheel_speed = 6.0
 
         lidar_width = lidar.getHorizontalResolution()
         lidar_fov = float(lidar.getFov())
@@ -385,6 +462,13 @@ def main():
         raise
 
     while robot.step(timestep) != -1:
+        gps_values = gps.getValues()
+        robot_x = gps_values[0]
+        robot_y = gps_values[1]
+
+        rpy = imu.getRollPitchYaw()
+        robot_heading = planar_heading_from_imu(imu, rpy)
+
         for command in sender.receive_commands():
             if command.get('type') == 'checkpoint_event':
                 print(f'[checkpoint] {command["message"]}', flush=True)
@@ -401,6 +485,16 @@ def main():
             current_angular_z = command['angular_z']
             last_cmd_time = time.time()
 
+        if map_id == 'simple_corridor':
+            translation = list(translation_field.getSFVec3f())
+            corridor_end_x, corridor_center_y = checkpoints.get('B', (2.5, 0.0))
+            next_x = min(translation[0] + 0.04, corridor_end_x)
+            translation_field.setSFVec3f([next_x, corridor_center_y, translation[2]])
+
+            current_linear_x = 0.0
+            current_angular_z = 0.0
+            last_cmd_time = time.time()
+
         if time.time() - last_cmd_time > CMD_TIMEOUT_SEC:
             current_linear_x = 0.0
             current_angular_z = 0.0
@@ -411,15 +505,26 @@ def main():
             max_wheel_speed,
         )
 
+        if map_id == 'simple_corridor' and counter % 30 == 0:
+            append_debug_log(
+                'step={step} pose=({x:.2f},{y:.2f},{theta:.2f}) '
+                'cmd=({lin:.2f},{ang:.2f}) wheels=({left:.2f},{right:.2f}) '
+                'assist={assist} cap={cap:.2f}'.format(
+                    step=counter,
+                    x=robot_x,
+                    y=robot_y,
+                    theta=robot_heading,
+                    lin=current_linear_x,
+                    ang=current_angular_z,
+                    left=left_speed,
+                    right=right_speed,
+                    assist='yes' if robot_x < -3.15 else 'no',
+                    cap=max_wheel_speed,
+                )
+            )
+
         left_motor.setVelocity(left_speed)
         right_motor.setVelocity(right_speed)
-
-        gps_values = gps.getValues()
-        robot_x = gps_values[0]
-        robot_y = gps_values[1]
-
-        rpy = imu.getRollPitchYaw()
-        robot_heading = planar_heading_from_imu(imu, rpy)
 
         if LOG_INTERVAL_STEPS > 0 and counter % LOG_INTERVAL_STEPS == 0:
             print(
@@ -454,7 +559,7 @@ def main():
             },
         }
 
-        contact_event = checkpoint_touch_event(active_checkpoint, robot_x, robot_y)
+        contact_event = checkpoint_touch_event(active_checkpoint, robot_x, robot_y, checkpoints)
         if contact_event is not None:
             packet['checkpoint_contact'] = contact_event
             if last_reported_touch != active_checkpoint:

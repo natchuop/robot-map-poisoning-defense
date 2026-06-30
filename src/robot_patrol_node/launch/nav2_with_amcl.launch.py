@@ -25,6 +25,7 @@ def generate_launch_description():
     live_map_height_m = LaunchConfiguration('live_map_height_m')
     live_map_origin_x = LaunchConfiguration('live_map_origin_x')
     live_map_origin_y = LaunchConfiguration('live_map_origin_y')
+    map_id = LaunchConfiguration('map_id')
 
     pkg_share = FindPackageShare('robot_patrol_node').find('robot_patrol_node')
 
@@ -47,6 +48,7 @@ def generate_launch_description():
         DeclareLaunchArgument('live_map_height_m', default_value='8.0'),
         DeclareLaunchArgument('live_map_origin_x', default_value='nan'),
         DeclareLaunchArgument('live_map_origin_y', default_value='nan'),
+        DeclareLaunchArgument('map_id', default_value=''),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(amcl_launch),
@@ -124,6 +126,7 @@ def generate_launch_description():
             condition=IfCondition(start_checkpoint_patrol),
             parameters=[{
                 'frame_id': 'map',
+                'map_id': map_id,
             }],
         ),
 
