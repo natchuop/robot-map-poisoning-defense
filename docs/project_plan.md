@@ -34,7 +34,9 @@ The project compares three map-fusion models. The comparison is designed to sepa
 2. Does basic robot-level trust improve over no trust?
 3. Does the proposed claim-level trust and verification method improve beyond basic trust?
 
-Robot Demo
+<p align="center"><strong>Simulation Demo</strong></p>
+
+![Simulation Demo](../media/SimulationDemo.png "Simulation Demo")
 
 ## 3. Models to Compare
 
