@@ -15,3 +15,11 @@ __pycache__/
 
 *.swp
 *.tmp
+
+# Generated Webots smoke-test artifacts
+webots/worlds/*/sandbox.wbt
+webots/worlds/*/amcl_map/sandbox.pgm
+webots/worlds/*/amcl_map/sandbox.yaml
+
+# Windows alternate-data-stream metadata from Webots files on WSL/NTFS
+webots/worlds/*/*.wbt:Zone.Identifier
