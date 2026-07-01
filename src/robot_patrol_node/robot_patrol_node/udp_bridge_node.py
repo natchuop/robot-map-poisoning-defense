@@ -3,7 +3,7 @@ import math
 import socket
 import threading
 
-from geometry_msgs.msg import Pose2D, Quaternion, TransformStamped, Twist
+from geometry_msgs.msg import PointStamped, Pose2D, Quaternion, TransformStamped, Twist
 from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.node import Node
@@ -54,6 +54,7 @@ class UdpBridgeNode(Node):
         self.declare_parameter('checkpoint_contact_topic', '/webots_checkpoint_contact')
         self.declare_parameter('checkpoint_event_topic', '/webots_checkpoint_event')
         self.declare_parameter('active_checkpoint_topic', '/active_checkpoint')
+        self.declare_parameter('clicked_point_topic', '/clicked_point')
         self.declare_parameter('odom_topic', '/odom')
         self.declare_parameter('odom_frame', 'odom')
         self.declare_parameter('base_frame', 'base_link')
@@ -71,6 +72,7 @@ class UdpBridgeNode(Node):
         self.checkpoint_contact_topic = self.get_parameter('checkpoint_contact_topic').value
         self.checkpoint_event_topic = self.get_parameter('checkpoint_event_topic').value
         self.active_checkpoint_topic = self.get_parameter('active_checkpoint_topic').value
+        self.clicked_point_topic = self.get_parameter('clicked_point_topic').value
         self.odom_topic = self.get_parameter('odom_topic').value
         self.odom_frame = self.get_parameter('odom_frame').value
         self.base_frame = self.get_parameter('base_frame').value
@@ -88,6 +90,7 @@ class UdpBridgeNode(Node):
             self.checkpoint_contact_topic,
             10,
         )
+        self.clicked_point_pub = self.create_publisher(PointStamped, self.clicked_point_topic, 10)
 
         self.cmd_sub = self.create_subscription(
             Twist,
@@ -208,6 +211,19 @@ class UdpBridgeNode(Node):
             }
         })
 
+    def _clicked_point_callback(self, packet: dict) -> None:
+        clicked_point = packet.get('clicked_point')
+        if not isinstance(clicked_point, dict):
+            return
+
+        msg = PointStamped()
+        msg.header.frame_id = str(clicked_point.get('frame_id', 'map')).strip() or 'map'
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.point.x = float(clicked_point.get('x', 0.0))
+        msg.point.y = float(clicked_point.get('y', 0.0))
+        msg.point.z = float(clicked_point.get('z', 0.0))
+        self.clicked_point_pub.publish(msg)
+
     def _checkpoint_event_callback(self, msg: String) -> None:
         if not msg.data:
             return
@@ -312,6 +328,8 @@ class UdpBridgeNode(Node):
                 )
             else:
                 self.get_logger().info(f'Webots reports checkpoint contact: {name}')
+
+        self._clicked_point_callback(packet)
 
         if 'pose' not in packet and 'scan' not in packet:
             return

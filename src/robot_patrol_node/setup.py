@@ -23,6 +23,7 @@ setup(
         ('share/' + package_name + '/launch', ['launch/fake_obstacle_injector.launch.py']),
 
         ('share/' + package_name + '/config', ['config/amcl.rviz']),
+        ('share/' + package_name + '/config', ['config/observer_bot_amcl.rviz']),
         ('share/' + package_name + '/config', ['config/default.rviz']),
         ('share/' + package_name + '/config', ['config/nav2_params.yaml']),
         ('share/' + package_name + '/config', ['config/multi_robot_base.rviz']),

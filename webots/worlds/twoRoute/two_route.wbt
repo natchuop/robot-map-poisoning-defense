@@ -295,7 +295,7 @@ TurtleBot3Burger {
   rotation -0.0021 -1 -2.22e-06 0.00937
   name "observer_bot"
   controller "user_controlled_robot"
-  customData "{\"robot_id\":\"observer_bot\",\"bridge_port\":5006,\"key_mode\":\"wasd\",\"map_id\":\"two_route\"}"
+  customData "{\"robot_id\":\"observer_bot\",\"bridge_port\":5006,\"key_mode\":\"wasd\",\"map_id\":\"two_route\",\"fake_obstacle_trigger_key\":\"F\",\"fake_obstacle_mode\":\"front\"}"
   extensionSlot [
     GPS {
     }

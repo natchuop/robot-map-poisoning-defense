@@ -243,7 +243,7 @@ wait_for_log() {
       return 0
     fi
 
-    if [ "$elapsed" -gt 0 ] && [ $((elapsed % 15)) -eq 0 ]; then
+    if [ "$elapsed" -gt 0 ] && [ $((elapsed % 10)) -eq 0 ]; then
       echo "  still waiting (${elapsed}s/${timeout_seconds}s): $label"
     fi
     sleep 1
@@ -270,7 +270,7 @@ wait_for_file_log() {
       return 0
     fi
 
-    if [ "$elapsed" -gt 0 ] && [ $((elapsed % 15)) -eq 0 ]; then
+    if [ "$elapsed" -gt 0 ] && [ $((elapsed % 10)) -eq 0 ]; then
       echo "  still waiting (${elapsed}s/${timeout_seconds}s): $label"
     fi
     sleep 1
@@ -323,7 +323,7 @@ wait_for_ros2_nodes() {
       return 0
     fi
 
-    if [ "$elapsed" -gt 0 ] && [ $((elapsed % 15)) -eq 0 ]; then
+    if [ "$elapsed" -gt 0 ] && [ $((elapsed % 10)) -eq 0 ]; then
       echo "  still waiting (${elapsed}s/${timeout_seconds}s): $label"
     fi
     sleep 1
@@ -1023,6 +1023,9 @@ if [ "$TEST_MODE" = "amcl" ]; then
     --name "$CONTAINER_NAME" \
     -e RMPD_CONTAINER_WORKSPACE="$CONTAINER_WORKSPACE" \
     -e RMPD_TEST_MODE="$TEST_MODE" \
+    -e RMPD_BRIDGE_PORT_SECONDARY="${RMPD_BRIDGE_PORT_SECONDARY:-}" \
+    -e RMPD_START_SECONDARY_BRIDGE="${RMPD_START_SECONDARY_BRIDGE:-}" \
+    -e RMPD_SECONDARY_BRIDGE_TOPIC_PREFIX="${RMPD_SECONDARY_BRIDGE_TOPIC_PREFIX:-}" \
     -e RMPD_AMCL_MAP_YAML="$AMCL_MAP_YAML_IN_CONTAINER" \
     -e RMPD_AMCL_INITIAL_POSE_X="$AMCL_INITIAL_POSE_X" \
     -e RMPD_AMCL_INITIAL_POSE_Y="$AMCL_INITIAL_POSE_Y" \
@@ -1038,6 +1041,9 @@ else
     --name "$CONTAINER_NAME" \
     -e RMPD_CONTAINER_WORKSPACE="$CONTAINER_WORKSPACE" \
     -e RMPD_TEST_MODE="$TEST_MODE" \
+    -e RMPD_BRIDGE_PORT_SECONDARY="${RMPD_BRIDGE_PORT_SECONDARY:-}" \
+    -e RMPD_START_SECONDARY_BRIDGE="${RMPD_START_SECONDARY_BRIDGE:-}" \
+    -e RMPD_SECONDARY_BRIDGE_TOPIC_PREFIX="${RMPD_SECONDARY_BRIDGE_TOPIC_PREFIX:-}" \
     -e RMPD_LIVE_MAP_WIDTH_M="${RMPD_LIVE_MAP_WIDTH_M:-8.0}" \
     -e RMPD_LIVE_MAP_HEIGHT_M="${RMPD_LIVE_MAP_HEIGHT_M:-8.0}" \
     -e RMPD_LIVE_MAP_ORIGIN_X="${RMPD_LIVE_MAP_ORIGIN_X:-nan}" \

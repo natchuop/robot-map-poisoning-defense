@@ -162,7 +162,7 @@ TurtleBot3Burger {
   rotation 0 0 1 0
   controller "patrol_robot"
   supervisor TRUE
-  customData "simple_corridor"
+  customData "{\"map_id\":\"simple_corridor\",\"fake_obstacle_trigger_key\":\"F\",\"fake_obstacle_mode\":\"front\"}"
   extensionSlot [
     GPS {
     }

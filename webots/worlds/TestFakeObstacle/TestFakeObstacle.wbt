@@ -440,7 +440,7 @@ DEF ROBOT_1 TurtleBot3Burger {
   rotation 0 0 1 0
   name "robot_1"
   controller "user_controlled_robot"
-  customData "{\"robot_id\":\"robot_1\",\"bridge_port\":5005,\"key_mode\":\"wasd\"}"
+  customData "{\"robot_id\":\"robot_1\",\"bridge_port\":5005,\"key_mode\":\"wasd\",\"fake_obstacle_trigger_key\":\"F\",\"fake_obstacle_mode\":\"front\"}"
   extensionSlot [
     GPS {
     }
@@ -455,7 +455,7 @@ DEF ROBOT_2 TurtleBot3Burger {
   rotation 0 0 1 1.5708
   name "robot_2"
   controller "user_controlled_robot"
-  customData "{\"robot_id\":\"robot_2\",\"bridge_port\":5006,\"key_mode\":\"arrows\"}"
+  customData "{\"robot_id\":\"robot_2\",\"bridge_port\":5006,\"key_mode\":\"arrows\",\"fake_obstacle_trigger_key\":\"G\",\"fake_obstacle_mode\":\"front\"}"
   extensionSlot [
     GPS {
     }

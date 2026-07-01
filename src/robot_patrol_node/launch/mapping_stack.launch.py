@@ -53,6 +53,7 @@ def generate_launch_description():
                         'listen_host': listen_host,
                         'listen_port': listen_port,
                         'scan_frame': scan_frame,
+                        'clicked_point_topic': '/clicked_point',
                     }
                 ],
             ),

@@ -4,13 +4,20 @@ import os
 import socket
 import time
 
-from controller import Robot, Supervisor
+from controller import Keyboard, Robot
 
 
 TIME_STEP = 64
 
 ROBOT_ID = os.environ.get('WEBOTS_ROBOT_ID', os.environ.get('ROBOT_NAME', 'robot_1'))
 MAP_ID = os.environ.get('WEBOTS_MAP_ID', '').strip()
+FAKE_OBSTACLE_MODE = os.environ.get('WEBOTS_FAKE_OBSTACLE_MODE', 'front').strip().lower() or 'front'
+FAKE_OBSTACLE_FORWARD_M = float(os.environ.get('WEBOTS_FAKE_OBSTACLE_FORWARD_M', '0.60'))
+FAKE_OBSTACLE_X = float(os.environ.get('WEBOTS_FAKE_OBSTACLE_X', '1.5'))
+FAKE_OBSTACLE_Y = float(os.environ.get('WEBOTS_FAKE_OBSTACLE_Y', '-0.8'))
+FAKE_OBSTACLE_TRIGGER_KEY = os.environ.get('WEBOTS_FAKE_OBSTACLE_TRIGGER_KEY', 'f').strip() or 'f'
+FAKE_OBSTACLE_SOURCE = os.environ.get('WEBOTS_FAKE_OBSTACLE_SOURCE', 'keyboard_front').strip() or 'keyboard_front'
+FAKE_OBSTACLE_FRAME_ID = os.environ.get('WEBOTS_FAKE_OBSTACLE_FRAME_ID', 'map').strip() or 'map'
 
 BRIDGE_PROTOCOL = os.environ.get('WEBOTS_BRIDGE_PROTOCOL', 'tcp').strip().lower()
 BRIDGE_TARGETS = [
@@ -89,6 +96,95 @@ def checkpoint_sets_for_map(map_id):
         }
 
     return CHECKPOINTS
+
+
+def fake_obstacle_keys(trigger_key):
+    trigger_key = str(trigger_key).strip()[:1] or FAKE_OBSTACLE_TRIGGER_KEY[0]
+    return {ord(trigger_key.lower()), ord(trigger_key.upper())}
+
+
+def fake_obstacle_point_in_front(robot_x, robot_y, robot_heading, distance_m):
+    return (
+        float(robot_x) + (math.cos(float(robot_heading)) * float(distance_m)),
+        float(robot_y) + (math.sin(float(robot_heading)) * float(distance_m)),
+    )
+
+
+def load_fake_obstacle_config(robot):
+    config = {
+        'fake_obstacle_mode': FAKE_OBSTACLE_MODE,
+        'fake_obstacle_forward_m': FAKE_OBSTACLE_FORWARD_M,
+        'fake_obstacle_x': FAKE_OBSTACLE_X,
+        'fake_obstacle_y': FAKE_OBSTACLE_Y,
+        'fake_obstacle_trigger_key': FAKE_OBSTACLE_TRIGGER_KEY,
+        'fake_obstacle_source': FAKE_OBSTACLE_SOURCE,
+        'fake_obstacle_frame_id': FAKE_OBSTACLE_FRAME_ID,
+    }
+
+    custom_data = robot_custom_data(robot)
+    if not custom_data:
+        return config
+
+    try:
+        loaded = json.loads(custom_data)
+    except json.JSONDecodeError:
+        loaded = {}
+
+    if isinstance(loaded, dict):
+        fake_obstacle_mode = str(loaded.get('fake_obstacle_mode', '')).strip().lower()
+        if fake_obstacle_mode:
+            config['fake_obstacle_mode'] = fake_obstacle_mode
+        if loaded.get('fake_obstacle_forward_m') is not None:
+            config['fake_obstacle_forward_m'] = float(loaded['fake_obstacle_forward_m'])
+        if loaded.get('fake_obstacle_x') is not None:
+            config['fake_obstacle_x'] = float(loaded['fake_obstacle_x'])
+        if loaded.get('fake_obstacle_y') is not None:
+            config['fake_obstacle_y'] = float(loaded['fake_obstacle_y'])
+        trigger_key = str(loaded.get('fake_obstacle_trigger_key', '')).strip()
+        if trigger_key:
+            config['fake_obstacle_trigger_key'] = trigger_key[0]
+        if str(loaded.get('fake_obstacle_source', '')).strip():
+            config['fake_obstacle_source'] = str(loaded['fake_obstacle_source']).strip()
+        if str(loaded.get('fake_obstacle_frame_id', '')).strip():
+            config['fake_obstacle_frame_id'] = str(loaded['fake_obstacle_frame_id']).strip()
+
+    return config
+
+
+def build_fake_obstacle_click(fake_config):
+    mode = str(fake_config.get('fake_obstacle_mode', FAKE_OBSTACLE_MODE)).strip().lower() or 'front'
+    frame_id = str(fake_config.get('fake_obstacle_frame_id', FAKE_OBSTACLE_FRAME_ID)).strip() or 'map'
+    source = str(fake_config.get('fake_obstacle_source', FAKE_OBSTACLE_SOURCE)).strip() or FAKE_OBSTACLE_SOURCE
+
+    if mode != 'fixed_point':
+        robot_pose = fake_config.get('robot_pose')
+        if robot_pose is not None:
+            robot_x, robot_y, robot_heading = robot_pose
+            obstacle_x, obstacle_y = fake_obstacle_point_in_front(
+                robot_x,
+                robot_y,
+                robot_heading,
+                fake_config.get('fake_obstacle_forward_m', FAKE_OBSTACLE_FORWARD_M),
+            )
+            return {
+                'clicked_point': {
+                    'x': float(obstacle_x),
+                    'y': float(obstacle_y),
+                    'z': 0.0,
+                    'frame_id': frame_id,
+                    'source': source or 'keyboard_front',
+                }
+            }
+
+    return {
+        'clicked_point': {
+            'x': float(fake_config.get('fake_obstacle_x', FAKE_OBSTACLE_X)),
+            'y': float(fake_config.get('fake_obstacle_y', FAKE_OBSTACLE_Y)),
+            'z': 0.0,
+            'frame_id': frame_id,
+            'source': source or 'manual_fixed',
+        }
+    }
 
 def clamp(value, low, high):
     return max(low, min(high, value))
@@ -380,12 +476,11 @@ class BridgeSender:
 
 
 def main():
-    robot = Supervisor()
+    robot = Robot()
     timestep = int(robot.getBasicTimeStep()) or TIME_STEP
     map_id = resolve_map_id(robot)
     checkpoints = checkpoint_sets_for_map(map_id)
-    self_node = robot.getSelf()
-    rotation_field = self_node.getField('rotation')
+    fake_obstacle_config = load_fake_obstacle_config(robot)
 
     print(
         f'patrol_robot starting robot_id={ROBOT_ID} map_id={map_id or "unknown"}',
@@ -432,12 +527,16 @@ def main():
             )
             max_wheel_speed = 6.0
 
+        keyboard = Keyboard()
+        keyboard.enable(timestep)
+
         lidar_width = lidar.getHorizontalResolution()
         lidar_fov = float(lidar.getFov())
         lidar_max_range = lidar.getMaxRange()
 
         sender = BridgeSender(BRIDGE_TARGETS, BRIDGE_PORT)
         counter = 0
+        previous_pressed_keys = set()
 
         current_linear_x = 0.0
         current_angular_z = 0.0
@@ -451,6 +550,12 @@ def main():
         )
         print('GPS, IMU, LiDAR, and cmd_vel motor control initialized', flush=True)
         print(
+            f'fake obstacle trigger ready: {fake_obstacle_config["fake_obstacle_trigger_key"].upper()} '
+            f'(mode={fake_obstacle_config["fake_obstacle_mode"]}, '
+            f'front={fake_obstacle_config["fake_obstacle_forward_m"]:.2f}m)',
+            flush=True,
+        )
+        print(
             f'patrol_robot wheel speed cap {max_wheel_speed:.2f} rad/s '
             f'(cmd_vel_scale={CMD_VEL_SCALE:.2f})',
             flush=True,
@@ -461,12 +566,36 @@ def main():
         raise
 
     while robot.step(timestep) != -1:
+        pressed_keys = set()
+        key = keyboard.getKey()
+        while key != -1:
+            pressed_keys.add(key)
+            key = keyboard.getKey()
+
         gps_values = gps.getValues()
         robot_x = gps_values[0]
         robot_y = gps_values[1]
 
         rpy = imu.getRollPitchYaw()
         robot_heading = planar_heading_from_imu(imu, rpy)
+
+        new_pressed_keys = pressed_keys - previous_pressed_keys
+        if new_pressed_keys.intersection(fake_obstacle_keys(fake_obstacle_config["fake_obstacle_trigger_key"])):
+            payload = json.dumps(
+                build_fake_obstacle_click(
+                    {
+                        **fake_obstacle_config,
+                        'robot_pose': (robot_x, robot_y, robot_heading),
+                    }
+                ),
+                separators=(',', ':'),
+            ).encode('utf-8')
+            if sender.send(payload):
+                print(
+                    f'fake obstacle trigger sent in front of robot at x={robot_x:.2f} y={robot_y:.2f}',
+                    flush=True,
+                )
+        previous_pressed_keys = pressed_keys
 
         for command in sender.receive_commands():
             if command.get('type') == 'checkpoint_event':

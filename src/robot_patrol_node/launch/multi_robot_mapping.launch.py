@@ -189,6 +189,7 @@ def _bridge_node(robot: dict) -> Node:
             'checkpoint_contact_topic': _robot_topic(robot_id, 'webots_checkpoint_contact'),
             'checkpoint_event_topic': _robot_topic(robot_id, 'webots_checkpoint_event'),
             'active_checkpoint_topic': _robot_topic(robot_id, 'active_checkpoint'),
+            'clicked_point_topic': _robot_topic(robot_id, 'clicked_point'),
             'scan_frame': f'{robot_id}/laser',
             'odom_topic': _robot_topic(robot_id, 'odom'),
             'odom_frame': f'{robot_id}/odom',
