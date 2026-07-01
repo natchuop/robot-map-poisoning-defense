@@ -1,11 +1,10 @@
-import json
-
 from builtin_interfaces.msg import Duration
 from geometry_msgs.msg import PointStamped
+from robot_patrol_msgs.msg import MapUpdate
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
-from std_msgs.msg import Bool, ColorRGBA, String
+from std_msgs.msg import Bool, ColorRGBA
 from visualization_msgs.msg import Marker, MarkerArray
 
 
@@ -62,7 +61,7 @@ class FakeObstacleInjectorNode(Node):
         updates_qos = QoSProfile(depth=10)
         updates_qos.reliability = ReliabilityPolicy.RELIABLE
         updates_qos.durability = DurabilityPolicy.VOLATILE
-        self.publisher = self.create_publisher(String, self.map_updates_topic, updates_qos)
+        self.publisher = self.create_publisher(MapUpdate, self.map_updates_topic, updates_qos)
         marker_qos = QoSProfile(depth=1)
         marker_qos.reliability = ReliabilityPolicy.RELIABLE
         marker_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
@@ -163,27 +162,9 @@ class FakeObstacleInjectorNode(Node):
         self.compromised = bool(msg.data)
         self.get_logger().warning(f'[{self.robot_id}] compromised={self.compromised}')
 
-    def build_payload(
-        self,
-        obstacle_x: float,
-        obstacle_y: float,
-        source: str,
-        frame_id: str,
-        target_robot: str,
-    ) -> str:
-        payload = {
-            'type': 'fake_obstacle',
-            'reporting_robot': self.robot_id,
-            'target_robot': target_robot,
-            'x': float(obstacle_x),
-            'y': float(obstacle_y),
-            'z': 0.0,
-            'occupied': self.occupied,
-            'timestamp': float(self.get_clock().now().nanoseconds) / 1_000_000_000.0,
-            'source': source,
-            'frame_id': frame_id,
-        }
-        return json.dumps(payload, separators=(',', ':'), sort_keys=True)
+    def make_claim_id(self, target_robot: str) -> str:
+        now_ns = self.get_clock().now().nanoseconds
+        return f'{self.robot_id}_fake_obstacle_{target_robot}_{self.published_count}_{now_ns}'
 
     def publish_fake_reports(self, obstacle_x: float, obstacle_y: float, source: str, frame_id: str) -> None:
         if not self.compromised:
@@ -200,12 +181,24 @@ class FakeObstacleInjectorNode(Node):
             return
 
         for target_robot in attack_targets:
-            payload = self.build_payload(obstacle_x, obstacle_y, source, frame_id, target_robot)
-            msg = String(data=payload)
+            msg = MapUpdate()
+            msg.claim_id = self.make_claim_id(target_robot)
+            msg.reporting_robot_id = self.robot_id
+            msg.target_robot_id = target_robot
+            msg.cell_x = -1
+            msg.cell_y = -1
+            msg.world_x = float(obstacle_x)
+            msg.world_y = float(obstacle_y)
+            msg.reported_state = 'OCCUPIED' if self.occupied else 'FREE'
+            msg.occupied = bool(self.occupied)
+            msg.source = 'fake_obstacle_injector'
+            msg.attack_type = 'fake_obstacle'
+            msg.is_attack_report = True
+            msg.stamp = self.get_clock().now().to_msg()
             self.publisher.publish(msg)
             self.get_logger().warning(
-                f'[{self.robot_id}] publishing fake obstacle to target_robot={target_robot} '
-                f'at x={obstacle_x:.3f} y={obstacle_y:.3f} payload={payload}'
+                f'[{self.robot_id}] publishing fake obstacle claim_id={msg.claim_id} '
+                f'target_robot={target_robot} at x={obstacle_x:.3f} y={obstacle_y:.3f}'
             )
 
         self.publish_marker(obstacle_x, obstacle_y, frame_id)

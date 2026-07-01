@@ -18,6 +18,8 @@ The simulation compares three map-fusion models:
 
 The first attack type is fake obstacle insertion, where a compromised robot reports a free cell as occupied. Fake clearing, where a compromised robot reports a real occupied cell as free, is important but should be treated as future or secondary work.
 
+Method 1 is currently implemented as the full-trust log-odds baseline. In code, fake obstacle reports are carried as `MapUpdate` claims and fused into the receiver's shared map using the log-odds path.
+
 The first required maps are:
 
 ```text

@@ -74,11 +74,14 @@ string reporting_robot_id
 string target_robot_id
 int32 cell_x
 int32 cell_y
+float64 world_x
+float64 world_y
 string reported_state        # OCCUPIED or FREE
-builtin_interfaces/Time timestamp
-geometry_msgs/Pose robot_pose_when_observed
-string scan_id
+bool occupied
+string source
+string attack_type
 bool is_attack_report        # only for simulation/evaluation logs
+builtin_interfaces/Time stamp
 ```
 
 ### `VerificationReceipt.msg`
@@ -172,9 +175,9 @@ Starts the shared mapping system:
 - Per-robot shared-map merge nodes.
 - Static map server if using AMCL/Nav2.
 - Confidence overlays.
-- Trust manager nodes.
-- Claim verifier nodes.
-- Logging nodes.
+- Claim-based fake obstacle injectors.
+- Method 1 log-odds fusion parameters.
+- Per-robot RViz views when enabled.
 
 ### `fake_obstacle_experiment.launch.py`
 
@@ -277,14 +280,13 @@ Responsibilities:
 
 ### `fake_obstacle_injector_node.py`
 
-Publishes fake occupied-cell claims for the attack scenario.
+Publishes fake occupied-cell claims for the attack scenario as `MapUpdate` messages.
 
 Modes:
 
 ```text
 manual
-rviz_click
-scripted_trial
+clicked_point
 ```
 
 The first experiment should use fake obstacle insertion as the main attack. Fake clearing can be added later as a secondary safety test.
@@ -293,6 +295,7 @@ Current code status:
 
 - A fake obstacle injector node exists now.
 - It is launched by `fake_obstacle_injector.launch.py` and also included in the multi-robot launch path.
+- It publishes `claim_id`, `reporting_robot_id`, `target_robot_id`, and other claim metadata on `/map_updates`.
 
 ### `navigation_adapter_node.py`
 
@@ -712,7 +715,7 @@ Recommended scripts:
 ```text
 scripts/verify.sh
 scripts/quick_test.sh
-scripts/run_fake_obstacle_experiment.sh
+scripts/runTestFakeObstacle.sh
 scripts/run_all_trials.sh
 scripts/run_single_trial.sh
 scripts/analyze_results.py
@@ -724,7 +727,7 @@ scripts/echo_topic_once.sh
 Current code status:
 
 - `scripts/verify.sh`, `scripts/quick_test.sh`, `scripts/runOffice.sh`, `scripts/runConfusingMaze.sh`, `scripts/runSandbox.sh`, `scripts/runTestBuildingMapForRobot.sh`, `scripts/runTestFakeObstacle.sh`, and `scripts/runTestCombineRvizMap.sh` exist now.
-- The remaining script names listed above are still proposed helpers.
+- The remaining script names listed above are still proposed helpers, except `runTestFakeObstacle.sh`, which is the current fake-obstacle smoke test.
 
 ### `run_single_trial.sh`
 
