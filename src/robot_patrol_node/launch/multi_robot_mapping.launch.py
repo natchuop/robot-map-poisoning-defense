@@ -93,6 +93,10 @@ def _load_configured_robots() -> list[dict]:
         if not isinstance(trust_table, dict):
             trust_table = {}
 
+        fake_obstacle = robot.get('fake_obstacle', {})
+        if not isinstance(fake_obstacle, dict):
+            fake_obstacle = {}
+
         configured.append(
             {
                 'robot_id': robot_id,
@@ -104,6 +108,7 @@ def _load_configured_robots() -> list[dict]:
                 'listen_port': int(robot.get('listen_port', 5005)),
                 'rviz_config': str(robot.get('rviz_config', f'{robot_id}_view.rviz')).strip(),
                 'trust': trust_table,
+                'fake_obstacle': fake_obstacle,
             }
         )
 
@@ -299,6 +304,20 @@ def _confidence_marker_node(robot: dict, all_robot_ids: list[str]) -> Node:
 
 def _fake_obstacle_injector_node(robot: dict, all_robot_ids: list[str]) -> Node:
     robot_id = robot['robot_id']
+    fake_obstacle = robot.get('fake_obstacle', {})
+    if not isinstance(fake_obstacle, dict):
+        fake_obstacle = {}
+
+    def _fake_value(key: str, env_name: str, default):
+        env_value = os.getenv(env_name)
+        if env_value is not None and str(env_value).strip():
+            return env_value
+        if key in fake_obstacle and fake_obstacle[key] is not None:
+            return fake_obstacle[key]
+        if key in robot and robot[key] is not None:
+            return robot[key]
+        return os.getenv(env_name, default)
+
     return Node(
         package='robot_patrol_node',
         executable='fake_obstacle_injector',
@@ -311,16 +330,16 @@ def _fake_obstacle_injector_node(robot: dict, all_robot_ids: list[str]) -> Node:
             'compromised': robot['compromised'],
             'compromise_state_topic': _robot_topic(robot_id, 'compromise_state'),
             'target_robot': 'all',
-            'mode': os.getenv('RMPD_FAKE_OBSTACLE_INJECTOR_MODE', 'clicked_point'),
+            'mode': str(_fake_value('mode', 'RMPD_FAKE_OBSTACLE_INJECTOR_MODE', 'clicked_point')).strip(),
             'map_updates_topic': '/map_updates',
             'clicked_point_topic': _robot_topic(robot_id, 'clicked_point'),
             'marker_topic': _robot_topic(robot_id, 'fake_obstacle_markers'),
             'occupied': True,
-            'obstacle_x': float(os.getenv('RMPD_FAKE_OBSTACLE_X', '1.5')),
-            'obstacle_y': float(os.getenv('RMPD_FAKE_OBSTACLE_Y', '-0.8')),
-            'source': os.getenv('RMPD_FAKE_OBSTACLE_SOURCE', 'manual_fixed'),
-            'publish_delay_sec': float(os.getenv('RMPD_FAKE_OBSTACLE_PUBLISH_DELAY_SEC', '0.5')),
-            'marker_lifetime_sec': float(os.getenv('RMPD_FAKE_OBSTACLE_MARKER_LIFETIME_SEC', '3.0')),
+            'obstacle_x': float(_fake_value('obstacle_x', 'RMPD_FAKE_OBSTACLE_X', '1.5')),
+            'obstacle_y': float(_fake_value('obstacle_y', 'RMPD_FAKE_OBSTACLE_Y', '-0.8')),
+            'source': str(_fake_value('source', 'RMPD_FAKE_OBSTACLE_SOURCE', 'manual_fixed')).strip(),
+            'publish_delay_sec': float(_fake_value('publish_delay_sec', 'RMPD_FAKE_OBSTACLE_PUBLISH_DELAY_SEC', '0.5')),
+            'marker_lifetime_sec': float(_fake_value('marker_lifetime_sec', 'RMPD_FAKE_OBSTACLE_MARKER_LIFETIME_SEC', '3.0')),
         }],
     )
 

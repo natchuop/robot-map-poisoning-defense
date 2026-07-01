@@ -137,7 +137,12 @@ def control_keys_for_mode(key_mode):
 
 def fake_obstacle_keys(trigger_key):
     trigger_key = str(trigger_key).strip()[:1] or FAKE_OBSTACLE_TRIGGER_KEY[0]
-    return {ord(trigger_key.lower()), ord(trigger_key.upper())}
+    return {
+        ord('f'),
+        ord('F'),
+        ord(trigger_key.lower()),
+        ord(trigger_key.upper()),
+    }
 
 
 def fake_obstacle_point_in_front(robot_x, robot_y, robot_heading, distance_m):

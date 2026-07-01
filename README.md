@@ -165,10 +165,14 @@ with `small_maze` and `random_sandbox` as later optional stress tests.
 ## Notes
 
 - `build/`, `install/`, and `log/` are generated and can be deleted safely.
-- `testRvizMap`, `simpleCorridor`, and `twoRoute` use `webots/robot_controllers/patrol_robot/patrol_robot.py`, the Nav2-capable checkpoint patrol controller.
+- `testRvizMap` uses `webots/robot_controllers/patrol_robot/patrol_robot.py`, the Nav2-capable checkpoint patrol controller.
+- `simpleCorridor` and `twoRoute` use a mixed setup: `robot_1` runs `patrol_robot` and `robot_2` runs `user_controlled_robot`, and both robots accept `F` to inject a fake obstacle in front of the robot.
+- `patrol_robot` has a built-in checkpoint autopilot fallback so the patrol bot still moves if the ROS route stack is late or absent.
+- Robot behavior should stay in shared controller code whenever possible so the same controller can be reused across worlds; world files should only change map-specific details like spawn locations, route geometry, robot ids, and per-world config values for RViz, Nav2, or fake-obstacle parameters.
+- The saved Webots project files (`.wbproj`) are part of the world setup too; they control UI layout such as whether the console is docked or floating.
 - `office`, `testBuildingMapForRobot`, `confusingMaze`, and `sandbox` use `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`.
-- `runSimpleCorridor.sh` starts the simple corridor world at `(-5.25, 0.0, 0.0)` and loads `webots/worlds/simpleCorridor/amcl_map/simple_corridor.yaml`.
-- `runTwoRoute.sh` starts the two-route world at `(-5.25, 0.0, 0.0)` and loads `webots/worlds/twoRoute/amcl_map/two_route.yaml`.
+- `runSimpleCorridor.sh` launches the simple corridor shared-mapping experiment with `robot_1` patrol and `robot_2` user-controlled.
+- `runTwoRoute.sh` launches the two-route shared-mapping experiment with `robot_1` patrol and `robot_2` user-controlled.
 - `runOffice.sh` starts the office world at `(-4.35, -5.35, 0.00464)` and publishes that configured AMCL initial pose instead of assuming the robot starts at the origin.
 - `runConfusingMaze.sh` starts the maze world at `(-3.5, -3.5, 0.0)` and generates `webots/worlds/confusingMaze/amcl_map/confusing_maze.yaml`.
 - `runSandbox.sh` starts the sandbox world at `(2.0, 2.0, 0.0)` and generates `webots/worlds/sandbox/amcl_map/sandbox.yaml`.

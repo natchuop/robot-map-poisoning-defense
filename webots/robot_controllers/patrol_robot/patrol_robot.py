@@ -18,6 +18,18 @@ FAKE_OBSTACLE_Y = float(os.environ.get('WEBOTS_FAKE_OBSTACLE_Y', '-0.8'))
 FAKE_OBSTACLE_TRIGGER_KEY = os.environ.get('WEBOTS_FAKE_OBSTACLE_TRIGGER_KEY', 'f').strip() or 'f'
 FAKE_OBSTACLE_SOURCE = os.environ.get('WEBOTS_FAKE_OBSTACLE_SOURCE', 'keyboard_front').strip() or 'keyboard_front'
 FAKE_OBSTACLE_FRAME_ID = os.environ.get('WEBOTS_FAKE_OBSTACLE_FRAME_ID', 'map').strip() or 'map'
+PATROL_AUTOPILOT_ENABLED = os.environ.get('WEBOTS_PATROL_AUTOPILOT', 'true').strip().lower() not in {
+    '0',
+    'false',
+    'no',
+    'off',
+}
+PATROL_AUTOPILOT_GRACE_SEC = float(os.environ.get('WEBOTS_PATROL_AUTOPILOT_GRACE_SEC', '5.0'))
+PATROL_AUTOPILOT_LINEAR_SPEED = float(os.environ.get('WEBOTS_PATROL_AUTOPILOT_LINEAR_SPEED', '0.08'))
+PATROL_AUTOPILOT_TURN_GAIN = float(os.environ.get('WEBOTS_PATROL_AUTOPILOT_TURN_GAIN', '1.75'))
+PATROL_AUTOPILOT_MAX_TURN_SPEED = float(os.environ.get('WEBOTS_PATROL_AUTOPILOT_MAX_TURN_SPEED', '0.95'))
+PATROL_AUTOPILOT_GOAL_RADIUS = float(os.environ.get('WEBOTS_PATROL_AUTOPILOT_GOAL_RADIUS', '0.18'))
+PATROL_AUTOPILOT_SLOWDOWN_ANGLE = float(os.environ.get('WEBOTS_PATROL_AUTOPILOT_SLOWDOWN_ANGLE', '0.55'))
 
 BRIDGE_PROTOCOL = os.environ.get('WEBOTS_BRIDGE_PROTOCOL', 'tcp').strip().lower()
 BRIDGE_TARGETS = [
@@ -98,9 +110,24 @@ def checkpoint_sets_for_map(map_id):
     return CHECKPOINTS
 
 
+def patrol_route_for_map(map_id):
+    if map_id == 'simple_corridor':
+        return ['A', 'B'], False
+
+    if map_id == 'two_route':
+        return ['A', 'B'], False
+
+    return ['A', 'B', 'C', 'D', 'A'], True
+
+
 def fake_obstacle_keys(trigger_key):
     trigger_key = str(trigger_key).strip()[:1] or FAKE_OBSTACLE_TRIGGER_KEY[0]
-    return {ord(trigger_key.lower()), ord(trigger_key.upper())}
+    return {
+        ord('f'),
+        ord('F'),
+        ord(trigger_key.lower()),
+        ord(trigger_key.upper()),
+    }
 
 
 def fake_obstacle_point_in_front(robot_x, robot_y, robot_heading, distance_m):
@@ -185,6 +212,48 @@ def build_fake_obstacle_click(fake_config):
             'source': source or 'manual_fixed',
         }
     }
+
+
+def patrol_autopilot_command(robot_x, robot_y, robot_heading, checkpoints, route, route_index, loop):
+    if not route:
+        return 0.0, 0.0, route_index, None, False
+
+    if route_index >= len(route):
+        if not loop:
+            return 0.0, 0.0, route_index, None, False
+        route_index = 1 if len(route) > 1 else 0
+
+    checkpoint_name = route[route_index]
+    checkpoint = checkpoints.get(checkpoint_name)
+    if checkpoint is None:
+        return 0.0, 0.0, route_index + 1, checkpoint_name, True
+
+    delta_x = float(checkpoint[0]) - float(robot_x)
+    delta_y = float(checkpoint[1]) - float(robot_y)
+    distance = math.hypot(delta_x, delta_y)
+    if distance <= PATROL_AUTOPILOT_GOAL_RADIUS:
+        next_index = route_index + 1
+        if next_index >= len(route):
+            if not loop:
+                return 0.0, 0.0, next_index, checkpoint_name, True
+            next_index = 1 if len(route) > 1 else 0
+        return 0.0, 0.0, next_index, checkpoint_name, True
+
+    desired_heading = math.atan2(delta_y, delta_x)
+    heading_error = normalize_angle(desired_heading - float(robot_heading))
+
+    linear_x = min(PATROL_AUTOPILOT_LINEAR_SPEED, distance * 0.22)
+    if abs(heading_error) > PATROL_AUTOPILOT_SLOWDOWN_ANGLE:
+        linear_x *= 0.25
+    else:
+        linear_x *= max(0.20, math.cos(heading_error))
+
+    angular_z = clamp(
+        PATROL_AUTOPILOT_TURN_GAIN * heading_error,
+        -PATROL_AUTOPILOT_MAX_TURN_SPEED,
+        PATROL_AUTOPILOT_MAX_TURN_SPEED,
+    )
+    return linear_x, angular_z, route_index, checkpoint_name, False
 
 def clamp(value, low, high):
     return max(low, min(high, value))
@@ -480,6 +549,7 @@ def main():
     timestep = int(robot.getBasicTimeStep()) or TIME_STEP
     map_id = resolve_map_id(robot)
     checkpoints = checkpoint_sets_for_map(map_id)
+    patrol_route, patrol_route_loops = patrol_route_for_map(map_id)
     fake_obstacle_config = load_fake_obstacle_config(robot)
 
     print(
@@ -537,6 +607,10 @@ def main():
         sender = BridgeSender(BRIDGE_TARGETS, BRIDGE_PORT)
         counter = 0
         previous_pressed_keys = set()
+        autopilot_started_at = time.time()
+        patrol_route_index = 0
+        last_autopilot_target = ''
+        last_autopilot_state = ''
 
         current_linear_x = 0.0
         current_angular_z = 0.0
@@ -553,6 +627,11 @@ def main():
             f'fake obstacle trigger ready: {fake_obstacle_config["fake_obstacle_trigger_key"].upper()} '
             f'(mode={fake_obstacle_config["fake_obstacle_mode"]}, '
             f'front={fake_obstacle_config["fake_obstacle_forward_m"]:.2f}m)',
+            flush=True,
+        )
+        print(
+            f'patrol autopilot ready: enabled={PATROL_AUTOPILOT_ENABLED} '
+            f'route={" -> ".join(patrol_route)} grace={PATROL_AUTOPILOT_GRACE_SEC:.1f}s',
             flush=True,
         )
         print(
@@ -616,6 +695,30 @@ def main():
         if time.time() - last_cmd_time > CMD_TIMEOUT_SEC:
             current_linear_x = 0.0
             current_angular_z = 0.0
+            if PATROL_AUTOPILOT_ENABLED and (time.time() - autopilot_started_at) >= PATROL_AUTOPILOT_GRACE_SEC:
+                autopilot_linear_x, autopilot_angular_z, patrol_route_index, target_name, arrived = patrol_autopilot_command(
+                    robot_x,
+                    robot_y,
+                    robot_heading,
+                    checkpoints,
+                    patrol_route,
+                    patrol_route_index,
+                    patrol_route_loops,
+                )
+                current_linear_x = autopilot_linear_x
+                current_angular_z = autopilot_angular_z
+
+                if target_name and target_name != last_autopilot_target:
+                    print(f'[autopilot] heading toward checkpoint {target_name}', flush=True)
+                    last_autopilot_target = target_name
+
+                if arrived:
+                    state = f'{target_name or "route"} reached'
+                    if state != last_autopilot_state:
+                        print(f'[autopilot] {state}; advancing route', flush=True)
+                        last_autopilot_state = state
+                else:
+                    last_autopilot_state = ''
 
         left_speed, right_speed = cmd_vel_to_wheel_speeds(
             current_linear_x,

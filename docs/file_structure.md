@@ -332,6 +332,10 @@ config/rviz/
 Current code status:
 
 - `config/multi_robot_config.json`, `config/nav2_params.yaml`, and multiple RViz configs exist now.
+- World-specific multi-robot configs exist for `webots/worlds/simpleCorridor/` and `webots/worlds/twoRoute/`.
+- `patrol_robot` includes a checkpoint autopilot fallback for patrol worlds when route commands are not available yet.
+- Shared robot behavior should stay in the controller code so new worlds can reuse the same RViz, Nav2, and fake-obstacle logic without copying behavior into each `.wbt`; per-world files should only override spawn positions, route layout, robot ids, and world-specific config values.
+- The saved Webots project files (`.wbproj`) are also world-specific layout data and may be reused to keep the console and other Webots panes docked the same way across worlds.
 - The YAML config set described below is still the target structure rather than the complete current set.
 
 ### `fusion_modes.yaml`
