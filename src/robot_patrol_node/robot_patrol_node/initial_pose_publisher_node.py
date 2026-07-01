@@ -48,7 +48,7 @@ class InitialPosePublisherNode(Node):
         self.declare_parameter('yaw', 0.0)
         self.declare_parameter('covariance_xy', 0.25)
         self.declare_parameter('covariance_yaw', 0.2)
-        self.declare_parameter('publish_count', 5)
+        self.declare_parameter('publish_count', 1)
         self.declare_parameter('publish_interval_s', 1.0)
 
         self.topic = self.get_parameter('topic').value

@@ -139,7 +139,7 @@ def generate_launch_description():
                 'x': initial_pose_x,
                 'y': initial_pose_y,
                 'yaw': initial_pose_yaw,
-                'publish_count': 5,
+                'publish_count': 1,
             }],
         ),
     ])
