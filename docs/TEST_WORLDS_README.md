@@ -20,3 +20,27 @@ Both floors use the included warm brown checkerboard:
 `webots/worlds/textures/bright_brown_checkerboard.png`
 
 The green, red, and yellow squares are non-physical visual markers. Robots can drive through them.
+
+## Webots Reference
+
+The actual controller code lives in `webots/robot_controllers/`, and the world-tree wrappers in `webots/worlds/controllers/` just forward to those controllers.
+
+Controller choices in the current demo worlds:
+
+- `testRvizMap`, `simpleCorridor`, and `twoRoute` use `patrol_robot`
+- `office`, `confusingMaze`, and `sandbox` use `user_controlled_robot`
+- `TestCombineRvizMap` uses `user_controlled_robot` for both robots
+
+Each world keeps its own generated AMCL map inside `amcl_map/`, and the matching `run*.sh` script launches that world with the right map and startup pose.
+
+The controllers expect these Webots devices:
+
+- `gps`
+- `inertial unit`
+- `LDS-01`
+- `LDS-01_main_motor`
+- `LDS-01_secondary_motor`
+- `left wheel motor`
+- `right wheel motor`
+
+The bridge sends newline-delimited JSON from Webots into ROS 2 and publishes pose, scan, odom, and checkpoint state back out.

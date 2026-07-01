@@ -341,7 +341,13 @@ class MapBuilderNode(Node):
 
     def confidence_grid(self):
         confidence = np.full((self.height_cells, self.width_cells), -1, dtype=np.int8)
-        confidence[self.observed] = np.int8(100)
+        if not np.any(self.observed):
+            return confidence
+
+        score_span = max(1, self.score_max - self.score_min)
+        normalized_scores = (self.scores.astype(np.float32) - float(self.score_min)) / float(score_span)
+        scaled_scores = np.clip(np.rint(normalized_scores * 100.0), 0, 100).astype(np.int8)
+        confidence[self.observed] = scaled_scores[self.observed]
         return confidence
 
     def world_to_grid(self, x: float, y: float):
