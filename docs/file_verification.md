@@ -8,8 +8,8 @@ The final experiment compares three models:
 
 ```text
 1. log_odds
-2. beta_log_odds
-3. trust_weighted_verification
+2. mate_log_odds
+3. mate_claim_verification
 ```
 
 The first required maps are:
@@ -36,15 +36,11 @@ The verification script should check:
 - Docker Compose config is valid.
 - ROS 2 image builds successfully.
 - Python source files compile.
-- ROS 2 workspace builds with `colcon`.
-- Required ROS 2 packages are installed.
-- Nav2 packages are installed.
-- AMCL is installed.
-- RViz is installed.
-- Webots bridge ports are available.
-- Temporary mapping stack starts.
-- Temporary AMCL/Nav2 stack starts.
-- Core ROS topics publish data.
+- Core ROS 2, Nav2, RViz, and Webots-related packages are installed in the container.
+- RViz and AMCL executables are available.
+- The headless AMCL/Nav2 stack starts and exposes the expected ROS graph.
+- The headless multi-robot fake-obstacle stack starts and exposes the expected ROS graph.
+- Bridge packets can be sent into the AMCL stack without opening Webots or RViz windows.
 
 Expected result:
 
@@ -71,7 +67,11 @@ On macOS:
 
 ## 3. Core Topic Verification
 
-The verifier or quick test should confirm that the following topics exist and publish useful data:
+The lighter `verify.sh` checks only the essential headless connections for the AMCL/Nav2 and multi-robot stacks.
+
+Use `bash scripts/quick_test.sh` and `bash scripts/runTestFakeObstacle.sh` for the deeper GUI and experiment-level topic checks.
+
+Those scripts should confirm that the following topics exist and publish useful data:
 
 ```text
 /robot_pose
@@ -158,8 +158,8 @@ bash scripts/run_fake_obstacle_experiment.sh --fusion-mode log_odds --map single
 Then repeat with:
 
 ```bash
-bash scripts/run_fake_obstacle_experiment.sh --fusion-mode beta_log_odds --map single_hallway --trial-id smoke_beta
-bash scripts/run_fake_obstacle_experiment.sh --fusion-mode trust_weighted_verification --map single_hallway --trial-id smoke_trust
+bash scripts/run_fake_obstacle_experiment.sh --fusion-mode mate_log_odds --map single_hallway --trial-id smoke_mate
+bash scripts/run_fake_obstacle_experiment.sh --fusion-mode mate_claim_verification --map single_hallway --trial-id smoke_mate_claim
 ```
 
 Expected behavior:
@@ -168,8 +168,8 @@ Expected behavior:
 - The victim robot receives the fake occupied-cell claim.
 - The map changes differently depending on the selected fusion mode.
 - In `log_odds`, the fake obstacle should have the strongest direct effect.
-- In `beta_log_odds`, the effect should depend on the attacker's robot trust score.
-- In `trust_weighted_verification`, the fake obstacle should initially have limited influence and later be cleared, downgraded, or marked suspicious after verification.
+- In `mate_log_odds`, the effect should depend on the attacker's MATE trust score.
+- In `mate_claim_verification`, the fake obstacle should initially have limited influence and later be cleared, downgraded, marked suspicious, or marked disputed after verification.
 
 ## 6. Fusion Mode Verification
 
@@ -180,30 +180,34 @@ Each fusion mode should be tested with the same attack location and route.
 Expected checks:
 
 - Standard occupancy update is used.
+- Every robot report is effectively treated as 100% trusted.
 - No robot trust is applied.
 - No quarantine is applied.
 - Trust-specific metrics are logged as N/A or unused.
 
-### `beta_log_odds`
+### `mate_log_odds`
 
 Expected checks:
 
-- Robot trust is computed using correct and false report counts.
-- Log-odds update is weighted by robot trust.
-- Trust updates after verification receipts.
-- No claim-level `Q`, `R`, caution ramp, suspicious state, or disputed state is required.
+- Robot trust is represented as `Beta(alpha_ij, beta_ij)`. 
+- Optional MATE-style trust propagation is applied or explicitly disabled with `omega = 0.0`.
+- Verification receipts are converted into pseudomeasurements `(v_ijc, c_ijc)`.
+- Confirmed claims increase `alpha`; contradicted claims increase `beta`, optionally with negative bias.
+- Log-odds update is weighted only by MATE trust mean `T_ij`.
+- No claim-level `Q`, `R`, caution ramp, suspicious state, disputed state, evidence removal, or quarantine is required.
 
-### `trust_weighted_verification`
+### `mate_claim_verification`
 
 Expected checks:
 
-- Robot trust is computed.
-- Trust confidence is computed.
-- Recent trust or combined trust is available.
+- MATE-style robot trust is computed.
+- Optional lifetime and recent trust are available.
+- Trust confidence is computed from MATE trust precision.
 - Caution ramp is applied.
 - Report quality is computed.
 - Verification confidence is computed.
 - Occupied and free evidence are updated separately.
+- Claim-level evidence removal or downgrading occurs after contradiction.
 - Cell state can become unknown, occupied, clear, suspicious, or disputed.
 - Quarantine can trigger when trust is low and confidence is high.
 
@@ -231,7 +235,7 @@ Expected verification results:
 - `CONTRADICTED` if LiDAR shows the claimed obstacle is fake.
 - `UNCERTAIN` if the robot could not reliably observe the cell.
 
-Trust counts should update only when the result is confirmed or contradicted. Uncertain results should not punish the reporting robot.
+MATE trust PDFs should update only when the result is confirmed or contradicted. A confirmed receipt creates a positive pseudomeasurement, a contradicted receipt creates a negative pseudomeasurement, and an uncertain result should not punish the reporting robot.
 
 ## 8. Map Accuracy Verification
 
@@ -309,9 +313,14 @@ timestamp
 trial_id
 observer_robot_id
 reporting_robot_id
+alpha_lifetime
+beta_lifetime
+alpha_recent
+beta_recent
 trust_lifetime
 trust_recent
 trust_combined
+trust_precision
 trust_confidence
 caution_lambda
 update_ramp
@@ -355,8 +364,8 @@ Models:
 
 ```text
 log_odds
-beta_log_odds
-trust_weighted_verification
+mate_log_odds
+mate_claim_verification
 ```
 
 Maps:
@@ -384,16 +393,16 @@ Main comparison table:
 | Method | Final Map Accuracy | False Occupied Rate | Checkpoint Success | Checkpoint Delay | Path Increase | Runtime |
 |---|---:|---:|---:|---:|---:|---:|
 | Log-odds | | | | | | |
-| Beta + log-odds | | | | | | |
-| Trust-weighted verification | | | | | | |
+| MATE-weighted log-odds | | | | | | |
+| MATE claim verification | | | | | | |
 
 Trust and attack-defense table:
 
 | Method | Poisoned Data Removal Time | Detection Delay | False Punishment Rate | Quarantine Recall |
 |---|---:|---:|---:|---:|
 | Log-odds | N/A | N/A | N/A | N/A |
-| Beta + log-odds | | | | |
-| Trust-weighted verification | | | | |
+| MATE-weighted log-odds | | | | |
+| MATE claim verification | | | | |
 
 The proposed defense is successful if it supports the main claim by improving final map accuracy, lowering false occupied rate, reducing checkpoint delay, lowering path length increase, removing poisoned data faster, and remaining computationally practical.
 

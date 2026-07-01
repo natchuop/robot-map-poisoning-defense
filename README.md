@@ -7,42 +7,33 @@ The latest project direction is documented in:
 - [docs/project_plan.md](docs/project_plan.md)
 - [docs/file_structure.md](docs/file_structure.md)
 - [docs/file_verification.md](docs/file_verification.md)
-
-## Start Here
-
-- Run verification: `bash scripts/verify.sh`
-- Run the main smoke test: `bash scripts/quick_test.sh`
-- Run the fake-obstacle shared-mapping demo: `bash scripts/runTestFakeObstacle.sh`
-- Run the office demo: `bash scripts/runOffice.sh`
-- Run the confusing maze demo: `bash scripts/runConfusingMaze.sh`
-- Run the sandbox demo: `bash scripts/runSandbox.sh`
-- Run the test-building demo: `bash scripts/runTestBuildingMapForRobot.sh`
-- Run the RViz combination demo: `bash scripts/runTestCombineRvizMap.sh`
-- Use the older mapping-only path only if you still want it: `RMPD_TEST_MODE=mapping bash scripts/quick_test.sh`
+- [docs/equations.md](docs/equations.md)
 
 ## Current Project Focus
 
-The current experiment plan compares three fusion modes:
+The current experiment plan compares three trust and confidence systems/methods:
 
 ```text
 1. log_odds
-2. beta_log_odds
-3. trust_weighted_verification
+2. mate_log_odds
+3. mate_claim_verification
 ```
 
-The main research question is whether decentralized trust-weighted map fusion can reduce the effects of map-poisoning attacks on navigation and final map accuracy.
+`log_odds` treats all robot reports as fully trusted. `mate_log_odds` uses MATE-style Bayesian robot trust with optional trust propagation, but still performs simple trust-weighted log-odds fusion. `mate_claim_verification` extends MATE with claim-level weights, occupied/free evidence layers, suspicious/disputed states, and quarantine.
+
+The main research question is whether decentralized MATE-based trust-weighted map fusion can reduce the effects of map-poisoning attacks on navigation and final map accuracy.
 
 The current shared-mapping baseline uses:
 
 - per-robot live maps and confidence maps
-- a trust-weighted merged shared map per robot
+- a MATE-style trust-weighted merged shared map per robot
 - per-robot RViz windows for shared live maps and confidence overlays
 - temporary fake obstacle injections that are meant to clear when real LiDAR evidence wins
 
 The docs also describe the longer-term defense flow:
 
 ```text
-robot report -> robot trust -> trust confidence -> claim verification -> map-cell confidence -> navigation decision
+robot report -> MATE robot trust -> trust confidence -> claim verification -> map-cell confidence -> navigation decision
 ```
 
 ## What You Need
@@ -73,6 +64,11 @@ Before cloning:
 - Install Webots R2025a.
 - Install Git.
 - On Windows, also install WSL2 with Ubuntu 24.04.
+  - Then, inside Docker Desktop go to settings and enable WSL Integration
+
+<p align="center"><strong>Windows Docker Settings</strong></p>
+
+![Windows Docker Settings](media/WindowsDockerSettings.png "Windows Docker Settings")
 
 Then clone and prepare the repo:
 
@@ -85,9 +81,11 @@ docker compose -f docker/compose.yml build --no-cache
 bash scripts/verify.sh
 ```
 
+Make sure all checks from `verify.sh` pass.
+
 If you prefer HTTPS, clone with your GitHub HTTPS URL instead.
 
-## After Setup
+## Testing After Setup
 
 Once verification passes, run the main smoke test:
 
@@ -95,17 +93,29 @@ Once verification passes, run the main smoke test:
 bash scripts/quick_test.sh
 ```
 
-That launches Webots, ROS 2, RViz, and the AMCL/Nav2 checkpoint patrol demo together. Press `Ctrl-C` in the terminal to close everything.
+That launches Webots, ROS 2, RViz, and the AMCL/Nav2 checkpoint patrol demo together. You should have Webots open up automatically with a robot driving by itself along a predetermined route. A live RViz Window should also pop up and start recording everything that the robot's lidar sensor is sensing. Press `Ctrl-C` in the terminal (not Webots) to close everything.
 
-`quick_test.sh` now launches the default AMCL + Nav2 smoke test, so RViz shows the static `/map` plus the live `/live_map` overlay. The overlay uses RViz costmap colors, which can appear pink or purple.
+Also try running this next script to make sure the latest additions are working properly.
 
-`runTestFakeObstacle.sh` launches the two-robot shared-mapping demo in `TestFakeObstacle`, activates the static `/map` layer, and opens two RViz windows so the gray floor stays visible under the live shared maps.
+```bash
+bash scripts/runTestFakeObstacle.sh
+```
 
-`runOffice.sh` uses the office-specific RViz view and startup pose settings so the larger office map and remembered LiDAR overlay stay visible.
+This script should launch the same pop-ups as earlier, but there should be 2 different RViz windows (it might be hidden under the other window). These RViz windows should also be recording the locations/data sensed by both robots. You can use WASD and arrow keys to drive these around.
 
-`runConfusingMaze.sh` and `runSandbox.sh` both reuse the same AMCL pipeline with world-specific maps and initial poses.
+Once you try out all 3 of these commands, your setup should be complete.
 
-`runTestBuildingMapForRobot.sh` follows the same AMCL + live `/live_map` pattern by default; set `RMPD_TEST_MODE=mapping` if you want the older live-mapping-only path.
+## Other Scripts Found in the Repository
+
+- Run verification: `bash scripts/verify.sh`
+- Run the main smoke test: `bash scripts/quick_test.sh`
+- Run the fake-obstacle shared-mapping demo: `bash scripts/runTestFakeObstacle.sh`
+- Run the office demo: `bash scripts/runOffice.sh`
+- Run the confusing maze demo: `bash scripts/runConfusingMaze.sh`
+- Run the sandbox demo: `bash scripts/runSandbox.sh`
+- Run the test-building demo: `bash scripts/runTestBuildingMapForRobot.sh`
+- Run the RViz combination demo: `bash scripts/runTestCombineRvizMap.sh`
+- Use the older mapping-only path only if you still want it: `RMPD_TEST_MODE=mapping bash scripts/quick_test.sh`
 
 ## Repository Map
 
@@ -161,4 +171,5 @@ with `small_maze` and `random_sandbox` as later optional stress tests.
 - `runSandbox.sh` starts the sandbox world at `(2.0, 2.0, 0.0)` and generates `webots/worlds/sandbox/amcl_map/sandbox.yaml`.
 - `runTestFakeObstacle.sh` starts `webots/worlds/TestFakeObstacle/TestFakeObstacle.wbt`, generates a static map from that world, and launches the two-robot shared-mapping stack with the fake-obstacle injector enabled.
 - The Docker bridge listens on TCP and UDP port `5005`, publishes `/robot_pose`, `/scan`, and `/odom`, and forwards `/cmd_vel` plus checkpoint feedback topics between ROS and Webots.
-- The docs' longer-term goal is to extend that bridge and map flow with trust scoring, trust confidence, map-cell confidence, verification, and quarantine logic.
+- The docs' longer-term goal is to extend that bridge and map flow with MATE-style trust distributions, optional trust propagation, claim verification, map-cell confidence, and quarantine logic.
+

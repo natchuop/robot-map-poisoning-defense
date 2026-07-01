@@ -6,8 +6,8 @@ The final project should be organized so the same maps, routes, and attacks can 
 
 ```text
 1. log_odds
-2. beta_log_odds
-3. trust_weighted_verification
+2. mate_log_odds
+3. mate_claim_verification
 ```
 
 The project claim is:
@@ -109,9 +109,14 @@ Suggested fields:
 ```text
 string observer_robot_id
 string reporting_robot_id
+float64 alpha_lifetime
+float64 beta_lifetime
+float64 alpha_recent
+float64 beta_recent
 float64 trust_lifetime
 float64 trust_recent
 float64 trust_combined
+float64 trust_precision
 float64 trust_confidence
 float64 caution_lambda
 float64 update_ramp
@@ -229,8 +234,8 @@ It should support:
 
 ```text
 fusion_mode = log_odds
-fusion_mode = beta_log_odds
-fusion_mode = trust_weighted_verification
+fusion_mode = mate_log_odds
+fusion_mode = mate_claim_verification
 ```
 
 Outputs:
@@ -243,16 +248,18 @@ Outputs:
 
 ### `trust_manager_node.py`
 
-Maintains each robot's trust table for other robots.
+Maintains each robot's MATE-style trust table for other robots.
 
 Responsibilities:
 
-- Store correct and false report counts.
-- Compute lifetime Beta trust.
-- Compute recent trust with a sliding window.
-- Compute trust confidence.
-- Compute caution ramp.
-- Determine quarantine status.
+- Store lifetime and recent MATE trust parameters `alpha` and `beta`.
+- Apply optional MATE-style trust propagation toward the neutral prior.
+- Convert verification receipts into trust pseudomeasurements.
+- Apply positive and negative pseudomeasurement trust updates.
+- Compute lifetime trust, recent trust, and combined trust.
+- Compute trust precision, effective evidence count, and trust confidence.
+- Compute caution ramp for Method 3.
+- Determine quarantine status for Method 3.
 - Publish trust state for logging and visualization.
 
 ### `claim_verifier_node.py`
@@ -262,9 +269,11 @@ Checks whether map claims are confirmed or contradicted by later LiDAR observati
 Responsibilities:
 
 - Track unverified claims.
-- Compare claimed cells against physical observations.
-- Publish verification receipts.
-- Send verification results to the trust manager.
+- Compare claimed cells against physical LiDAR observations.
+- Publish verification receipts with `CONFIRMED`, `CONTRADICTED`, or `UNCERTAIN`.
+- Compute pseudomeasurement value and confidence for trust updates.
+- Send verification results and pseudomeasurements to the trust manager.
+- For Method 3, trigger claim-level evidence removal or downgrading when a claim is contradicted.
 
 ### `fake_obstacle_injector_node.py`
 
@@ -332,8 +341,8 @@ Defines the three comparison methods:
 ```yaml
 fusion_modes:
   - log_odds
-  - beta_log_odds
-  - trust_weighted_verification
+  - mate_log_odds
+  - mate_claim_verification
 ```
 
 ### `trust_params.yaml`
@@ -341,6 +350,12 @@ fusion_modes:
 Recommended parameters:
 
 ```yaml
+mate_alpha0: 1.0
+mate_beta0: 1.0
+mate_prior_pull_omega: 0.005
+mate_negative_bias: 3.0
+mate_negative_threshold: 0.5
+mate_min_psm_confidence: 0.2
 trust_confidence_k: 10
 lambda_initial_caution: 0.9
 lambda_decay_gamma: 0.1
@@ -563,27 +578,31 @@ Expected behavior under fake obstacles:
 - Robot may get stuck in the single-hallway map.
 - Trust-specific metrics are not available.
 
-### `beta_log_odds`
+### `mate_log_odds`
 
-Incoming map reports are weighted by robot-level Beta trust.
+Incoming map reports are weighted by MATE-style robot trust.
 
 Expected behavior under fake obstacles:
 
-- Low-trust attackers have less influence.
-- High-trust or new attackers may still influence the map too much.
-- The method may not distinguish between verified and unverified claims at the cell level.
+- Each observer maintains `Beta(alpha_ij, beta_ij)` trust PDFs for reporters.
+- Optional MATE-style trust propagation pulls stale trust back toward the neutral prior.
+- Verification receipts become pseudomeasurements `(v_ijc, c_ijc)`.
+- Confirmed claims increase trust and contradicted claims reduce trust, with optional negative bias.
+- Log-odds updates are weighted only by the MATE trust mean `T_ij`.
+- This mode does not use claim-level `Q`, `R`, caution ramp, suspicious/disputed states, evidence removal, or quarantine.
 
-### `trust_weighted_verification`
+### `mate_claim_verification`
 
-Incoming map reports are weighted by trust, trust confidence, caution ramp, report quality, and verification confidence.
+Incoming map reports are weighted by MATE trust plus claim-level map-poisoning defense terms.
 
 Expected behavior under fake obstacles:
 
 - New claims should start with limited confidence.
 - Fake obstacles should be temporary unless verified.
-- Later LiDAR observations should produce verification receipts.
+- Later LiDAR observations should produce verification receipts and MATE pseudomeasurements.
 - Contradicted claims should reduce attacker trust.
-- Fake obstacles should be cleared, downgraded, marked suspicious, or ignored.
+- Contradicted claim contributions should be removed, downgraded, marked suspicious, or disputed.
+- The map should maintain occupied/free evidence layers.
 - Quarantine may eventually stop a malicious robot from influencing navigation.
 
 ## Route Config Example
@@ -709,7 +728,7 @@ Runs one trial:
 
 ```bash
 bash scripts/run_single_trial.sh \
-  --fusion-mode trust_weighted_verification \
+  --fusion-mode mate_claim_verification \
   --map office \
   --route main_checkpoint_route \
   --attack fake_obstacle_middle_path \
@@ -848,16 +867,16 @@ Main navigation and map table:
 | Method | Final Map Accuracy | False Occupied Rate | Checkpoint Success | Checkpoint Delay | Path Increase | Runtime |
 |---|---:|---:|---:|---:|---:|---:|
 | Log-odds | | | | | | |
-| Beta + log-odds | | | | | | |
-| Trust-weighted verification | | | | | | |
+| MATE-weighted log-odds | | | | | | |
+| MATE claim verification | | | | | | |
 
 Trust and attack-defense table:
 
 | Method | Poisoned Data Removal Time | Detection Delay | False Punishment Rate | Quarantine Recall |
 |---|---:|---:|---:|---:|
 | Log-odds | N/A | N/A | N/A | N/A |
-| Beta + log-odds | | | | |
-| Trust-weighted verification | | | | |
+| MATE-weighted log-odds | | | | |
+| MATE claim verification | | | | |
 
 ## Success Criteria
 
@@ -869,7 +888,7 @@ The proposed method is successful if it supports the project claim by showing:
 - Shorter checkpoint delay under fake obstacle attacks.
 - Faster removal of poisoned map data.
 - Reasonable runtime per map update.
-- Better attacker detection than basic Beta trust.
+- Better attacker detection and map recovery than MATE robot trust alone.
 
 The most important comparison is not only whether the map looks better, but whether the robot navigates better under attack.
 

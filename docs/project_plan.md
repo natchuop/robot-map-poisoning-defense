@@ -31,8 +31,8 @@ Can robots use trust and later LiDAR verification to decide whether shared obsta
 The project compares three map-fusion models. The comparison is designed to separate three questions:
 
 1. What happens when robots trust all shared map updates equally?
-2. Does basic robot-level trust improve over no trust?
-3. Does the proposed claim-level trust and verification method improve beyond basic trust?
+2. Does a MATE-style robot trust baseline improve over no trust?
+3. Does the proposed MATE-based claim-level verification method improve beyond robot-level MATE trust?
 
 <p align="center"><strong>Simulation Demo</strong></p>
 
@@ -40,9 +40,9 @@ The project compares three map-fusion models. The comparison is designed to sepa
 
 ## 3. Models to Compare
 
-### Model 1: Bayesian Occupancy Grid / Log-Odds Only
+### Model 1: Log-Odds Baseline with Full Trust
 
-This is the industry-standard robotics-style baseline. It uses a normal occupancy grid or log-odds map update **without** robot trust.
+This is the standard occupancy-grid/log-odds baseline. It uses a normal map update and effectively gives every robot 100% trust.
 
 Each cell stores a log-odds occupancy value:
 
@@ -68,57 +68,101 @@ Then the occupancy probability is recovered using:
 P_occ(c) = 1 / (1 + exp(-L_c))
 ```
 
-In this model, all robot updates are treated equally. Practically, this means the system acts as if every reporting robot has full or equal trust. This baseline is useful because it represents what a normal occupancy-grid navigation system would do without a map-poisoning defense.
-
-### Model 2: Beta Trust + Bayesian Occupancy Grid ("Standard Industry Methods")
-
-This is a **basic trust baseline.** It keeps the standard occupancy-grid/log-odds map update, but weights incoming updates using a robot-level trust score.
-
-Robot trust is modeled using a Beta-style reputation score:
+In this model, robot identity does not affect the update. Practically, this means:
 
 ```text
-T_j(t) = (r_j(t) + 1) / (r_j(t) + s_j(t) + 2)
+T_ij(t) = 1.0 for every reporting robot j
+```
+
+This baseline represents what happens when a normal occupancy-grid navigation system accepts shared map updates without a map-poisoning defense.
+
+### Model 2: MATE-Weighted Log-Odds Baseline
+
+This is the upgraded trust baseline. It replaces the older simple Beta-reputation method with a MATE-style robot trust estimator, but it still uses ordinary trust-weighted log-odds map fusion.
+
+Each observing robot `i` keeps a MATE-style trust PDF for each reporting robot `j`:
+
+```text
+tau_ij(t) ~ Beta(alpha_ij(t), beta_ij(t))
+```
+
+The robot trust mean is:
+
+```text
+T_ij(t) = alpha_ij(t) / (alpha_ij(t) + beta_ij(t))
+```
+
+This method uses optional MATE-style trust propagation:
+
+```text
+alpha_ij_minus(t) = (1 - omega) * alpha_ij(t-1) + omega * alpha0
+beta_ij_minus(t)  = (1 - omega) * beta_ij(t-1)  + omega * beta0
+```
+
+Then verification receipts are converted into trust pseudomeasurements:
+
+```text
+rho_ijc(t) = (v_ijc(t), c_ijc(t))
 ```
 
 where:
 
 ```text
-r_j(t) = number of verified correct reports from robot j
-s_j(t) = number of verified false reports from robot j
-T_j(t) = estimated trustworthiness of robot j
+v_ijc = 1.0 for confirmed claims
+v_ijc = 0.0 for contradicted claims
+c_ijc = confidence in that verification
 ```
 
-A simple trust-weighted log-odds update is:
+The trust update is:
+
+```text
+alpha_ij(t) = alpha_ij_minus(t) + c_ijc(t) * v_ijc(t)
+beta_ij(t)  = beta_ij_minus(t)  + omega_neg * c_ijc(t) * (1 - v_ijc(t))
+```
+
+where `omega_neg` can be greater than `1.0` so contradicted claims reduce trust faster than confirmed claims increase trust.
+
+Map fusion remains simple:
 
 ```text
 if robot j reports occupied:
-    L_c = L_c + T_j * l_occ
+    L_c = L_c + T_ij * l_occ
 
 if robot j reports free:
-    L_c = L_c + T_j * l_free
+    L_c = L_c + T_ij * l_free
 ```
 
-This model tests whether basic robot-level trust is enough to reduce fake obstacle acceptance. It is less advanced than the proposed method because it does not include trust confidence, caution ramping, report quality, claim-specific verification confidence, suspicious/disputed cell states, or quarantine.
+This model tests whether MATE-style robot-level trust is enough to reduce fake obstacle acceptance. It intentionally does **not** include Method 3's trust-confidence multiplier, report quality multiplier, claim-specific verification confidence, caution ramp, suspicious/disputed states, quarantine, or claim-level evidence removal.
 
-### Model 3: Proposed Trust-Weighted Claim Verification Defense
+### Model 3: Proposed MATE-Based Claim Verification Defense
 
-This is the proposed defense method. It gives every robot report about every cell a weighted influence score:
+This is the proposed defense method. It keeps the MATE-style trust estimator from Model 2, then adds map-poisoning-specific claim-level reasoning.
+
+The main idea is:
 
 ```text
-w_jc(t) = T_j(t) * C_j(t) * Q_jc(t) * R_jc(t) * (1 - lambda_j(t))
+MATE robot trust decides how reliable the source is.
+Claim-level verification decides how much this specific cell claim should affect navigation right now.
+```
+
+For every report from robot `j` about cell `c`, compute:
+
+```text
+w_ijc(t) = T_ij(t) * C_ij(t) * Q_ijc(t) * R_ijc(t) * (1 - lambda_ij(t))
 ```
 
 where:
 
 ```text
+i = receiving or observing robot
 j = reporting robot
 c = grid cell being updated
-T_j(t) = robot trust score
-C_j(t) = confidence in the trust score
-Q_jc(t) = quality of the report for this cell (objects further away from sensor have lower quality reports)
-R_jc(t) = verification confidence for this claim
-lambda_j(t) = caution factor for robots with limited verification history
-w_jc(t) = final influence of the report on the map cell
+T_ij(t) = MATE trust score
+C_ij(t) = confidence in the MATE trust estimate
+Q_ijc(t) = quality of this report about this cell
+R_ijc(t) = verification confidence for this claim
+lambda_ij(t) = caution factor for robots with limited verified history
+w_ijc(t) = final influence of the report on the map cell
 ```
 
 If any factor is low, the report has low influence on the shared map.
@@ -133,13 +177,13 @@ F_c(t) = free evidence for cell c
 If a report says the cell is occupied:
 
 ```text
-O_c(t+1) = O_c(t) + w_jc(t)
+O_c(t+1) = O_c(t) + w_ijc(t)
 ```
 
 If a report says the cell is free:
 
 ```text
-F_c(t+1) = F_c(t) + w_jc(t)
+F_c(t+1) = F_c(t) + w_ijc(t)
 ```
 
 Then the cell's occupancy score is:
@@ -150,64 +194,132 @@ P_occ(c) = O_c / (O_c + F_c + epsilon)
 
 The cell can be classified as:
 
+| State | Meaning |
+|---|---|
+| Unknown | Not enough evidence yet |
+| Occupied | Strong evidence of an obstacle |
+| Clear | Strong evidence of free space |
+| Suspicious | Weak or uncertain evidence |
+| Disputed | Strong occupied and free evidence both exist |
 
-| State      | Meaning                                      |
-| ---------- | -------------------------------------------- |
-| Unknown    | Not enough evidence yet                      |
-| Occupied   | Strong evidence of an obstacle               |
-| Clear      | Strong evidence of free space                |
-| Suspicious | Weak or uncertain evidence                   |
-| Disputed   | Strong occupied and free evidence both exist |
-
-
-This model should make fake obstacle claims temporary and uncertain until physical verification supports them.
+Model 3 should make fake obstacle claims temporary and uncertain until physical verification supports them. If a later verification contradicts a claim, Method 3 can also remove or downgrade the specific evidence that claim added.
 
 ## 4. Trust, Confidence, and Verification
 
-### Robot Trust
+### MATE Robot Trust
 
-Robot trust estimates how reliable another robot has been:
+Robot trust is represented as a MATE-style trust PDF, not only a binary count reputation score.
+
+For observer robot `i` and reporter robot `j`:
 
 ```text
-T_j(t) = (r_j(t) + 1) / (r_j(t) + s_j(t) + 2)
+tau_ij(t) ~ Beta(alpha_ij(t), beta_ij(t))
 ```
 
-Correct verified reports increase `r_j`. False verified reports increase `s_j`. New robots start neutral because there is not enough evidence to judge them.
-
-### Trust Confidence
-
-Trust confidence estimates how much evidence supports the trust score:
+The trust mean is:
 
 ```text
-C_j(t) = n_j(t) / (n_j(t) + k)
+T_ij(t) = alpha_ij(t) / (alpha_ij(t) + beta_ij(t))
+```
+
+A new robot starts neutral:
+
+```text
+alpha0 = 1.0
+beta0 = 1.0
+T_ij(0) = 0.5
+```
+
+### Optional MATE-Style Trust Propagation
+
+The project will use optional MATE-style trust propagation. Before new verification evidence is applied, trust can be pulled slightly toward the neutral prior:
+
+```text
+alpha_ij_minus(t) = (1 - omega) * alpha_ij(t-1) + omega * alpha0
+beta_ij_minus(t)  = (1 - omega) * beta_ij(t-1)  + omega * beta0
+```
+
+Recommended starting range:
+
+```text
+omega = 0.001 to 0.01
+```
+
+This helps with late attackers because old correct behavior should not permanently dominate the trust score.
+
+### Trust Pseudomeasurements
+
+Verification results are converted into trust pseudomeasurements:
+
+```text
+rho_ijc(t) = (v_ijc(t), c_ijc(t))
 ```
 
 where:
 
 ```text
-n_j(t) = r_j(t) + s_j(t)
+v_ijc = trust evidence value in [0, 1]
+c_ijc = confidence in the verification evidence in [0, 1]
+```
+
+For fake obstacle insertion:
+
+```text
+confirmed occupied claim -> v_ijc = 1.0
+contradicted occupied claim -> v_ijc = 0.0
+uncertain observation -> no trust update
+```
+
+Trust update:
+
+```text
+alpha_ij(t) = alpha_ij_minus(t) + c_ijc(t) * v_ijc(t)
+beta_ij(t)  = beta_ij_minus(t)  + omega_neg * c_ijc(t) * (1 - v_ijc(t))
+```
+
+Use `omega_neg > 1.0` when negative evidence should count more strongly than positive evidence.
+
+### Trust Confidence
+
+Trust confidence estimates how much evidence supports the trust score. Use the MATE precision:
+
+```text
+nu_ij(t) = alpha_ij(t) + beta_ij(t)
+nu0 = alpha0 + beta0
+n_eff_ij(t) = max(0, nu_ij(t) - nu0)
+```
+
+Then:
+
+```text
+C_ij(t) = n_eff_ij(t) / (n_eff_ij(t) + k)
+```
+
+where:
+
+```text
 k = confidence growth parameter, suggested starting value 10
 ```
 
-A robot with only a few correct reports should not become highly influential too quickly. Trust confidence prevents early overconfidence.
+A robot with only a few verified claims should not become highly influential too quickly. Trust confidence is used in Method 3, not Method 2's map-fusion equation.
 
 ### Recent Trust and Late Attackers
 
-A robot may behave honestly at first, but may get hijacked and start sending out attacks later. To handle this, the proposed method can use recent trust, lifetime trust, or a combined value:
+A robot may behave honestly at first, but may get hijacked and start sending out attacks later. To handle this, Method 3 can use recent trust, lifetime trust, or a combined value.
 
 ```text
-T_combined_j(t) = min(T_life_j(t), T_recent_j(t))
+T_combined_ij(t) = min(T_life_ij(t), T_recent_ij(t))
 ```
 
 Recent trust can be computed over the last `N` verified reports or last `M` seconds. This helps detect behavior changes.
 
 ### Caution Ramp
 
-New or weakly verified robots should have limited influence:
+New or weakly verified robots should have limited influence in Method 3:
 
 ```text
-lambda_j(t) = c0 * exp(-gamma * n_j(t))
-ramp_j(t) = 1 - lambda_j(t)
+lambda_ij(t) = c0 * exp(-gamma * n_eff_ij(t))
+ramp_ij(t) = 1 - lambda_ij(t)
 ```
 
 Suggested starting values:
@@ -224,7 +336,7 @@ At the beginning, a robot has low influence. As verified history grows, its infl
 Report quality measures whether the robot could physically observe the claimed cell:
 
 ```text
-Q_jc(t) = Q_range_jc(t) * Q_age_jc(t) * Q_visibility_jc(t) * Q_duplicate_jc(t)
+Q_ijc(t) = Q_range_ijc(t) * Q_age_ijc(t) * Q_visibility_ijc(t) * Q_duplicate_ijc(t)
 ```
 
 Possible terms:
@@ -238,17 +350,15 @@ Possible terms:
 
 Verification confidence measures whether the specific claim has been checked:
 
+| Verification result | Example value |
+|---|---:|
+| Directly confirmed by LiDAR | 1.0 |
+| Confirmed by another trusted robot | 0.8 |
+| Consistent with verified map | 0.6 |
+| New but unverified | 0.3 |
+| Conflicts with trusted evidence | 0.0 to 0.2 |
 
-| Verification result                | Example value |
-| ---------------------------------- | ------------- |
-| Directly confirmed by LiDAR        | 1.0           |
-| Confirmed by another trusted robot | 0.8           |
-| Consistent with verified map       | 0.6           |
-| New but unverified                 | 0.3           |
-| Conflicts with trusted evidence    | 0.0 to 0.2    |
-
-
-The key idea is that trust should be tied to specific map claims and later physical evidence, not just general reputation.
+The key idea is that long-term trust is updated by MATE pseudomeasurements, while Method 3's immediate map influence is controlled by claim-specific verification and report quality.
 
 ## 5. Verification Receipts
 
@@ -280,7 +390,7 @@ If cryptographic signatures are not implemented, these should be called verifica
 If the system has enough evidence that a robot is unreliable, the robot can be quarantined:
 
 ```text
-quarantine_j = true if T_combined_j < theta_T and C_j > theta_C
+quarantine_ij = true if T_combined_ij < theta_T and C_ij > theta_C
 ```
 
 Suggested thresholds:
@@ -350,8 +460,8 @@ Models:
 
 ```text
 1. log_odds
-2. beta_log_odds
-3. trust_weighted_verification
+2. mate_log_odds
+3. mate_claim_verification
 ```
 
 Maps:
@@ -416,9 +526,13 @@ claim_id
 For Model 2, also log:
 
 ```text
-r_j
-s_j
-T_j
+alpha_ij
+beta_ij
+T_ij
+trust_precision
+mate_prior_pull_omega
+psm_value
+psm_confidence
 L_c_before
 L_c_after
 P_occ_after
@@ -427,21 +541,25 @@ P_occ_after
 For Model 3, also log:
 
 ```text
-r_j
-s_j
-T_life
-T_recent
-T_combined
-C_j
-lambda_j
-ramp_j
+alpha_life_ij
+beta_life_ij
+alpha_recent_ij
+beta_recent_ij
+T_life_ij
+T_recent_ij
+T_combined_ij
+trust_precision
+n_eff_ij
+C_ij
+lambda_ij
+ramp_ij
 Q_range
 Q_age
 Q_visibility
 Q_duplicate
 Q_total
-R_jc
-w_jc
+R_ijc
+w_ijc
 O_c_before
 F_c_before
 O_c_after
@@ -449,6 +567,7 @@ F_c_after
 P_occ_after
 cell_state_after
 quarantine_status
+claim_evidence_removed
 ```
 
 For each navigation trial, log:
@@ -482,12 +601,12 @@ runtime_per_update
 
 ```text
 fusion_mode = log_odds
-fusion_mode = beta_log_odds
-fusion_mode = trust_weighted_verification
+fusion_mode = mate_log_odds
+fusion_mode = mate_claim_verification
 ```
 
 1. Implement the standard log-odds occupancy update.
-2. Implement the Beta trust-weighted log-odds update.
+2. Implement MATE-style trust PDFs, pseudomeasurements, optional propagation, and MATE-weighted log-odds.
 3. Implement the proposed trust-weighted evidence update.
 4. Add claim IDs to shared map updates.
 5. Store unverified obstacle claims as temporary or low-confidence.
@@ -504,6 +623,6 @@ fusion_mode = trust_weighted_verification
 
 The standard log-odds model is expected to accept fake obstacle reports most easily because it does not know which robot sent the report or whether that robot is trustworthy.
 
-The Beta trust + log-odds model should reduce some poisoned updates because reports from low-trust robots have less influence. However, it may still be weak against new robots, late attackers, or claims that have not been physically verified.
+The MATE-weighted log-odds model should reduce some poisoned updates because reports from low-trust robots have less influence. Optional MATE-style trust propagation and negative pseudomeasurement updates should help with late attackers. However, it may still be weak against new robots or already-inserted fake obstacles because it does not use claim-level evidence removal, suspicious/disputed states, or quarantine.
 
 The proposed trust-weighted claim verification defense should perform best under fake obstacle injection because it uses robot trust, trust confidence, report quality, verification receipts, suspicious/disputed cell states, and quarantine. The expected result is higher final map accuracy, fewer fake obstacles accepted, less unnecessary rerouting, shorter checkpoint delay, faster removal of poisoned map data, and acceptable runtime overhead.
