@@ -70,7 +70,7 @@ Before cloning:
 
 ![Windows Docker Settings](media/WindowsDockerSettings.png "Windows Docker Settings")
 
-Then clone and prepare the repo:
+Then clone and run the following commands in the Linux terminal:
 
 ```bash
 git clone git@github.com:natchuop/robot-map-poisoning-defense.git
@@ -85,7 +85,7 @@ Make sure all checks from `verify.sh` pass.
 
 If you prefer HTTPS, clone with your GitHub HTTPS URL instead.
 
-## Testing After Setup
+## Final Testing After Setup
 
 Once verification passes, run the main smoke test:
 
@@ -101,9 +101,9 @@ Also try running this next script to make sure the latest additions are working 
 bash scripts/runTestFakeObstacle.sh
 ```
 
-This script should launch the same pop-ups as earlier, but there should be 2 different RViz windows (it might be hidden under the other window). These RViz windows should also be recording the locations/data sensed by both robots. You can use WASD and arrow keys to drive these around.
+This script should launch the same pop-ups as earlier, but there should be 2 different RViz windows (it might be hidden under the other window). These RViz windows should also be recording the locations/data sensed by both robots. You can use WASD and arrow keys to drive these around. Press `Ctrl-C` in the terminal (not Webots) to close everything.
 
-Once you try out all 3 of these commands, your setup should be complete.
+Once you try out all of these commands, your setup should be complete.
 
 ## Other Scripts Found in the Repository
 
