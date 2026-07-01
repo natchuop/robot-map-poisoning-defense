@@ -62,7 +62,7 @@ class InitialPosePublisherNode(Node):
         self.covariance_yaw = float(self.get_parameter('covariance_yaw').value)
         self.publish_count = int(self.get_parameter('publish_count').value)
         self.sent_count = 0
-        self.latest_odom = None
+        self.initial_odom = None
         self.waiting_logged = False
 
         self.publisher = self.create_publisher(PoseWithCovarianceStamped, self.topic, 10)
@@ -83,17 +83,17 @@ class InitialPosePublisherNode(Node):
         )
 
     def odom_callback(self, msg: Odometry) -> None:
-        if self.latest_odom is None:
+        if self.initial_odom is None:
             self.get_logger().info(
                 'Received /odom; publishing AMCL initial pose from Webots odom.'
             )
-        self.latest_odom = msg
+            self.initial_odom = msg
 
     def initial_pose_values(self):
         if self.use_odom_pose:
-            if self.latest_odom is None:
+            if self.initial_odom is None:
                 return None
-            pose = self.latest_odom.pose.pose
+            pose = self.initial_odom.pose.pose
             return (
                 float(pose.position.x),
                 float(pose.position.y),

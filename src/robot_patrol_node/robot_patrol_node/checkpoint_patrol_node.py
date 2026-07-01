@@ -38,7 +38,7 @@ WORLD_ROUTES = {
             'A': Checkpoint(-4.50, 0.00),
             'B': Checkpoint(4.50, 0.00),
         },
-        ['A', 'B', 'A'],
+        ['A', 'B'],
     ),
     'two_route': (
         {
@@ -149,6 +149,8 @@ class CheckpointPatrolNode(Node):
             self.checkpoints = dict(world_checkpoints)
             self.route = list(world_route)
             self.visible_route = list(world_route)
+            if self.map_id == 'simple_corridor':
+                self.loop = False
             if self.map_id == 'two_route':
                 self.loop = False
 
@@ -405,6 +407,20 @@ class CheckpointPatrolNode(Node):
         distance_text = 'distance pending'
         if distance is not None:
             distance_text = f'{distance[0]:.2f} m from {distance[1]}'
+
+        if (
+            self.map_id == 'simple_corridor'
+            and checkpoint_name == 'A'
+            and distance is not None
+            and distance[0] <= self.goal_reached_radius
+        ):
+            self.get_logger().info(
+                'Simple corridor start checkpoint already reached; advancing directly to B.'
+            )
+            self.complete_active_checkpoint(
+                f'already within start radius: {distance[0]:.2f} m using {distance[1]}'
+            )
+            return
 
         if checkpoint_name in HELPER_TARGETS:
             target_name = HELPER_TARGETS[checkpoint_name]
@@ -724,7 +740,11 @@ class CheckpointPatrolNode(Node):
         self.current_index += 1
 
         next_checkpoint_name = self.next_route_checkpoint_name()
-        if checkpoint_name not in HELPER_TARGETS and next_checkpoint_name is not None:
+        if (
+            checkpoint_name not in HELPER_TARGETS
+            and next_checkpoint_name is not None
+            and self.map_id != 'simple_corridor'
+        ):
             self.start_departure_assist(checkpoint_name, next_checkpoint_name)
         else:
             self.schedule_next_goal(0.75)
@@ -780,6 +800,8 @@ class CheckpointPatrolNode(Node):
         self.departure_timer = self.create_timer(0.1, self.departure_recovery_tick)
 
     def should_run_retry_recovery(self):
+        if self.map_id == 'simple_corridor':
+            return False
         if self.retry_recovery_duration_sec <= 0.0:
             return False
         if self.scan_front_min is None:

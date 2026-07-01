@@ -385,7 +385,6 @@ def main():
     map_id = resolve_map_id(robot)
     checkpoints = checkpoint_sets_for_map(map_id)
     self_node = robot.getSelf()
-    translation_field = self_node.getField('translation')
     rotation_field = self_node.getField('rotation')
 
     print(
@@ -483,16 +482,6 @@ def main():
 
             current_linear_x = command['linear_x']
             current_angular_z = command['angular_z']
-            last_cmd_time = time.time()
-
-        if map_id == 'simple_corridor':
-            translation = list(translation_field.getSFVec3f())
-            corridor_end_x, corridor_center_y = checkpoints.get('B', (2.5, 0.0))
-            next_x = min(translation[0] + 0.04, corridor_end_x)
-            translation_field.setSFVec3f([next_x, corridor_center_y, translation[2]])
-
-            current_linear_x = 0.0
-            current_angular_z = 0.0
             last_cmd_time = time.time()
 
         if time.time() - last_cmd_time > CMD_TIMEOUT_SEC:
