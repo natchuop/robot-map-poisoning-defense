@@ -16,6 +16,10 @@ def generate_launch_description():
     require_pose_update = LaunchConfiguration('require_pose_update')
     clear_on_max_range = LaunchConfiguration('clear_on_max_range')
     ray_end_trim_m = LaunchConfiguration('ray_end_trim_m')
+    lidar_quality_near_m = LaunchConfiguration('lidar_quality_near_m')
+    lidar_quality_far_m = LaunchConfiguration('lidar_quality_far_m')
+    min_observation_quality = LaunchConfiguration('min_observation_quality')
+    max_free_clear_range_m = LaunchConfiguration('max_free_clear_range_m')
     occupied_radius_cells = LaunchConfiguration('occupied_radius_cells')
     auto_expand_map = LaunchConfiguration('auto_expand_map')
     expansion_padding_m = LaunchConfiguration('expansion_padding_m')
@@ -35,8 +39,12 @@ def generate_launch_description():
             DeclareLaunchArgument('free_score_threshold', default_value='-2'),
             DeclareLaunchArgument('occupancy_mode', default_value='direct'),
             DeclareLaunchArgument('require_pose_update', default_value='false'),
-            DeclareLaunchArgument('clear_on_max_range', default_value='false'),
+            DeclareLaunchArgument('clear_on_max_range', default_value='true'),
             DeclareLaunchArgument('ray_end_trim_m', default_value='0.08'),
+            DeclareLaunchArgument('lidar_quality_near_m', default_value='2.5'),
+            DeclareLaunchArgument('lidar_quality_far_m', default_value='8.0'),
+            DeclareLaunchArgument('min_observation_quality', default_value='0.15'),
+            DeclareLaunchArgument('max_free_clear_range_m', default_value='6.0'),
             DeclareLaunchArgument('occupied_radius_cells', default_value='0'),
             DeclareLaunchArgument('auto_expand_map', default_value='true'),
             DeclareLaunchArgument('expansion_padding_m', default_value='1.0'),
@@ -71,6 +79,10 @@ def generate_launch_description():
                         'require_pose_update': require_pose_update,
                         'clear_on_max_range': clear_on_max_range,
                         'ray_end_trim_m': ray_end_trim_m,
+                        'lidar_quality_near_m': lidar_quality_near_m,
+                        'lidar_quality_far_m': lidar_quality_far_m,
+                        'min_observation_quality': min_observation_quality,
+                        'max_free_clear_range_m': max_free_clear_range_m,
                         'occupied_radius_cells': occupied_radius_cells,
                         'auto_expand_map': auto_expand_map,
                         'expansion_padding_m': expansion_padding_m,

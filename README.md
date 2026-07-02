@@ -31,6 +31,7 @@ The current shared-mapping baseline uses:
 - a log-odds shared map per robot with claim-based fake-obstacle fusion
 - per-robot RViz windows for shared live maps and confidence overlays
 - temporary fake obstacle injections published as `MapUpdate` claims that can later be cleared by real LiDAR evidence
+- a LiDAR confidence falloff that reduces both score updates and current-observation certainty as range increases
 
 The RViz semantic overlay uses `MarkerArray` colors so overlapping robot contributions can be blended without replacing the normal shared occupancy grid used for navigation. Higher confidence now renders as darker and bolder overlay colors.
 
@@ -105,7 +106,7 @@ Also try running this next script to make sure the latest additions are working 
 bash scripts/runTestFakeObstacle.sh
 ```
 
-This script should launch the same pop-ups as earlier, but there should be 2 different RViz windows (it might be hidden under the other window). These RViz windows should also be recording the locations/data sensed by both robots. You can use WASD and arrow keys to drive these around. Press `Ctrl-C` in the terminal (not Webots) to close everything.
+This script launches the interactive fake-obstacle demo again, with 2 RViz windows by default. The shared mapper now uses a smooth LiDAR range falloff, so very distant hits and clears contribute less confidence than nearby ones. If you want to switch to a headless smoke-test run, override `RMPD_FAKE_OBSTACLE_INJECTOR_MODE=manual`, `RMPD_QUICK_TEST_RVIZ=false`, and `RMPD_QUICK_TEST_HOLD_OPEN=false` before running it.
 
 Once you try out all of these commands, your setup should be complete.
 

@@ -69,7 +69,7 @@ On macOS:
 
 The lighter `verify.sh` checks only the essential headless connections for the AMCL/Nav2 and multi-robot stacks.
 
-Use `bash scripts/quick_test.sh` and `bash scripts/runTestFakeObstacle.sh` for the deeper GUI and experiment-level topic checks.
+Use `bash scripts/quick_test.sh` and `bash scripts/runTestFakeObstacle.sh` for the deeper GUI and experiment-level topic checks. The fake-obstacle wrapper launches the interactive RViz demo by default; override `RMPD_FAKE_OBSTACLE_INJECTOR_MODE=manual`, `RMPD_QUICK_TEST_RVIZ=false`, and `RMPD_QUICK_TEST_HOLD_OPEN=false` if you want a headless smoke-test run instead.
 
 Those scripts should confirm that the following topics exist and publish useful data:
 
@@ -164,7 +164,9 @@ Expected behavior:
 - In `log_odds`, the fake obstacle should have the strongest direct effect.
 - The claim should show up in the merge-node logs as an accepted `MapUpdate`.
 - The log-odds shared map should reflect the claim instead of skipping it just because the cell was previously free.
-- If the victim robot later drives into direct LiDAR view of the claimed cell, `/<robot>/current_observation_map` should mark that area as free with `-1` elsewhere.
+- If the victim robot later drives into direct LiDAR view of the claimed cell, `/<robot>/current_observation_map` should mark that area as free with `-1` elsewhere, and distant beams should land closer to the neutral middle of the scale instead of acting like hard evidence.
+- Near-field LiDAR returns should stay strong, while beams beyond the mid-range should contribute progressively weaker confidence and weaker free-space clearing.
+- Rotating in place should not blur or suppress the latest LiDAR evidence, because the sensor still sees the same 360-degree environment from the same position.
 - The victim robot's `/<robot>/shared_live_map` should clear the fake occupied cell only where the current observation is known.
 - Only the contradicted claim(s) should be removed or downgraded so the fake obstacle does not immediately reappear on the next merge tick.
 - This behavior has been exercised in the live demo: the injected fake claim was accepted, then cleared by the victim robot's own current LiDAR observation.

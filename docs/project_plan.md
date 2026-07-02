@@ -16,6 +16,8 @@ This project focuses on decentralized trust. Each robot keeps its own trust reco
 
 Direct local LiDAR observations are treated as ground truth for cells that are currently visible to the robot in all three methods. The comparison between `log_odds`, `mate_log_odds`, and `mate_claim_verification` is about how each method handles remote claims when direct evidence is not available and how quickly poisoned data is corrected after later observation.
 
+The current implementation also applies a smooth LiDAR range falloff before turning scans into map evidence. Nearby returns have stronger influence, distant returns have weaker influence, and free-space clearing is capped so that max-range beams do not over-clear the map.
+
 ## 2. Research Question
 
 Main research question:
@@ -445,6 +447,8 @@ In a fake obstacle attack, a compromised robot reports that a free cell is occup
 ```
 
 The attack goal is to make other robots reroute, get stuck, delay checkpoint completion, or mark free space as blocked. In the current implementation, the fake obstacle is published as a `MapUpdate` claim with `claim_id` and `target_robot_id`, then fused into the receiver's shared map through the log-odds pipeline. If the receiving robot later observes that same cell directly with its own LiDAR, it can clear the contradicted claim and keep the navigation map consistent with its current scan.
+
+LiDAR-based correction now depends on range quality, so a far-away beam should contribute weaker evidence and weaker cell coloring than a nearby beam. This makes the current-observation map better match the confidence gradient that the mapper uses internally.
 
 Fake clearing remains a later or secondary extension. In a fake-clearing attack, the malicious robot reports a real occupied cell as free. This is important because it can cause collisions, but it adds complexity because the experiment must carefully place real obstacles and detect collisions or unsafe clearance.
 
