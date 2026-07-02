@@ -417,7 +417,7 @@ class MapMergeNode(Node):
             if value >= self.current_observation_occupied_threshold:
                 log_odds[y, x] = max(float(log_odds[y, x]), self.current_observation_force_occupied_logodds)
                 observed[y, x] = True
-            elif value == self.current_observation_free_value:
+            elif value == self.current_observation_free_value or value <= self.current_observation_free_value:
                 log_odds[y, x] = min(float(log_odds[y, x]), self.current_observation_force_free_logodds)
                 observed[y, x] = True
 
@@ -461,7 +461,7 @@ class MapMergeNode(Node):
                     observed_count += 1
                     if value >= self.current_observation_occupied_threshold:
                         occupied_count += 1
-                    elif value == self.current_observation_free_value:
+                    elif value == self.current_observation_free_value or value <= self.current_observation_free_value:
                         free_count += 1
 
             if observed_count <= 0:

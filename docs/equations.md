@@ -26,9 +26,50 @@ If the current observation says a cell is free, the robot should clear or strong
 
 Cells with `current_observation_map[cell] = -1` are unknown in the latest scan and must not affect the merge.
 
+### LiDAR Range Quality
+
+Current-observation evidence is now range-weighted instead of binary. Near returns should act like strong evidence, while distant returns should contribute less confidence to both cell coloring and occupancy updates.
+
+The shared implementation uses a smoothstep falloff:
+
+```text
+q(r) = 1.0                               for r <= r_near
+q(r) = q_min                             for r >= r_far
+q(r) = q_min + (1 - q_min) * (1 - s(t))  otherwise
+
+t = (r - r_near) / (r_far - r_near)
+s(t) = t^2 * (3 - 2t)
+```
+
+Recommended defaults:
+
+```text
+r_near = 2.5 m
+r_far = 8.0 m
+q_min = 0.15
+max_free_clear_range = 6.0 m
+```
+
+In code, the observation strength is scaled by range quality:
+
+```text
+hit_delta = hit_score_increment * q(r)
+free_delta = free_score_decrement * q(r)
+```
+
+Free-space clearing is capped so that far beams do not erase too much of the map:
+
+```text
+if free_cell_distance > max_free_clear_range:
+    stop clearing that ray
+```
+
+The current-observation map should also encode weaker distant evidence with midrange values instead of only `0` and `100`, so the visualized cell color reflects confidence as well as occupancy state.
+
 This is not a trust-defense rule by itself. In Method 1, remote claims still use full trust when the cell is outside the robot's current observation. The same precedence rule also applies in Method 2 and Method 3, which differ only in how remote claims are weighted and later verified.
 
 Method 1 is implemented as the full-trust log-odds baseline with current-observation override. In code, fake obstacle reports are carried as `MapUpdate` claims and fused into the receiver's shared map using the log-odds path, then the viewing robot's own current LiDAR observation can clear contradicted occupied claims in currently visible cells.
+That current observation is now range-weighted, so a cell seen at the end of the LiDAR range contributes less confidence than a nearby cell.
 
 The first required maps are:
 

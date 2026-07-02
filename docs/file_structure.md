@@ -235,7 +235,9 @@ Outputs:
 Combines local maps and shared map updates into a robot-specific shared view.
 
 The robot's own current observation is applied last for cells that are known in `/<robot>/current_observation_map`, and only claims contradicted by that observation should be removed.
-The `/<robot>/current_observation_map` itself is mostly unknown, with `-1` for unobserved cells, `0` for directly observed free cells, and `100` for directly observed occupied cells.
+The `/<robot>/current_observation_map` now uses a smooth LiDAR confidence falloff: `-1` for unobserved cells, values near `0` for confident free cells, values near `100` for confident occupied cells, and midrange values for distant or ambiguous beams.
+Default tuning now uses a near range of `2.5 m`, a far range of `8.0 m`, a minimum observation quality of `0.15`, and a capped free-clearing distance of `6.0 m`.
+In-place turning does not suppress scan updates; the 360-degree LiDAR continues to publish observations while the robot rotates.
 
 It should support:
 
@@ -738,7 +740,7 @@ scripts/echo_topic_once.sh
 Current code status:
 
 - `scripts/verify.sh`, `scripts/quick_test.sh`, `scripts/runOffice.sh`, `scripts/runConfusingMaze.sh`, `scripts/runSandbox.sh`, `scripts/runTestBuildingMapForRobot.sh`, `scripts/runTestFakeObstacle.sh`, and `scripts/runTestCombineRvizMap.sh` exist now.
-- The remaining script names listed above are still proposed helpers, except `runTestFakeObstacle.sh`, which is the current fake-obstacle smoke test.
+- The remaining script names listed above are still proposed helpers, except `runTestFakeObstacle.sh`, which is the current fake-obstacle demo. It opens the two RViz windows by default, and you can still switch it to a headless smoke-test mode with environment variables if needed.
 
 ### `run_single_trial.sh`
 

@@ -36,6 +36,7 @@ class MapBuilderNode(Node):
         self.declare_parameter('confidence_map_topic', '')
         self.declare_parameter('current_observation_map_topic', '')
         self.declare_parameter('publish_current_observation_map', True)
+        self.declare_parameter('current_observation_max_age_sec', 0.0)
         self.declare_parameter('map_frame', 'map')
         self.declare_parameter('base_frame', 'base_link')
         self.declare_parameter('laser_frame', 'laser')
@@ -56,8 +57,12 @@ class MapBuilderNode(Node):
         self.declare_parameter('free_score_threshold', -2)
         self.declare_parameter('score_min', -12)
         self.declare_parameter('score_max', 24)
-        self.declare_parameter('clear_on_max_range', False)
+        self.declare_parameter('clear_on_max_range', True)
         self.declare_parameter('ray_end_trim_m', 0.08)
+        self.declare_parameter('lidar_quality_near_m', 2.5)
+        self.declare_parameter('lidar_quality_far_m', 8.0)
+        self.declare_parameter('min_observation_quality', 0.15)
+        self.declare_parameter('max_free_clear_range_m', 6.0)
         self.declare_parameter('occupied_radius_cells', 0)
         self.declare_parameter('auto_expand_map', True)
         self.declare_parameter('expansion_padding_m', 1.0)
@@ -73,6 +78,10 @@ class MapBuilderNode(Node):
         self.current_observation_map_topic = str(self.get_parameter('current_observation_map_topic').value).strip()
         self.publish_current_observation_map_enabled = bool(
             self.get_parameter('publish_current_observation_map').value
+        )
+        self.current_observation_max_age_sec = max(
+            0.0,
+            float(self.get_parameter('current_observation_max_age_sec').value),
         )
         self.map_frame = self.get_parameter('map_frame').value
         self.base_frame = self.get_parameter('base_frame').value
@@ -96,6 +105,13 @@ class MapBuilderNode(Node):
         self.score_max = int(self.get_parameter('score_max').value)
         self.clear_on_max_range = bool(self.get_parameter('clear_on_max_range').value)
         self.ray_end_trim_m = max(0.0, float(self.get_parameter('ray_end_trim_m').value))
+        self.lidar_quality_near_m = max(0.0, float(self.get_parameter('lidar_quality_near_m').value))
+        self.lidar_quality_far_m = max(self.lidar_quality_near_m, float(self.get_parameter('lidar_quality_far_m').value))
+        self.min_observation_quality = max(
+            0.0,
+            min(1.0, float(self.get_parameter('min_observation_quality').value)),
+        )
+        self.max_free_clear_range_m = max(0.0, float(self.get_parameter('max_free_clear_range_m').value))
         self.occupied_radius_cells = max(0, int(self.get_parameter('occupied_radius_cells').value))
         self.auto_expand_map = bool(self.get_parameter('auto_expand_map').value)
         self.expansion_padding_m = max(0.0, float(self.get_parameter('expansion_padding_m').value))
@@ -129,7 +145,7 @@ class MapBuilderNode(Node):
         )
 
         self.grid = np.full((self.height_cells, self.width_cells), -1, dtype=np.int8)
-        self.scores = np.zeros((self.height_cells, self.width_cells), dtype=np.int16)
+        self.scores = np.zeros((self.height_cells, self.width_cells), dtype=np.float32)
         self.observed = np.zeros((self.height_cells, self.width_cells), dtype=bool)
         self.current_observation_grid = None
         self.latest_pose = None
@@ -175,7 +191,8 @@ class MapBuilderNode(Node):
             f'Map builder ready: scan={self.scan_topic}, '
             f'pose={self.pose_topic}, map={self.map_topic}, '
             f'confidence_map={self.confidence_map_topic or "disabled"}, '
-            f'current_observation_map={self.current_observation_map_topic or "disabled"}'
+            f'current_observation_map={self.current_observation_map_topic or "disabled"}, '
+            f'current_observation_max_age_sec={self.current_observation_max_age_sec:.2f}'
         )
         self.publish_current_map()
         self.publish_blank_current_observation_map()
@@ -252,6 +269,7 @@ class MapBuilderNode(Node):
             free_range = valid_range
             if hit_detected:
                 free_range = max(scan.range_min, valid_range - self.ray_end_trim_m)
+            free_range = min(free_range, self.max_free_clear_range_m)
 
             end_x = laser_x + free_range * math.cos(beam_angle)
             end_y = laser_y + free_range * math.sin(beam_angle)
@@ -271,11 +289,23 @@ class MapBuilderNode(Node):
                     self.ensure_world_point_in_map(hit_x, hit_y)
                     hit_cell = self.world_to_grid(hit_x, hit_y)
                     if hit_cell is not None:
-                        self.mark_occupied(hit_cell[0], hit_cell[1])
+                        self.mark_occupied(hit_cell[0], hit_cell[1], valid_range)
 
             angle += scan.angle_increment
 
         self.publish_map(scan.header.stamp.sec, scan.header.stamp.nanosec)
+
+    def publish_static_sensor_tf(self) -> None:
+        transform = TransformStamped()
+        transform.header.stamp = self.get_clock().now().to_msg()
+        transform.header.frame_id = self.base_frame
+        transform.child_frame_id = self.laser_frame
+        transform.transform.translation.x = self.laser_x
+        transform.transform.translation.y = self.laser_y
+        transform.transform.translation.z = 0.0
+        q = yaw_to_quaternion(self.laser_yaw)
+        transform.transform.rotation = q
+        self.static_tf_broadcaster.sendTransform(transform)
 
     def is_turning_too_fast(self) -> bool:
         return (
@@ -308,18 +338,6 @@ class MapBuilderNode(Node):
                 f'(angular_speed={self.angular_speed_rad_s:.2f} rad/s)'
             )
         return True
-
-    def publish_static_sensor_tf(self) -> None:
-        transform = TransformStamped()
-        transform.header.stamp = self.get_clock().now().to_msg()
-        transform.header.frame_id = self.base_frame
-        transform.child_frame_id = self.laser_frame
-        transform.transform.translation.x = self.laser_x
-        transform.transform.translation.y = self.laser_y
-        transform.transform.translation.z = 0.0
-        q = yaw_to_quaternion(self.laser_yaw)
-        transform.transform.rotation = q
-        self.static_tf_broadcaster.sendTransform(transform)
 
     def publish_base_tf(self, x: float, y: float, theta: float) -> None:
         transform = TransformStamped()
@@ -430,7 +448,7 @@ class MapBuilderNode(Node):
             self.scores,
             ((add_bottom, add_top), (add_left, add_right)),
             mode='constant',
-            constant_values=0,
+            constant_values=0.0,
         )
         self.observed = np.pad(
             self.observed,
@@ -476,10 +494,18 @@ class MapBuilderNode(Node):
         if self.current_observation_grid is None:
             return
         if 0 <= col < self.width_cells and 0 <= row < self.height_cells:
-            if value == 100:
-                self.current_observation_grid[row, col] = np.int8(100)
-            elif value == 0 and self.current_observation_grid[row, col] != np.int8(100):
-                self.current_observation_grid[row, col] = np.int8(0)
+            value = int(max(0, min(100, value)))
+            current = int(self.current_observation_grid[row, col])
+            if current < 0:
+                self.current_observation_grid[row, col] = np.int8(value)
+                return
+
+            if value >= 50:
+                if current < 50 or value > current:
+                    self.current_observation_grid[row, col] = np.int8(value)
+            else:
+                if current > 50 or value < current:
+                    self.current_observation_grid[row, col] = np.int8(value)
 
     def refresh_cell_from_score(self, col: int, row: int) -> None:
         score = self.scores[row, col]
@@ -492,31 +518,36 @@ class MapBuilderNode(Node):
         else:
             self.grid[row, col] = np.int8(-1)
 
-    def adjust_score(self, col: int, row: int, delta: int) -> None:
+    def adjust_score(self, col: int, row: int, delta: float) -> None:
         if self.occupancy_mode != 'scored':
             return
         if 0 <= col < self.width_cells and 0 <= row < self.height_cells:
             self.observed[row, col] = True
-            updated = int(self.scores[row, col]) + delta
-            self.scores[row, col] = np.int16(min(self.score_max, max(self.score_min, updated)))
+            updated = float(self.scores[row, col]) + float(delta)
+            self.scores[row, col] = np.float32(min(float(self.score_max), max(float(self.score_min), updated)))
             self.refresh_cell_from_score(col, row)
 
-    def mark_occupied(self, col: int, row: int) -> None:
+    def mark_occupied(self, col: int, row: int, distance_m: float) -> None:
+        quality = self.range_quality(distance_m)
+        observation_value = self.current_observation_value(distance_m, occupied=True)
         for ncol, nrow in self.neighbor_cells(col, row, self.occupied_radius_cells):
-            self.set_current_observation_cell(ncol, nrow, 100)
+            self.set_current_observation_cell(ncol, nrow, observation_value)
             if self.occupancy_mode == 'direct':
                 self.observed[nrow, ncol] = True
                 self.set_cell(ncol, nrow, 100)
                 continue
-            self.adjust_score(ncol, nrow, self.hit_score_increment)
+            hit_delta = max(0.0, float(self.hit_score_increment) * quality)
+            self.adjust_score(ncol, nrow, hit_delta)
 
-    def set_free_cell(self, col: int, row: int) -> None:
-        self.set_current_observation_cell(col, row, 0)
+    def set_free_cell(self, col: int, row: int, distance_m: float) -> None:
+        self.set_current_observation_cell(col, row, self.current_observation_value(distance_m, occupied=False))
         if self.occupancy_mode == 'direct':
             self.observed[row, col] = True
             self.set_cell(col, row, 0)
             return
-        self.adjust_score(col, row, -self.free_score_decrement)
+        quality = self.range_quality(distance_m)
+        free_delta = max(0.0, float(self.free_score_decrement) * quality)
+        self.adjust_score(col, row, -free_delta)
 
     def mark_free_along_ray(
         self,
@@ -528,7 +559,10 @@ class MapBuilderNode(Node):
         for col, row in self.bresenham(start_col, start_row, end_col, end_row):
             if col == end_col and row == end_row:
                 break
-            self.set_free_cell(col, row)
+            distance_m = math.hypot(float(col - start_col), float(row - start_row)) * self.resolution
+            if self.max_free_clear_range_m > 0.0 and distance_m > self.max_free_clear_range_m:
+                break
+            self.set_free_cell(col, row, distance_m)
 
     def neighbor_cells(self, col: int, row: int, radius: int):
         for drow in range(-radius, radius + 1):
@@ -559,6 +593,29 @@ class MapBuilderNode(Node):
             if e2 <= dx:
                 err += dx
                 y += sy
+
+    def range_quality(self, distance_m: float) -> float:
+        r = max(0.0, float(distance_m))
+        near_m = self.lidar_quality_near_m
+        far_m = self.lidar_quality_far_m
+
+        if r <= near_m:
+            return 1.0
+        if r >= far_m:
+            return self.min_observation_quality
+
+        t = (r - near_m) / max(1e-6, far_m - near_m)
+        smooth = t * t * (3.0 - 2.0 * t)
+        quality = self.min_observation_quality + (1.0 - self.min_observation_quality) * (1.0 - smooth)
+        return max(self.min_observation_quality, min(1.0, quality))
+
+    def current_observation_value(self, distance_m: float, occupied: bool) -> int:
+        quality = self.range_quality(distance_m)
+        if occupied:
+            value = 50.0 + (50.0 * quality)
+        else:
+            value = 50.0 - (50.0 * quality)
+        return int(round(max(0.0, min(100.0, value))))
 
 
 def main() -> None:

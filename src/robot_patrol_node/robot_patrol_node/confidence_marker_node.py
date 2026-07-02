@@ -31,9 +31,13 @@ class ConfidenceMarkerNode(Node):
         self.declare_parameter('source_weights', [1.0])
         self.declare_parameter('output_topic', '/shared_confidence_markers')
         self.declare_parameter('marker_namespace', 'confidence')
+        self.declare_parameter('color_blending_enabled', True)
+        self.declare_parameter('dispute_overlay_enabled', True)
         self.declare_parameter('overlay_alpha', 0.95)
+        self.declare_parameter('dispute_overlay_alpha', 0.35)
         self.declare_parameter('cell_scale_z', 0.01)
         self.declare_parameter('legend_title', 'Trust Map')
+        self.declare_parameter('unknown_cells_visible', False)
         self.declare_parameter('source_occupied_threshold', 65)
         self.declare_parameter('source_free_threshold', 0)
         self.declare_parameter('occupied_confident_threshold', 70)
@@ -46,9 +50,13 @@ class ConfidenceMarkerNode(Node):
         self.source_robot_ids = [self._topic_to_robot_id(topic) for topic in self.source_map_topics]
         self.output_topic = str(self.get_parameter('output_topic').value)
         self.marker_namespace = str(self.get_parameter('marker_namespace').value)
+        self.color_blending_enabled = bool(self.get_parameter('color_blending_enabled').value)
+        self.dispute_overlay_enabled = bool(self.get_parameter('dispute_overlay_enabled').value)
         self.overlay_alpha = max(0.0, min(1.0, float(self.get_parameter('overlay_alpha').value)))
+        self.dispute_overlay_alpha = max(0.0, min(1.0, float(self.get_parameter('dispute_overlay_alpha').value)))
         self.cell_scale_z = max(0.002, float(self.get_parameter('cell_scale_z').value))
         self.legend_title = str(self.get_parameter('legend_title').value)
+        self.unknown_cells_visible = bool(self.get_parameter('unknown_cells_visible').value)
         self.source_occupied_threshold = int(self.get_parameter('source_occupied_threshold').value)
         self.source_free_threshold = int(self.get_parameter('source_free_threshold').value)
         self.occupied_confident_threshold = max(
@@ -166,7 +174,10 @@ class ConfidenceMarkerNode(Node):
 
         for index, occupancy_value in enumerate(map_msg.data):
             confidence = int(confidence_msg.data[index])
-            if confidence < 0 and int(occupancy_value) < 0:
+            occupancy_value = int(occupancy_value)
+            if occupancy_value < 0 and not self.unknown_cells_visible:
+                continue
+            if confidence < 0 and occupancy_value < 0:
                 continue
 
             contributions = self.collect_source_contributions(index, source_maps, map_msg)
@@ -181,7 +192,7 @@ class ConfidenceMarkerNode(Node):
             point.z = 0.01
             base_marker.points.append(point)
             base_marker.colors.append(cell_color)
-            if disputed:
+            if disputed and self.dispute_overlay_enabled:
                 dispute_point = Point()
                 dispute_point.x = point.x
                 dispute_point.y = point.y
@@ -303,6 +314,9 @@ class ConfidenceMarkerNode(Node):
     def blend_source_color(self, contributions: list[SourceContribution]) -> ColorRGBA:
         if not contributions:
             return self.gray_color()
+        if not self.color_blending_enabled:
+            color = self.color_for_robot(contributions[0].robot_id)
+            return ColorRGBA(r=color.r, g=color.g, b=color.b, a=1.0)
 
         total_weight = sum(contribution.weight for contribution in contributions)
         if total_weight <= 0.0:
@@ -353,7 +367,7 @@ class ConfidenceMarkerNode(Node):
 
     def dispute_overlay_color(self, confidence: int) -> ColorRGBA:
         conf = self._clamp01(float(confidence) / 100.0)
-        alpha = min(self.overlay_alpha, 0.18 + (0.42 * conf))
+        alpha = min(self.dispute_overlay_alpha, 0.18 + (0.42 * conf))
         return ColorRGBA(r=0.72, g=0.00, b=0.95, a=alpha)
 
     @staticmethod
