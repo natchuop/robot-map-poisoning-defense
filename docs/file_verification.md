@@ -114,6 +114,7 @@ Useful commands:
 
 ```bash
 ros2 topic list
+ros2 topic info /map_updates
 ros2 topic echo /map_updates --once
 ros2 topic echo /verification_receipts --once
 ros2 topic echo /trust_states --once
@@ -149,27 +150,20 @@ This test is not the full experiment. It only proves the basic simulation and vi
 
 ## 5. Fake Obstacle Injection Verification
 
-Run the fake obstacle experiment shell:
+Run the fake obstacle shared-mapping demo:
 
 ```bash
-bash scripts/run_fake_obstacle_experiment.sh --fusion-mode log_odds --map single_hallway --trial-id smoke_log_odds
-```
-
-Then repeat with:
-
-```bash
-bash scripts/run_fake_obstacle_experiment.sh --fusion-mode mate_log_odds --map single_hallway --trial-id smoke_mate
-bash scripts/run_fake_obstacle_experiment.sh --fusion-mode mate_claim_verification --map single_hallway --trial-id smoke_mate_claim
+bash scripts/runTestFakeObstacle.sh
 ```
 
 Expected behavior:
 
-- The fake obstacle injector publishes a `/map_updates` message.
+- The fake obstacle injector publishes a `robot_patrol_msgs/msg/MapUpdate` message.
 - The victim robot receives the fake occupied-cell claim.
 - The map changes differently depending on the selected fusion mode.
 - In `log_odds`, the fake obstacle should have the strongest direct effect.
-- In `mate_log_odds`, the effect should depend on the attacker's MATE trust score.
-- In `mate_claim_verification`, the fake obstacle should initially have limited influence and later be cleared, downgraded, marked suspicious, or marked disputed after verification.
+- The claim should show up in the merge-node logs as an accepted `MapUpdate`.
+- The log-odds shared map should reflect the claim instead of skipping it just because the cell was previously free.
 
 ## 6. Fusion Mode Verification
 
@@ -184,6 +178,7 @@ Expected checks:
 - No robot trust is applied.
 - No quarantine is applied.
 - Trust-specific metrics are logged as N/A or unused.
+- Fake obstacle claims are accepted through the same log-odds path as normal shared evidence.
 
 ### `mate_log_odds`
 
@@ -415,6 +410,7 @@ Check these issues first if verification fails:
 - ROS workspace was not rebuilt after message changes.
 - Webots is sending to the wrong bridge port.
 - RViz is showing an old topic name.
+- If RViz suddenly shows a blank window or WSLg "copy mode" after a reboot, run `wsl --shutdown`, reopen Docker Desktop, and then rerun `bash scripts/quick_test.sh`.
 - `/map_updates` is not publishing.
 - Claim IDs are missing or not unique.
 - Verification receipts are not being published.

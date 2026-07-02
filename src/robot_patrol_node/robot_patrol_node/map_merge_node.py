@@ -1,25 +1,28 @@
+from __future__ import annotations
+
 from copy import deepcopy
 import json
+import math
 
+import numpy as np
 from nav_msgs.msg import OccupancyGrid
+from robot_patrol_msgs.msg import MapUpdate
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
-from std_msgs.msg import String
+
+from .fusion_policy import FusionPolicy
+from .map_evidence import MapEvidence
 
 
 class MapMergeNode(Node):
-    """Merge per-robot occupancy and confidence grids into shared views."""
+    """Fuse robot maps and shared claims into a log-odds belief map."""
 
     def __init__(self) -> None:
         super().__init__('map_merge')
 
         self.declare_parameter('all_robot_ids', ['robot_1', 'robot_2'])
         self.declare_parameter('input_map_topics', ['/robot_1/live_map', '/robot_2/live_map'])
-        self.declare_parameter(
-            'input_confidence_topics',
-            ['/robot_1/confidence_map', '/robot_2/confidence_map'],
-        )
         self.declare_parameter('shared_map_topic', '')
         self.declare_parameter('shared_confidence_topic', '')
         self.declare_parameter('output_map_topic', '/shared_live_map')
@@ -27,56 +30,46 @@ class MapMergeNode(Node):
         self.declare_parameter('view_robot_id', 'robot_1')
         self.declare_parameter('trust_table_json', '{}')
         self.declare_parameter('map_updates_topic', '/map_updates')
+        self.declare_parameter('fusion_mode', 'log_odds')
+        self.declare_parameter('logodds_occ', 0.85)
+        self.declare_parameter('logodds_free', -0.35)
+        self.declare_parameter('logodds_min', -4.0)
+        self.declare_parameter('logodds_max', 4.0)
+        self.declare_parameter('occupied_probability_threshold', 0.60)
+        self.declare_parameter('free_probability_threshold', 0.40)
+        self.declare_parameter('occupied_input_threshold', 65)
         self.declare_parameter('fake_report_radius_cells', 2)
-        self.declare_parameter('confidence_weights', [1.0, 1.0])
-        self.declare_parameter('confidence_visual_gamma', 2.2)
-        self.declare_parameter('confidence_visual_min', 0)
+        self.declare_parameter('fake_claim_logodds_multiplier', 1.5)
+        self.declare_parameter('suppress_attacker_self_free_evidence', True)
 
         self.view_robot_id = str(self.get_parameter('view_robot_id').value).strip() or 'robot_1'
         self.all_robot_ids = self._normalize_string_list(self.get_parameter('all_robot_ids').value)
         if self.view_robot_id not in self.all_robot_ids:
             self.all_robot_ids.append(self.view_robot_id)
 
-        self.input_map_topics = self._resolve_topic_list(
-            'input_map_topics',
-            suffix='live_map',
-        )
-        self.input_confidence_topics = self._resolve_topic_list(
-            'input_confidence_topics',
-            suffix='confidence_map',
-        )
-        self.shared_map_topic = self._resolve_topic(
-            'shared_map_topic',
-            'output_map_topic',
-            f'/{self.view_robot_id}/shared_live_map',
-        )
+        self.input_map_topics = self._resolve_topic_list('input_map_topics', suffix='live_map')
+        self.shared_map_topic = self._resolve_topic('shared_map_topic', 'output_map_topic', f'/{self.view_robot_id}/shared_live_map')
         self.shared_confidence_topic = self._resolve_topic(
             'shared_confidence_topic',
             'output_confidence_topic',
             f'/{self.view_robot_id}/shared_confidence_map',
         )
         self.map_updates_topic = str(self.get_parameter('map_updates_topic').value).strip() or '/map_updates'
-        self.fake_report_radius_cells = max(0, int(self.get_parameter('fake_report_radius_cells').value))
+        self.fusion_mode = str(self.get_parameter('fusion_mode').value).strip() or 'log_odds'
+        self.logodds_occ = float(self.get_parameter('logodds_occ').value)
+        self.logodds_free = float(self.get_parameter('logodds_free').value)
+        self.logodds_min = float(self.get_parameter('logodds_min').value)
+        self.logodds_max = float(self.get_parameter('logodds_max').value)
+        self.occupied_probability_threshold = float(self.get_parameter('occupied_probability_threshold').value)
+        self.free_probability_threshold = float(self.get_parameter('free_probability_threshold').value)
+        self.occupied_input_threshold = int(self.get_parameter('occupied_input_threshold').value)
+        self.fake_report_radius_cells = int(self.get_parameter('fake_report_radius_cells').value)
+        self.fake_claim_logodds_multiplier = float(self.get_parameter('fake_claim_logodds_multiplier').value)
+        self.suppress_attacker_self_free_evidence = bool(
+            self.get_parameter('suppress_attacker_self_free_evidence').value
+        )
         self.trust_table = self._parse_trust_table(self.get_parameter('trust_table_json').value)
-        self.confidence_visual_gamma = max(
-            0.1,
-            float(self.get_parameter('confidence_visual_gamma').value),
-        )
-        self.confidence_visual_min = max(
-            0,
-            min(100, int(self.get_parameter('confidence_visual_min').value)),
-        )
-        self.confidence_weights = [
-            max(0.0, min(1.0, float(value)))
-            for value in self._normalize_numeric_list(self.get_parameter('confidence_weights').value)
-        ]
-        self.confidence_weights = self._derive_confidence_weights(self.confidence_weights)
-        if self.input_confidence_topics and len(self.confidence_weights) < len(self.input_confidence_topics):
-            self.confidence_weights.extend(
-                [1.0] * (len(self.input_confidence_topics) - len(self.confidence_weights))
-            )
-        elif len(self.confidence_weights) > len(self.input_confidence_topics):
-            self.confidence_weights = self.confidence_weights[:len(self.input_confidence_topics)]
+        self.fusion_policy = FusionPolicy(self.fusion_mode)
 
         map_qos = QoSProfile(depth=1)
         map_qos.reliability = ReliabilityPolicy.RELIABLE
@@ -85,10 +78,8 @@ class MapMergeNode(Node):
         updates_qos.reliability = ReliabilityPolicy.RELIABLE
         updates_qos.durability = DurabilityPolicy.VOLATILE
 
-        self.map_messages = {}
-        self.confidence_messages = {}
-        self.fake_reports = []
-        self.fake_report_keys = set()
+        self.local_maps: dict[str, OccupancyGrid] = {}
+        self.active_claims: dict[str, MapEvidence] = {}
         self.topic_subscriptions = []
 
         for topic in self.input_map_topics:
@@ -101,19 +92,9 @@ class MapMergeNode(Node):
                 )
             )
 
-        for topic in self.input_confidence_topics:
-            self.topic_subscriptions.append(
-                self.create_subscription(
-                    OccupancyGrid,
-                    topic,
-                    lambda msg, topic_name=topic: self.confidence_callback(topic_name, msg),
-                    map_qos,
-                )
-            )
-
         self.topic_subscriptions.append(
             self.create_subscription(
-                String,
+                MapUpdate,
                 self.map_updates_topic,
                 self.map_update_callback,
                 updates_qos,
@@ -121,22 +102,16 @@ class MapMergeNode(Node):
         )
 
         self.map_pub = self.create_publisher(OccupancyGrid, self.shared_map_topic, map_qos)
-        self.confidence_pub = self.create_publisher(
-            OccupancyGrid,
-            self.shared_confidence_topic,
-            map_qos,
-        )
+        self.confidence_pub = self.create_publisher(OccupancyGrid, self.shared_confidence_topic, map_qos)
 
         self.get_logger().info(
             'Map merge ready: '
             f'view={self.view_robot_id} '
-            f'all_robot_ids={self.all_robot_ids} '
+            f'mode={self.fusion_mode} '
             f'maps={self.input_map_topics} -> {self.shared_map_topic}; '
-            f'confidence={self.input_confidence_topics} -> {self.shared_confidence_topic}; '
+            f'confidence={self.shared_confidence_topic}; '
             f'updates={self.map_updates_topic}; '
-            f'fake_radius={self.fake_report_radius_cells}; '
-            f'weights={", ".join(f"{weight:.2f}" for weight in self.confidence_weights)}; '
-            f'gamma={self.confidence_visual_gamma:.2f}'
+            f'active_claims=0'
         )
 
     @staticmethod
@@ -149,17 +124,6 @@ class MapMergeNode(Node):
             parts = raw_value.split(',')
             return [part.strip() for part in parts if part.strip()]
         return [str(raw_value).strip()]
-
-    @staticmethod
-    def _normalize_numeric_list(raw_value) -> list[float]:
-        if isinstance(raw_value, (list, tuple, set)):
-            return [float(value) for value in raw_value]
-        if raw_value is None:
-            return []
-        if isinstance(raw_value, str):
-            parts = [part.strip() for part in raw_value.split(',') if part.strip()]
-            return [float(part) for part in parts]
-        return [float(raw_value)]
 
     @staticmethod
     def _parse_trust_table(raw_value) -> dict:
@@ -176,31 +140,6 @@ class MapMergeNode(Node):
             if isinstance(parsed, dict):
                 return parsed
         return {}
-
-    def _derive_confidence_weights(self, fallback_weights: list[float]) -> list[float]:
-        if not self.all_robot_ids:
-            return list(fallback_weights)
-
-        derived_weights: list[float] = []
-        for robot_id in self.all_robot_ids:
-            if robot_id == self.view_robot_id:
-                derived_weights.append(1.0)
-                continue
-
-            trust_entry = self.trust_table.get(robot_id, {})
-            if isinstance(trust_entry, dict):
-                trust_value = trust_entry.get('trust', None)
-            else:
-                trust_value = None
-
-            try:
-                derived_weights.append(max(0.0, min(1.0, float(trust_value))))
-            except (TypeError, ValueError):
-                derived_weights.append(fallback_weights[len(derived_weights)] if len(fallback_weights) > len(derived_weights) else 1.0)
-
-        if derived_weights:
-            return derived_weights
-        return list(fallback_weights)
 
     def _resolve_topic(self, preferred_parameter: str, legacy_parameter: str, default_topic: str) -> str:
         preferred_value = str(self.get_parameter(preferred_parameter).value).strip()
@@ -219,296 +158,276 @@ class MapMergeNode(Node):
             return topics
         return [f'/{robot_id}/{suffix}' for robot_id in self.all_robot_ids]
 
+    @staticmethod
+    def _topic_to_robot_id(topic: str) -> str:
+        parts = [part for part in str(topic).split('/') if part]
+        if len(parts) >= 2:
+            return parts[-2]
+        return str(topic).strip('/') or 'robot'
+
     def map_callback(self, topic_name: str, msg: OccupancyGrid) -> None:
-        self.map_messages[topic_name] = msg
+        robot_id = self._topic_to_robot_id(topic_name)
+        self.local_maps[robot_id] = msg
         self.publish_merged_map()
 
-    def confidence_callback(self, topic_name: str, msg: OccupancyGrid) -> None:
-        self.confidence_messages[topic_name] = msg
-        self.publish_merged_confidence()
+    def map_update_callback(self, msg: MapUpdate) -> None:
+        if str(msg.target_robot_id).strip() and str(msg.target_robot_id).strip() != self.view_robot_id:
+            return
+
+        stamp_sec = float(msg.stamp.sec) + float(msg.stamp.nanosec) * 1e-9
+        claim_id = str(msg.claim_id).strip()
+        if not claim_id:
+            claim_id = (
+                f'{msg.reporting_robot_id}_{msg.target_robot_id}_'
+                f'{msg.world_x:.3f}_{msg.world_y:.3f}_{stamp_sec:.6f}'
+            )
+
+        evidence = MapEvidence(
+            claim_id=claim_id,
+            reporting_robot_id=str(msg.reporting_robot_id).strip() or 'unknown',
+            target_robot_id=str(msg.target_robot_id).strip(),
+            cell_x=int(msg.cell_x),
+            cell_y=int(msg.cell_y),
+            world_x=float(msg.world_x),
+            world_y=float(msg.world_y),
+            occupied=bool(msg.occupied),
+            source=str(msg.source).strip(),
+            attack_type=str(msg.attack_type).strip(),
+            is_attack_report=bool(msg.is_attack_report),
+            stamp_sec=stamp_sec,
+        )
+
+        if evidence.claim_id in self.active_claims:
+            self.get_logger().info(f'[{self.view_robot_id}] ignored duplicate claim_id={evidence.claim_id}')
+            return
+
+        self.active_claims[evidence.claim_id] = evidence
+        self.get_logger().info(
+            f'[{self.view_robot_id}] accepted MapUpdate claim_id={evidence.claim_id} '
+            f'from {evidence.reporting_robot_id} target={evidence.target_robot_id or "all"} '
+            f'occupied={evidence.occupied} world=({evidence.world_x:.3f}, {evidence.world_y:.3f})'
+        )
+        self.publish_merged_map()
 
     def publish_merged_map(self) -> None:
-        merged = self.merge_messages(
-            [self.map_messages.get(topic) for topic in self.input_map_topics],
-            lambda values: self.merge_occupancy_values(values, self.confidence_weights),
-        )
+        merged = self.create_reference_grid_from_local_maps()
         if merged is None:
             return
 
-        self.apply_fake_reports(merged)
+        height = int(merged.info.height)
+        width = int(merged.info.width)
+        if height <= 0 or width <= 0:
+            return
+
+        log_odds = np.zeros((height, width), dtype=np.float32)
+        observed = np.zeros((height, width), dtype=bool)
+
+        self.apply_local_maps_to_log_odds(log_odds, observed, merged.info)
+        self.apply_active_claims_to_log_odds(log_odds, observed, merged.info)
+
+        log_odds = np.clip(log_odds, self.logodds_min, self.logodds_max)
+        merged.data = self.log_odds_to_grid_data(log_odds, observed)
+
+        confidence = self.build_confidence_grid(merged, log_odds, observed)
+
         self.map_pub.publish(merged)
-        self.get_logger().info(f'[{self.view_robot_id}] published {self.shared_map_topic}')
-
-    def publish_merged_confidence(self) -> None:
-        if not self.input_confidence_topics:
-            return
-
-        confidence_messages = [
-            self.confidence_messages.get(topic)
-            for topic in self.input_confidence_topics
-        ]
-        merged = self.merge_messages(
-            confidence_messages,
-            lambda values: self.merge_confidence_values(values, self.confidence_weights),
+        self.confidence_pub.publish(confidence)
+        self.get_logger().info(
+            f'[{self.view_robot_id}] published log_odds shared map '
+            f'active_claims={len(self.active_claims)} local_maps={len(self.local_maps)}'
         )
-        if merged is None:
-            return
 
-        self.confidence_pub.publish(merged)
-        self.get_logger().info(f'[{self.view_robot_id}] published {self.shared_confidence_topic}')
-
-    def merge_messages(self, messages, merge_value_fn):
-        ready_messages = [msg for msg in messages if msg is not None]
-        if not ready_messages:
+    def create_reference_grid_from_local_maps(self) -> OccupancyGrid | None:
+        ready_maps = [(robot_id, msg) for robot_id, msg in self.local_maps.items() if msg is not None]
+        if not ready_maps:
             return None
 
-        reference = ready_messages[0]
-        width = int(reference.info.width)
-        height = int(reference.info.height)
-        resolution = float(reference.info.resolution)
-        origin_x = float(reference.info.origin.position.x)
-        origin_y = float(reference.info.origin.position.y)
-
-        for msg in ready_messages[1:]:
-            if (
-                int(msg.info.width) != width
-                or int(msg.info.height) != height
-                or abs(float(msg.info.resolution) - resolution) > 1e-9
-                or abs(float(msg.info.origin.position.x) - origin_x) > 1e-6
-                or abs(float(msg.info.origin.position.y) - origin_y) > 1e-6
-            ):
+        reference_robot_id, reference = ready_maps[0]
+        for robot_id, msg in ready_maps[1:]:
+            if not self.same_geometry(reference.info, msg.info):
                 self.get_logger().warning(
-                    'Skipped merge because map geometries differ; keep map sizes/origins aligned.'
+                    f'[{self.view_robot_id}] skipped merge because map geometries differ: '
+                    f'{reference_robot_id} vs {robot_id}'
                 )
                 return None
 
         merged = OccupancyGrid()
         merged.header = deepcopy(reference.header)
+        merged.header.stamp = self.get_clock().now().to_msg()
         merged.info = deepcopy(reference.info)
-        merged.data = [merge_value_fn(values) for values in zip(*(msg.data for msg in ready_messages))]
+        merged.data = [-1] * (int(merged.info.width) * int(merged.info.height))
         return merged
 
-    def merge_occupancy_values(self, values, weights) -> int:
-        weighted_values = []
-        for index, value in enumerate(values):
-            numeric_value = int(value)
-            if numeric_value < 0:
-                continue
-            weight = weights[index] if index < len(weights) else 1.0
-            weighted_values.append((weight, numeric_value))
-
-        if not weighted_values:
-            return -1
-
-        best_weight = max(weight for weight, _value in weighted_values)
-        best_values = [value for weight, value in weighted_values if abs(weight - best_weight) <= 1e-9]
-        if any(value == 0 for value in best_values):
-            return 0
-        if any(value >= 65 for value in best_values):
-            return 100
-        return max(best_values)
-
-    def merge_confidence_values(self, values, weights) -> int:
-        weighted_values = []
-        for index, value in enumerate(values):
-            numeric_value = int(value)
-            if numeric_value < 0:
-                continue
-            weight = weights[index] if index < len(weights) else 1.0
-            if numeric_value == 0 or weight <= 0.0:
-                weighted_values.append(0)
+    def apply_local_maps_to_log_odds(self, log_odds, observed, info) -> None:
+        for robot_id, local_map in self.local_maps.items():
+            if local_map is None:
                 continue
 
-            contrasted_weight = pow(weight, self.confidence_visual_gamma)
-            contrasted_value = max(
-                self.confidence_visual_min,
-                int(round(numeric_value * contrasted_weight)),
-            )
-            weighted_values.append(contrasted_value)
-        if not weighted_values:
-            return -1
-        return max(0, min(100, max(weighted_values)))
+            weight = self.fusion_policy.weight_for_local_map(robot_id, self.view_robot_id)
+            if weight <= 0.0:
+                continue
 
-    def map_update_callback(self, msg: String) -> None:
-        self.get_logger().info(f'[{self.view_robot_id}] received /map_updates payload={msg.data}')
+            src_width = int(local_map.info.width)
+            src_height = int(local_map.info.height)
+            if src_width <= 0 or src_height <= 0:
+                continue
 
-        try:
-            payload = json.loads(msg.data)
-        except json.JSONDecodeError:
-            self.get_logger().warning(f'[{self.view_robot_id}] ignored malformed /map_updates JSON payload.')
-            return
+            for src_index, raw_value in enumerate(local_map.data):
+                value = int(raw_value)
+                if value < 0:
+                    continue
 
-        if not isinstance(payload, dict):
-            self.get_logger().warning(f'[{self.view_robot_id}] ignored /map_updates payload that was not a JSON object.')
-            return
+                src_x = src_index % src_width
+                src_y = src_index // src_width
+                world_x, world_y = self.cell_to_world(local_map.info, src_x, src_y)
+                dst_x, dst_y = self.world_to_cell(info, world_x, world_y)
 
-        if payload.get('type') != 'fake_obstacle':
-            return
+                if not self.cell_in_bounds(info, dst_x, dst_y):
+                    continue
 
-        reporting_robot = str(payload.get('reporting_robot', '')).strip() or 'unknown'
-        target_robot = str(payload.get('target_robot', '')).strip() or 'all'
-        self.get_logger().info(
-            f'[{self.view_robot_id}] received /map_updates from {reporting_robot} '
-            f'target_robot={target_robot}'
-        )
+                if value >= self.occupied_input_threshold:
+                    delta = weight * self.logodds_occ
+                elif value == 0:
+                    if self.should_suppress_local_free_evidence(robot_id, dst_x, dst_y, info):
+                        continue
+                    delta = weight * self.logodds_free
+                else:
+                    continue
 
-        if reporting_robot == self.view_robot_id:
-            self.get_logger().info(f'[{self.view_robot_id}] ignoring own report.')
-            return
+                log_odds[dst_y, dst_x] += delta
+                observed[dst_y, dst_x] = True
 
-        if target_robot != self.view_robot_id:
+    def apply_active_claims_to_log_odds(self, log_odds, observed, info) -> None:
+        for evidence in self.active_claims.values():
+            weight = self.fusion_policy.weight_for_claim(evidence, self.view_robot_id)
+            if weight <= 0.0:
+                continue
+
+            if evidence.cell_x >= 0 and evidence.cell_y >= 0:
+                center_x = evidence.cell_x
+                center_y = evidence.cell_y
+            else:
+                center_x, center_y = self.world_to_cell(info, evidence.world_x, evidence.world_y)
+
+            if not self.cell_in_bounds(info, center_x, center_y):
+                continue
+
+            if evidence.occupied:
+                delta = weight * self.logodds_occ * self.fake_claim_logodds_multiplier
+            else:
+                delta = weight * self.logodds_free
+
+            radius = max(0, int(self.fake_report_radius_cells))
+            for y in range(max(0, center_y - radius), min(int(info.height), center_y + radius + 1)):
+                for x in range(max(0, center_x - radius), min(int(info.width), center_x + radius + 1)):
+                    if (x - center_x) ** 2 + (y - center_y) ** 2 > radius ** 2:
+                        continue
+                    log_odds[y, x] += delta
+                    observed[y, x] = True
+
             self.get_logger().info(
-                f'[{self.view_robot_id}] ignoring report for target_robot={target_robot}'
+                f'[{self.view_robot_id}] applied claim_id={evidence.claim_id} '
+                f'delta={delta:.3f} radius={radius}'
             )
-            return
 
-        report = self._normalize_fake_report(payload)
-        if report is None:
-            self.get_logger().warning(
-                f'[{self.view_robot_id}] ignored /map_updates payload missing usable coordinates.'
-            )
-            return
+    def should_suppress_local_free_evidence(self, robot_id: str, cell_x: int, cell_y: int, info) -> bool:
+        if not self.suppress_attacker_self_free_evidence:
+            return False
 
-        report_key = json.dumps(report, sort_keys=True, separators=(',', ':'))
-        if report_key in self.fake_report_keys:
-            self.get_logger().info(
-                f'[{self.view_robot_id}] duplicate fake report ignored for reporting_robot={report["reporting_robot"]}'
-            )
-            return
+        for evidence in self.active_claims.values():
+            if evidence.reporting_robot_id != robot_id:
+                continue
+            if evidence.target_robot_id and evidence.target_robot_id != self.view_robot_id:
+                continue
+            if not evidence.occupied:
+                continue
 
-        self.fake_report_keys.add(report_key)
-        self.fake_reports.append(report)
-        coordinate_label = (
-            f'world=({report["x"]:.3f}, {report["y"]:.3f})'
-            if 'x' in report
-            else f'cell=({report["cell_x"]}, {report["cell_y"]})'
+            if evidence.cell_x >= 0 and evidence.cell_y >= 0:
+                center_x = evidence.cell_x
+                center_y = evidence.cell_y
+            else:
+                center_x, center_y = self.world_to_cell(info, evidence.world_x, evidence.world_y)
+
+            radius = max(0, int(self.fake_report_radius_cells))
+            if (cell_x - center_x) ** 2 + (cell_y - center_y) ** 2 <= radius ** 2:
+                self.get_logger().debug(
+                    f'[{self.view_robot_id}] suppressed FREE local evidence from {robot_id} '
+                    f'at cell=({cell_x}, {cell_y}) due to active claim_id={evidence.claim_id}'
+                )
+                return True
+
+        return False
+
+    @staticmethod
+    def cell_to_world(info, cell_x: int, cell_y: int) -> tuple[float, float]:
+        return (
+            info.origin.position.x + (cell_x + 0.5) * info.resolution,
+            info.origin.position.y + (cell_y + 0.5) * info.resolution,
         )
-        self.get_logger().warning(
-            f'[{self.view_robot_id}] ACCEPTED fake report from {report["reporting_robot"]} '
-            f'target_robot={report["target_robot"]} {coordinate_label}'
-        )
-        self.publish_merged_map()
 
-    def _normalize_fake_report(self, payload: dict) -> dict | None:
-        reporting_robot = str(payload.get('reporting_robot', '')).strip() or 'unknown'
-        target_robot = str(payload.get('target_robot', '')).strip() or self.view_robot_id
-        occupied = bool(payload.get('occupied', True))
-        frame_id = str(payload.get('frame_id', 'map')).strip() or 'map'
-        source = str(payload.get('source', 'fake_obstacle')).strip() or 'fake_obstacle'
-        timestamp = payload.get('timestamp')
-
-        if 'cell_x' in payload and 'cell_y' in payload:
-            try:
-                cell_x = int(payload['cell_x'])
-                cell_y = int(payload['cell_y'])
-            except (TypeError, ValueError):
-                return None
-            return {
-                'reporting_robot': reporting_robot,
-                'target_robot': target_robot,
-                'occupied': occupied,
-                'cell_x': cell_x,
-                'cell_y': cell_y,
-                'frame_id': frame_id,
-                'source': source,
-                'timestamp': timestamp,
-            }
-
-        if 'x' not in payload or 'y' not in payload:
-            return None
-
-        try:
-            obstacle_x = float(payload['x'])
-            obstacle_y = float(payload['y'])
-        except (TypeError, ValueError):
-            return None
-
-        return {
-            'reporting_robot': reporting_robot,
-            'target_robot': target_robot,
-            'occupied': occupied,
-            'x': obstacle_x,
-            'y': obstacle_y,
-            'frame_id': frame_id,
-            'source': source,
-            'timestamp': timestamp,
-        }
-
-    def _resolve_fake_report_cell(self, merged: OccupancyGrid, report: dict) -> tuple[int, int] | None:
-        width = int(merged.info.width)
-        height = int(merged.info.height)
-        if width <= 0 or height <= 0:
-            return None
-
-        if 'cell_x' in report and 'cell_y' in report:
-            cell_x = int(report['cell_x'])
-            cell_y = int(report['cell_y'])
-        else:
-            resolution = float(merged.info.resolution)
-            origin_x = float(merged.info.origin.position.x)
-            origin_y = float(merged.info.origin.position.y)
-            cell_x = int((float(report['x']) - origin_x) / resolution)
-            cell_y = int((float(report['y']) - origin_y) / resolution)
-
-        if cell_x < 0 or cell_y < 0 or cell_x >= width or cell_y >= height:
-            self.get_logger().warning(
-                f'[{self.view_robot_id}] fake obstacle outside map bounds: '
-                f'cell=({cell_x}, {cell_y}) size={width}x{height}'
-            )
-            return None
-
+    @staticmethod
+    def world_to_cell(info, world_x: float, world_y: float) -> tuple[int, int]:
+        cell_x = int((world_x - info.origin.position.x) / info.resolution)
+        cell_y = int((world_y - info.origin.position.y) / info.resolution)
         return cell_x, cell_y
 
-    def apply_fake_reports(self, merged: OccupancyGrid) -> None:
-        if not self.fake_reports:
-            return
+    @staticmethod
+    def cell_in_bounds(info, cell_x: int, cell_y: int) -> bool:
+        return 0 <= cell_x < int(info.width) and 0 <= cell_y < int(info.height)
 
-        remaining_reports = []
-        for report in self.fake_reports:
-            resolved_cell = self._resolve_fake_report_cell(merged, report)
-            if resolved_cell is None:
-                continue
+    def log_odds_to_probability(self, value: float) -> float:
+        return 1.0 / (1.0 + math.exp(-float(value)))
 
-            cell_x, cell_y = resolved_cell
-            width = int(merged.info.width)
-            height = int(merged.info.height)
-            if width <= 0 or height <= 0:
-                return
+    def log_odds_to_grid_data(self, log_odds, observed) -> list[int]:
+        height, width = log_odds.shape
+        data = []
 
-            index = (cell_y * width) + cell_x
-            if 0 <= index < len(merged.data) and int(merged.data[index]) == 0:
-                self.get_logger().info(
-                    f'[{self.view_robot_id}] skipping stale fake obstacle at cell=({cell_x}, {cell_y}) '
-                    f'because real evidence has cleared it'
-                )
-                continue
+        for y in range(height):
+            for x in range(width):
+                if not observed[y, x]:
+                    data.append(-1)
+                    continue
 
-            remaining_reports.append(report)
-            coordinate_label = (
-                f'world=({report["x"]:.3f}, {report["y"]:.3f})'
-                if 'x' in report
-                else f'cell=({report["cell_x"]}, {report["cell_y"]})'
-            )
-            self.get_logger().info(
-                f'[{self.view_robot_id}] painting fake obstacle cell=({cell_x}, {cell_y}) '
-                f'radius={self.fake_report_radius_cells} {coordinate_label} '
-                f'source={report["reporting_robot"]}->{report["target_robot"]}'
-            )
+                p_occ = self.log_odds_to_probability(log_odds[y, x])
+                # Store the belief as a 0-100 occupancy score so RViz can show conflict as shading.
+                data.append(int(round(self._clamp01(p_occ) * 100.0)))
 
-            for row in range(
-                max(0, cell_y - self.fake_report_radius_cells),
-                min(height, cell_y + self.fake_report_radius_cells + 1),
-            ):
-                for col in range(
-                    max(0, cell_x - self.fake_report_radius_cells),
-                    min(width, cell_x + self.fake_report_radius_cells + 1),
-                ):
-                    if (col - cell_x) ** 2 + (row - cell_y) ** 2 > self.fake_report_radius_cells ** 2:
-                        continue
-                    index = (row * width) + col
-                    merged.data[index] = 100 if report['occupied'] else 0
+        return data
 
-        self.fake_reports = remaining_reports
+    def build_confidence_grid(self, merged: OccupancyGrid, log_odds, observed) -> OccupancyGrid:
+        confidence = OccupancyGrid()
+        confidence.header = deepcopy(merged.header)
+        confidence.info = deepcopy(merged.info)
+
+        data = []
+        denom = max(abs(self.logodds_min), abs(self.logodds_max), 1e-6)
+
+        height, width = log_odds.shape
+        for y in range(height):
+            for x in range(width):
+                if not observed[y, x]:
+                    data.append(-1)
+                    continue
+                # Confidence is strongest when the cell is far from the neutral log-odds point.
+                conf = int(min(100.0, abs(float(log_odds[y, x])) / denom * 100.0))
+                data.append(conf)
+
+        confidence.data = data
+        return confidence
+
+    @staticmethod
+    def _clamp01(value: float) -> float:
+        return max(0.0, min(1.0, float(value)))
+
+    @staticmethod
+    def same_geometry(first, second) -> bool:
+        return (
+            int(first.width) == int(second.width)
+            and int(first.height) == int(second.height)
+            and abs(float(first.resolution) - float(second.resolution)) <= 1e-9
+            and abs(float(first.origin.position.x) - float(second.origin.position.x)) <= 1e-6
+            and abs(float(first.origin.position.y) - float(second.origin.position.y)) <= 1e-6
+        )
 
 
 def main() -> None:

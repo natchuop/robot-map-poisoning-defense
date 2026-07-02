@@ -21,14 +21,16 @@ The current experiment plan compares three trust and confidence systems/methods:
 
 `log_odds` treats all robot reports as fully trusted. `mate_log_odds` uses MATE-style Bayesian robot trust with optional trust propagation, but still performs simple trust-weighted log-odds fusion. `mate_claim_verification` extends MATE with claim-level weights, occupied/free evidence layers, suspicious/disputed states, and quarantine.
 
+The Method 1 baseline is now implemented as the real full-trust log-odds path. It uses claim-based `MapUpdate` messages, stores active claims by `claim_id`, and rebuilds each shared map from local evidence plus active claims on every publish.
+
 The main research question is whether decentralized MATE-based trust-weighted map fusion can reduce the effects of map-poisoning attacks on navigation and final map accuracy.
 
 The current shared-mapping baseline uses:
 
 - per-robot live maps and confidence maps
-- a MATE-style trust-weighted merged shared map per robot
+- a log-odds shared map per robot with claim-based fake-obstacle fusion
 - per-robot RViz windows for shared live maps and confidence overlays
-- temporary fake obstacle injections that are meant to clear when real LiDAR evidence wins
+- temporary fake obstacle injections published as `MapUpdate` claims that can later be cleared by real LiDAR evidence
 
 The docs also describe the longer-term defense flow:
 
@@ -176,6 +178,6 @@ with `small_maze` and `random_sandbox` as later optional stress tests.
 - `runOffice.sh` starts the office world at `(-4.35, -5.35, 0.00464)` and publishes that configured AMCL initial pose instead of assuming the robot starts at the origin.
 - `runConfusingMaze.sh` starts the maze world at `(-3.5, -3.5, 0.0)` and generates `webots/worlds/confusingMaze/amcl_map/confusing_maze.yaml`.
 - `runSandbox.sh` starts the sandbox world at `(2.0, 2.0, 0.0)` and generates `webots/worlds/sandbox/amcl_map/sandbox.yaml`.
-- `runTestFakeObstacle.sh` starts `webots/worlds/TestFakeObstacle/TestFakeObstacle.wbt`, generates a static map from that world, and launches the two-robot shared-mapping stack with the fake-obstacle injector enabled.
+- `runTestFakeObstacle.sh` starts `webots/worlds/TestFakeObstacle/TestFakeObstacle.wbt`, generates a static map from that world, and launches the two-robot shared-mapping stack with the claim-based fake-obstacle injector enabled.
 - The Docker bridge listens on TCP and UDP port `5005`, publishes `/robot_pose`, `/scan`, and `/odom`, and forwards `/cmd_vel` plus checkpoint feedback topics between ROS and Webots.
 - The docs' longer-term goal is to extend that bridge and map flow with MATE-style trust distributions, optional trust propagation, claim verification, map-cell confidence, and quarantine logic.

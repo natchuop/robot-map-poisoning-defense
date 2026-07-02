@@ -42,7 +42,7 @@ The project compares three map-fusion models. The comparison is designed to sepa
 
 ### Model 1: Log-Odds Baseline with Full Trust
 
-This is the standard occupancy-grid/log-odds baseline. It uses a normal map update and effectively gives every robot 100% trust.
+This baseline is implemented now. It uses claim-based `MapUpdate` messages, full trust for every robot, and a shared-map fusion path that rebuilds the log-odds grid from local evidence plus active claims on each publish.
 
 Each cell stores a log-odds occupancy value:
 
@@ -442,7 +442,7 @@ In a fake obstacle attack, a compromised robot reports that a free cell is occup
 }
 ```
 
-The attack goal is to make other robots reroute, get stuck, delay checkpoint completion, or mark free space as blocked.
+The attack goal is to make other robots reroute, get stuck, delay checkpoint completion, or mark free space as blocked. In the current implementation, the fake obstacle is published as a `MapUpdate` claim with `claim_id` and `target_robot_id`, then fused into the receiver's shared map through the log-odds pipeline.
 
 Fake clearing should be mentioned as future or secondary work. In a fake-clearing attack, the malicious robot reports a real occupied cell as free. This is important because it can cause collisions, but it adds complexity because the experiment must carefully place real obstacles and detect collisions or unsafe clearance. The first version can focus on fake obstacles and include fake clearing as a later extension.
 
