@@ -389,13 +389,8 @@ class MapMergeNode(Node):
                     continue
 
                 p_occ = self.log_odds_to_probability(log_odds[y, x])
-
-                if p_occ >= self.occupied_probability_threshold:
-                    data.append(100)
-                elif p_occ <= self.free_probability_threshold:
-                    data.append(0)
-                else:
-                    data.append(-1)
+                # Store the belief as a 0-100 occupancy score so RViz can show conflict as shading.
+                data.append(int(round(self._clamp01(p_occ) * 100.0)))
 
         return data
 
@@ -413,11 +408,16 @@ class MapMergeNode(Node):
                 if not observed[y, x]:
                     data.append(-1)
                     continue
+                # Confidence is strongest when the cell is far from the neutral log-odds point.
                 conf = int(min(100.0, abs(float(log_odds[y, x])) / denom * 100.0))
                 data.append(conf)
 
         confidence.data = data
         return confidence
+
+    @staticmethod
+    def _clamp01(value: float) -> float:
+        return max(0.0, min(1.0, float(value)))
 
     @staticmethod
     def same_geometry(first, second) -> bool:

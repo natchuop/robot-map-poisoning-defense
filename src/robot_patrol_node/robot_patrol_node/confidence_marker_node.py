@@ -266,7 +266,7 @@ class ConfidenceMarkerNode(Node):
 
     def color_for_cell(self, occupancy: int, confidence: int, source_index: int, source_value: int, disputed: bool) -> ColorRGBA:
         if disputed:
-            return self.with_confidence(self.purple_color(), confidence)
+            return self.with_confidence(self.purple_color(), confidence, disputed=True)
 
         if occupancy < 0:
             return self.gray_color()
@@ -331,15 +331,28 @@ class ConfidenceMarkerNode(Node):
         key = sum(ord(char) for char in robot_id)
         return palette[key % len(palette)]
 
-    def with_confidence(self, color: ColorRGBA, confidence: int, occupied: bool = False) -> ColorRGBA:
+    def with_confidence(
+        self,
+        color: ColorRGBA,
+        confidence: int,
+        occupied: bool = False,
+        disputed: bool = False,
+    ) -> ColorRGBA:
         conf = self._clamp01(float(confidence) / 100.0)
-        alpha_base = 0.22 if occupied else 0.14
-        alpha = min(self.overlay_alpha, alpha_base + (0.78 * conf))
-        saturation_boost = 0.65 + (0.35 * conf)
+        alpha_base = 0.22 if disputed else (0.24 if occupied else 0.16)
+        alpha = min(self.overlay_alpha, alpha_base + (0.76 * conf))
+
+        if disputed:
+            brightness = 0.22 + (0.58 * conf)
+        elif occupied:
+            brightness = 0.28 + (0.72 * conf)
+        else:
+            brightness = 0.42 + (0.58 * conf)
+
         return ColorRGBA(
-            r=self._clamp01(color.r * saturation_boost),
-            g=self._clamp01(color.g * saturation_boost),
-            b=self._clamp01(color.b * saturation_boost),
+            r=self._clamp01(color.r * brightness),
+            g=self._clamp01(color.g * brightness),
+            b=self._clamp01(color.b * brightness),
             a=alpha,
         )
 

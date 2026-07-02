@@ -410,6 +410,7 @@ Check these issues first if verification fails:
 - ROS workspace was not rebuilt after message changes.
 - Webots is sending to the wrong bridge port.
 - RViz is showing an old topic name.
+- If RViz suddenly shows a blank window or WSLg "copy mode" after a reboot, run `wsl --shutdown`, reopen Docker Desktop, and then rerun `bash scripts/quick_test.sh`.
 - `/map_updates` is not publishing.
 - Claim IDs are missing or not unique.
 - Verification receipts are not being published.
