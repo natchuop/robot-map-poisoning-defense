@@ -32,7 +32,7 @@ The current shared-mapping baseline uses:
 - per-robot RViz windows for shared live maps and confidence overlays
 - temporary fake obstacle injections published as `MapUpdate` claims that can later be cleared by real LiDAR evidence
 
-The RViz semantic overlay uses `MarkerArray` colors so overlapping robot contributions can be blended without replacing the normal shared occupancy grid used for navigation.
+The RViz semantic overlay uses `MarkerArray` colors so overlapping robot contributions can be blended without replacing the normal shared occupancy grid used for navigation. Higher confidence now renders as darker and bolder overlay colors.
 
 The docs also describe the longer-term defense flow:
 

@@ -28,7 +28,7 @@ Cells with `current_observation_map[cell] = -1` are unknown in the latest scan a
 
 This is not a trust-defense rule by itself. In Method 1, remote claims still use full trust when the cell is outside the robot's current observation. The same precedence rule also applies in Method 2 and Method 3, which differ only in how remote claims are weighted and later verified.
 
-Method 1 is currently implemented as the full-trust log-odds baseline. In code, fake obstacle reports are carried as `MapUpdate` claims and fused into the receiver's shared map using the log-odds path.
+Method 1 is implemented as the full-trust log-odds baseline with current-observation override. In code, fake obstacle reports are carried as `MapUpdate` claims and fused into the receiver's shared map using the log-odds path, then the viewing robot's own current LiDAR observation can clear contradicted occupied claims in currently visible cells.
 
 The first required maps are:
 

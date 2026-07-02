@@ -444,9 +444,9 @@ In a fake obstacle attack, a compromised robot reports that a free cell is occup
 }
 ```
 
-The attack goal is to make other robots reroute, get stuck, delay checkpoint completion, or mark free space as blocked. In the current implementation, the fake obstacle is published as a `MapUpdate` claim with `claim_id` and `target_robot_id`, then fused into the receiver's shared map through the log-odds pipeline.
+The attack goal is to make other robots reroute, get stuck, delay checkpoint completion, or mark free space as blocked. In the current implementation, the fake obstacle is published as a `MapUpdate` claim with `claim_id` and `target_robot_id`, then fused into the receiver's shared map through the log-odds pipeline. If the receiving robot later observes that same cell directly with its own LiDAR, it can clear the contradicted claim and keep the navigation map consistent with its current scan.
 
-Fake clearing should be mentioned as future or secondary work. In a fake-clearing attack, the malicious robot reports a real occupied cell as free. This is important because it can cause collisions, but it adds complexity because the experiment must carefully place real obstacles and detect collisions or unsafe clearance. The first version can focus on fake obstacles and include fake clearing as a later extension.
+Fake clearing remains a later or secondary extension. In a fake-clearing attack, the malicious robot reports a real occupied cell as free. This is important because it can cause collisions, but it adds complexity because the experiment must carefully place real obstacles and detect collisions or unsafe clearance.
 
 ## 9. Trial Design
 

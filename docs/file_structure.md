@@ -235,6 +235,7 @@ Outputs:
 Combines local maps and shared map updates into a robot-specific shared view.
 
 The robot's own current observation is applied last for cells that are known in `/<robot>/current_observation_map`, and only claims contradicted by that observation should be removed.
+The `/<robot>/current_observation_map` itself is mostly unknown, with `-1` for unobserved cells, `0` for directly observed free cells, and `100` for directly observed occupied cells.
 
 It should support:
 
@@ -250,9 +251,10 @@ Outputs:
 /<robot>/shared_live_map
 /<robot>/shared_confidence_map
 /<robot>/cell_state_map
+/<robot>/confidence_markers
 ```
 
-The shared occupancy grid remains the navigation map, while the RViz `MarkerArray` overlay carries the blended per-robot colors and dispute shading.
+The shared occupancy grid remains the navigation map, while the RViz `MarkerArray` overlay carries the blended per-robot colors and dispute shading. Higher confidence should appear darker and more visually bold in the overlay.
 
 ### `trust_manager_node.py`
 

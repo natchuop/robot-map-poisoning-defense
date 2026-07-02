@@ -167,6 +167,7 @@ Expected behavior:
 - If the victim robot later drives into direct LiDAR view of the claimed cell, `/<robot>/current_observation_map` should mark that area as free with `-1` elsewhere.
 - The victim robot's `/<robot>/shared_live_map` should clear the fake occupied cell only where the current observation is known.
 - Only the contradicted claim(s) should be removed or downgraded so the fake obstacle does not immediately reappear on the next merge tick.
+- This behavior has been exercised in the live demo: the injected fake claim was accepted, then cleared by the victim robot's own current LiDAR observation.
 
 ## 6. Fusion Mode Verification
 
@@ -217,7 +218,7 @@ Run a two-robot mapping demo with overlapping coverage and confirm:
 - RViz shows the blended robot hue for cells mapped by multiple robots.
 - Cells mapped by only one robot keep that robot's hue.
 - Disputed cells show a translucent purple overlay on top of the blended source color.
-- Higher confidence makes the overlay stronger or more opaque, while lower confidence makes it lighter.
+- Higher confidence makes the overlay darker, bolder, and more opaque, while lower confidence stays lighter and softer.
 
 ## 8. Claim Verification Receipt Checks
 
