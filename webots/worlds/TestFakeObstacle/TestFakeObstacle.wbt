@@ -12,7 +12,8 @@ WorldInfo {
 }
 Viewpoint {
   orientation -0.3851506922453098 -0.517684086375244 0.763977834087343 4.738899889404241
-  position -1.2092213878348892 12.69526952966714 15.094881232751497
+  position -1.5 2.5 0.6
+  followType "None"
 }
 TexturedBackground {
 }
@@ -30,13 +31,13 @@ DEF H1 Solid {
         baseColor 0.5 0.5 0.5
       }
       geometry Box {
-        size 1.6 0.08 0.28
+        size 1.6 0.16 0.28
       }
     }
   ]
   name "h1"
   boundingObject Box {
-    size 1.6 0.08 0.28
+    size 1.6 0.16 0.28
   }
 }
 DEF H2 Solid {
@@ -47,13 +48,13 @@ DEF H2 Solid {
         baseColor 0.5 0.5 0.5
       }
       geometry Box {
-        size 1.2 0.08 0.28
+        size 1.2 0.16 0.28
       }
     }
   ]
   name "h2"
   boundingObject Box {
-    size 1.2 0.08 0.28
+    size 1.2 0.16 0.28
   }
 }
 DEF V1 Solid {
@@ -65,13 +66,13 @@ DEF V1 Solid {
         baseColor 0.5 0.5 0.5
       }
       geometry Box {
-        size 1.6 0.08 0.28
+        size 1.6 0.16 0.28
       }
     }
   ]
   name "v1"
   boundingObject Box {
-    size 1.6 0.08 0.28
+    size 1.6 0.16 0.28
   }
 }
 DEF V2 Solid {
@@ -83,13 +84,13 @@ DEF V2 Solid {
         baseColor 0.5 0.5 0.5
       }
       geometry Box {
-        size 1.6 0.08 0.28
+        size 1.6 0.16 0.28
       }
     }
   ]
   name "v2"
   boundingObject Box {
-    size 1.6 0.08 0.28
+    size 1.6 0.16 0.28
   }
 }
 DEF H4 Solid {
@@ -100,13 +101,13 @@ DEF H4 Solid {
         baseColor 0.5 0.5 0.5
       }
       geometry Box {
-        size 2 0.08 0.28
+        size 2 0.16 0.28
       }
     }
   ]
   name "h4"
   boundingObject Box {
-    size 2 0.08 0.28
+    size 2 0.16 0.28
   }
 }
 DEF V3 Solid {
@@ -118,13 +119,13 @@ DEF V3 Solid {
         baseColor 0.5 0.5 0.5
       }
       geometry Box {
-        size 1.6 0.08 0.28
+        size 1.6 0.16 0.28
       }
     }
   ]
   name "v3"
   boundingObject Box {
-    size 1.6 0.08 0.28
+    size 1.6 0.16 0.28
   }
 }
 DEF V4 Solid {
@@ -136,13 +137,13 @@ DEF V4 Solid {
         baseColor 0.5 0.5 0.5
       }
       geometry Box {
-        size 1.6 0.08 0.28
+        size 1.6 0.16 0.28
       }
     }
   ]
   name "v4"
   boundingObject Box {
-    size 1.6 0.08 0.28
+    size 1.6 0.16 0.28
   }
 }
 DEF H6 Solid {
@@ -153,13 +154,13 @@ DEF H6 Solid {
         baseColor 0.5 0.5 0.5
       }
       geometry Box {
-        size 1.6 0.08 0.28
+        size 1.6 0.16 0.28
       }
     }
   ]
   name "h6"
   boundingObject Box {
-    size 1.6 0.08 0.28
+    size 1.6 0.16 0.28
   }
 }
 DEF V6 Solid {
@@ -171,13 +172,13 @@ DEF V6 Solid {
         baseColor 0.5 0.5 0.5
       }
       geometry Box {
-        size 1.2 0.08 0.28
+        size 1.2 0.16 0.28
       }
     }
   ]
   name "v6"
   boundingObject Box {
-    size 1.2 0.08 0.28
+    size 1.2 0.16 0.28
   }
 }
 DEF H8 Solid {
@@ -188,13 +189,13 @@ DEF H8 Solid {
         baseColor 0.5 0.5 0.5
       }
       geometry Box {
-        size 1.6 0.08 0.28
+        size 1.6 0.16 0.28
       }
     }
   ]
   name "h8"
   boundingObject Box {
-    size 1.6 0.08 0.28
+    size 1.6 0.16 0.28
   }
 }
 DEF OBS1 Solid {

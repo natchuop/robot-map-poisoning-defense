@@ -11,8 +11,6 @@ WorldInfo {
 Viewpoint {
   orientation -0.45303724724572697 0.5625106313060105 0.6916205912751062 1.722493214208641
   position -2.0871121409851368 -7.0892312305851135 14.780432953054447
-  follow "TurtleBot3Burger"
-  followType "None"
 }
 Background {
   skyColor [
