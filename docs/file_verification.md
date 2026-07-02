@@ -164,6 +164,9 @@ Expected behavior:
 - In `log_odds`, the fake obstacle should have the strongest direct effect.
 - The claim should show up in the merge-node logs as an accepted `MapUpdate`.
 - The log-odds shared map should reflect the claim instead of skipping it just because the cell was previously free.
+- If the victim robot later drives into direct LiDAR view of the claimed cell, `/<robot>/current_observation_map` should mark that area as free with `-1` elsewhere.
+- The victim robot's `/<robot>/shared_live_map` should clear the fake occupied cell only where the current observation is known.
+- Only the contradicted claim(s) should be removed or downgraded so the fake obstacle does not immediately reappear on the next merge tick.
 
 ## 6. Fusion Mode Verification
 
@@ -206,7 +209,17 @@ Expected checks:
 - Cell state can become unknown, occupied, clear, suspicious, or disputed.
 - Quarantine can trigger when trust is low and confidence is high.
 
-## 7. Claim Verification Receipt Checks
+## 7. RViz Overlay Verification
+
+Run a two-robot mapping demo with overlapping coverage and confirm:
+
+- `/<robot>/confidence_markers` publishes a `visualization_msgs/msg/MarkerArray`.
+- RViz shows the blended robot hue for cells mapped by multiple robots.
+- Cells mapped by only one robot keep that robot's hue.
+- Disputed cells show a translucent purple overlay on top of the blended source color.
+- Higher confidence makes the overlay stronger or more opaque, while lower confidence makes it lighter.
+
+## 8. Claim Verification Receipt Checks
 
 A fake obstacle claim should receive a claim ID and be stored as an unverified claim.
 

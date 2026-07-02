@@ -30,6 +30,16 @@ class MapMergeNode(Node):
         self.declare_parameter('view_robot_id', 'robot_1')
         self.declare_parameter('trust_table_json', '{}')
         self.declare_parameter('map_updates_topic', '/map_updates')
+        self.declare_parameter('current_observation_topic', '')
+        self.declare_parameter('current_observation_override_enabled', True)
+        self.declare_parameter('current_observation_free_value', 0)
+        self.declare_parameter('current_observation_occupied_value', 100)
+        self.declare_parameter('current_observation_occupied_threshold', 65)
+        self.declare_parameter('current_observation_force_free_logodds', float('nan'))
+        self.declare_parameter('current_observation_force_occupied_logodds', float('nan'))
+        self.declare_parameter('current_observation_claim_clear_enabled', True)
+        self.declare_parameter('current_observation_claim_clear_ratio_threshold', 0.50)
+        self.declare_parameter('current_observation_claim_clear_radius_cells', -1)
         self.declare_parameter('fusion_mode', 'log_odds')
         self.declare_parameter('logodds_occ', 0.85)
         self.declare_parameter('logodds_free', -0.35)
@@ -54,7 +64,40 @@ class MapMergeNode(Node):
             'output_confidence_topic',
             f'/{self.view_robot_id}/shared_confidence_map',
         )
+        self.current_observation_topic = (
+            str(self.get_parameter('current_observation_topic').value).strip()
+            or f'/{self.view_robot_id}/current_observation_map'
+        )
         self.map_updates_topic = str(self.get_parameter('map_updates_topic').value).strip() or '/map_updates'
+        self.current_observation_override_enabled = bool(
+            self.get_parameter('current_observation_override_enabled').value
+        )
+        self.current_observation_free_value = int(self.get_parameter('current_observation_free_value').value)
+        self.current_observation_occupied_value = int(self.get_parameter('current_observation_occupied_value').value)
+        self.current_observation_occupied_threshold = int(
+            self.get_parameter('current_observation_occupied_threshold').value
+        )
+        current_force_free = self.get_parameter('current_observation_force_free_logodds').value
+        current_force_occupied = self.get_parameter('current_observation_force_occupied_logodds').value
+        self.current_observation_force_free_logodds = (
+            float(current_force_free)
+            if math.isfinite(float(current_force_free))
+            else self.logodds_min
+        )
+        self.current_observation_force_occupied_logodds = (
+            float(current_force_occupied)
+            if math.isfinite(float(current_force_occupied))
+            else self.logodds_max
+        )
+        self.current_observation_claim_clear_enabled = bool(
+            self.get_parameter('current_observation_claim_clear_enabled').value
+        )
+        self.current_observation_claim_clear_ratio_threshold = float(
+            self.get_parameter('current_observation_claim_clear_ratio_threshold').value
+        )
+        self.current_observation_claim_clear_radius_cells = int(
+            self.get_parameter('current_observation_claim_clear_radius_cells').value
+        )
         self.fusion_mode = str(self.get_parameter('fusion_mode').value).strip() or 'log_odds'
         self.logodds_occ = float(self.get_parameter('logodds_occ').value)
         self.logodds_free = float(self.get_parameter('logodds_free').value)
@@ -80,6 +123,7 @@ class MapMergeNode(Node):
 
         self.local_maps: dict[str, OccupancyGrid] = {}
         self.active_claims: dict[str, MapEvidence] = {}
+        self.current_observation_map: OccupancyGrid | None = None
         self.topic_subscriptions = []
 
         for topic in self.input_map_topics:
@@ -100,6 +144,15 @@ class MapMergeNode(Node):
                 updates_qos,
             )
         )
+        if self.current_observation_topic:
+            self.topic_subscriptions.append(
+                self.create_subscription(
+                    OccupancyGrid,
+                    self.current_observation_topic,
+                    self.current_observation_callback,
+                    map_qos,
+                )
+            )
 
         self.map_pub = self.create_publisher(OccupancyGrid, self.shared_map_topic, map_qos)
         self.confidence_pub = self.create_publisher(OccupancyGrid, self.shared_confidence_topic, map_qos)
@@ -110,6 +163,7 @@ class MapMergeNode(Node):
             f'mode={self.fusion_mode} '
             f'maps={self.input_map_topics} -> {self.shared_map_topic}; '
             f'confidence={self.shared_confidence_topic}; '
+            f'current_observation={self.current_observation_topic or "disabled"}; '
             f'updates={self.map_updates_topic}; '
             f'active_claims=0'
         )
@@ -170,6 +224,10 @@ class MapMergeNode(Node):
         self.local_maps[robot_id] = msg
         self.publish_merged_map()
 
+    def current_observation_callback(self, msg: OccupancyGrid) -> None:
+        self.current_observation_map = msg
+        self.publish_merged_map()
+
     def map_update_callback(self, msg: MapUpdate) -> None:
         if str(msg.target_robot_id).strip() and str(msg.target_robot_id).strip() != self.view_robot_id:
             return
@@ -224,6 +282,8 @@ class MapMergeNode(Node):
 
         self.apply_local_maps_to_log_odds(log_odds, observed, merged.info)
         self.apply_active_claims_to_log_odds(log_odds, observed, merged.info)
+        if self.current_observation_override_enabled:
+            self.apply_current_observation_precedence(log_odds, observed, merged.info)
 
         log_odds = np.clip(log_odds, self.logodds_min, self.logodds_max)
         merged.data = self.log_odds_to_grid_data(log_odds, observed)
@@ -232,6 +292,8 @@ class MapMergeNode(Node):
 
         self.map_pub.publish(merged)
         self.confidence_pub.publish(confidence)
+        if self.current_observation_override_enabled:
+            self.remove_claims_contradicted_by_current_observation(merged.info)
         self.get_logger().info(
             f'[{self.view_robot_id}] published log_odds shared map '
             f'active_claims={len(self.active_claims)} local_maps={len(self.local_maps)}'
@@ -330,6 +392,100 @@ class MapMergeNode(Node):
                 f'delta={delta:.3f} radius={radius}'
             )
 
+    def apply_current_observation_precedence(self, log_odds, observed, info) -> None:
+        if not self.current_observation_override_enabled:
+            return
+
+        current = self.current_observation_map
+        if current is None:
+            return
+        if not self.same_geometry(info, current.info):
+            self.get_logger().warning(
+                f'[{self.view_robot_id}] skipped current observation override because geometries differ'
+            )
+            return
+
+        width = int(info.width)
+        for index, raw_value in enumerate(current.data):
+            value = int(raw_value)
+            if value == -1:
+                continue
+
+            x = index % width
+            y = index // width
+
+            if value >= self.current_observation_occupied_threshold:
+                log_odds[y, x] = max(float(log_odds[y, x]), self.current_observation_force_occupied_logodds)
+                observed[y, x] = True
+            elif value == self.current_observation_free_value:
+                log_odds[y, x] = min(float(log_odds[y, x]), self.current_observation_force_free_logodds)
+                observed[y, x] = True
+
+    def remove_claims_contradicted_by_current_observation(self, info) -> None:
+        if not self.current_observation_claim_clear_enabled:
+            return
+
+        current = self.current_observation_map
+        if current is None:
+            return
+        if not self.same_geometry(info, current.info):
+            return
+
+        claim_ids_to_remove = []
+        for claim_id, evidence in self.active_claims.items():
+            if evidence.target_robot_id and evidence.target_robot_id != self.view_robot_id:
+                continue
+
+            if evidence.cell_x >= 0 and evidence.cell_y >= 0:
+                center_x = evidence.cell_x
+                center_y = evidence.cell_y
+            else:
+                center_x, center_y = self.world_to_cell(info, evidence.world_x, evidence.world_y)
+
+            radius = self.current_observation_claim_clear_radius_cells
+            if radius < 0:
+                radius = self.fake_report_radius_cells
+            radius = max(0, int(radius))
+
+            free_count = 0
+            occupied_count = 0
+            observed_count = 0
+            for y in range(max(0, center_y - radius), min(int(info.height), center_y + radius + 1)):
+                for x in range(max(0, center_x - radius), min(int(info.width), center_x + radius + 1)):
+                    if (x - center_x) ** 2 + (y - center_y) ** 2 > radius ** 2:
+                        continue
+                    idx = y * int(info.width) + x
+                    value = int(current.data[idx])
+                    if value == -1:
+                        continue
+                    observed_count += 1
+                    if value >= self.current_observation_occupied_threshold:
+                        occupied_count += 1
+                    elif value == self.current_observation_free_value:
+                        free_count += 1
+
+            if observed_count <= 0:
+                continue
+
+            ratio_threshold = max(0.0, min(1.0, self.current_observation_claim_clear_ratio_threshold))
+            if evidence.occupied:
+                contradicted = free_count > 0 and occupied_count == 0 and (free_count / observed_count) >= ratio_threshold
+            else:
+                contradicted = occupied_count > 0 and free_count == 0 and (occupied_count / observed_count) >= ratio_threshold
+
+            if contradicted:
+                claim_ids_to_remove.append(claim_id)
+
+        if not claim_ids_to_remove:
+            return
+
+        for claim_id in claim_ids_to_remove:
+            removed = self.active_claims.pop(claim_id, None)
+            if removed is not None:
+                self.get_logger().info(
+                    f'[{self.view_robot_id}] cleared active claim_id={claim_id} using own current LiDAR observation'
+                )
+
     def should_suppress_local_free_evidence(self, robot_id: str, cell_x: int, cell_y: int, info) -> bool:
         if not self.suppress_attacker_self_free_evidence:
             return False
@@ -389,8 +545,12 @@ class MapMergeNode(Node):
                     continue
 
                 p_occ = self.log_odds_to_probability(log_odds[y, x])
-                # Store the belief as a 0-100 occupancy score so RViz can show conflict as shading.
-                data.append(int(round(self._clamp01(p_occ) * 100.0)))
+                if p_occ >= self.occupied_probability_threshold:
+                    data.append(100)
+                elif p_occ <= self.free_probability_threshold:
+                    data.append(0)
+                else:
+                    data.append(-1)
 
         return data
 

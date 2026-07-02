@@ -227,11 +227,14 @@ Outputs:
 ```text
 /<robot>/local_map
 /<robot>/local_confidence_map
+/<robot>/current_observation_map
 ```
 
 ### `map_merge_node.py`
 
 Combines local maps and shared map updates into a robot-specific shared view.
+
+The robot's own current observation is applied last for cells that are known in `/<robot>/current_observation_map`, and only claims contradicted by that observation should be removed.
 
 It should support:
 
@@ -248,6 +251,8 @@ Outputs:
 /<robot>/shared_confidence_map
 /<robot>/cell_state_map
 ```
+
+The shared occupancy grid remains the navigation map, while the RViz `MarkerArray` overlay carries the blended per-robot colors and dispute shading.
 
 ### `trust_manager_node.py`
 
@@ -339,6 +344,7 @@ Current code status:
 - `patrol_robot` includes a checkpoint autopilot fallback for patrol worlds when route commands are not available yet.
 - Shared robot behavior should stay in the controller code so new worlds can reuse the same RViz, Nav2, and fake-obstacle logic without copying behavior into each `.wbt`; per-world files should only override spawn positions, route layout, robot ids, and world-specific config values.
 - The saved Webots project files (`.wbproj`) are also world-specific layout data and may be reused to keep the console and other Webots panes docked the same way across worlds.
+- Project code should avoid hardcoded host-specific paths, usernames, machine names, and fixed ports whenever a repo-relative path, launch argument, environment variable, or config file can provide the same value. Default values are fine, but machine-dependent settings should remain overridable.
 - The YAML config set described below is still the target structure rather than the complete current set.
 
 ### `fusion_modes.yaml`
@@ -670,12 +676,15 @@ verification markers
 checkpoint route
 ```
 
+The normal shared `OccupancyGrid` stays separate for navigation. The colored semantic overlay should be a `MarkerArray` display on top of it.
+
 Useful visual distinction:
 
 | Item | Suggested display |
 |---|---|
 | Real occupied cells | Normal occupancy/costmap color |
 | Fake obstacle claim | Marker or highlighted cell |
+| Blended multi-robot cell | Mixed robot hue in the overlay |
 | Suspicious cell | Distinct overlay color |
 | Disputed cell | Distinct overlay color |
 | Verified clear cell | Confidence overlay or marker |

@@ -18,6 +18,16 @@ The simulation compares three map-fusion models:
 
 The first attack type is fake obstacle insertion, where a compromised robot reports a free cell as occupied. Fake clearing, where a compromised robot reports a real occupied cell as free, is important but should be treated as future or secondary work.
 
+## Common Rule: Direct Local Observation Precedence
+
+All three fusion modes use the robot's own current LiDAR observation as the highest-priority evidence for cells that are currently visible.
+
+If the current observation says a cell is free, the robot should clear or strongly downgrade any remote occupied claim for that cell. If the current observation says a cell is occupied, the robot should preserve the occupied state even if remote reports say free.
+
+Cells with `current_observation_map[cell] = -1` are unknown in the latest scan and must not affect the merge.
+
+This is not a trust-defense rule by itself. In Method 1, remote claims still use full trust when the cell is outside the robot's current observation. The same precedence rule also applies in Method 2 and Method 3, which differ only in how remote claims are weighted and later verified.
+
 Method 1 is currently implemented as the full-trust log-odds baseline. In code, fake obstacle reports are carried as `MapUpdate` claims and fused into the receiver's shared map using the log-odds path.
 
 The first required maps are:
@@ -123,6 +133,8 @@ Method 3: MATE-style trust plus claim-level quality, verification, evidence laye
 This is the industry-standard robotics-style baseline. It does not use robot trust. Every incoming map update is treated equally, regardless of which robot sent it.
 
 In practice, this means the receiving robot behaves as if every other robot has full or equal trust.
+
+Direct current LiDAR still has precedence for currently visible cells. Method 1 only accepts remote claims at full trust when the robot does not have contradictory current sensor evidence for that cell.
 
 This model answers:
 
