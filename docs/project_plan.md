@@ -14,6 +14,8 @@ robot report -> robot trust -> trust confidence -> claim verification -> map-cel
 
 This project focuses on decentralized trust. Each robot keeps its own trust records and map confidence values. No central server decides which robot is trustworthy. Trust is learned from physical verification and from verification receipts produced when robots later observe claimed map locations.
 
+Direct local LiDAR observations are treated as ground truth for cells that are currently visible to the robot in all three methods. The comparison between `log_odds`, `mate_log_odds`, and `mate_claim_verification` is about how each method handles remote claims when direct evidence is not available and how quickly poisoned data is corrected after later observation.
+
 ## 2. Research Question
 
 Main research question:

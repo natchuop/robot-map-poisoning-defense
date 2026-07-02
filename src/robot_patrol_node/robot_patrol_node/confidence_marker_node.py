@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from builtin_interfaces.msg import Duration
 from geometry_msgs.msg import Point
 from nav_msgs.msg import OccupancyGrid
@@ -6,6 +8,15 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import ColorRGBA
 from visualization_msgs.msg import Marker, MarkerArray
+
+
+@dataclass(frozen=True)
+class SourceContribution:
+    source_index: int
+    robot_id: str
+    source_value: int
+    state: str
+    weight: float
 
 
 class ConfidenceMarkerNode(Node):
@@ -23,6 +34,8 @@ class ConfidenceMarkerNode(Node):
         self.declare_parameter('overlay_alpha', 0.95)
         self.declare_parameter('cell_scale_z', 0.01)
         self.declare_parameter('legend_title', 'Trust Map')
+        self.declare_parameter('source_occupied_threshold', 65)
+        self.declare_parameter('source_free_threshold', 0)
         self.declare_parameter('occupied_confident_threshold', 70)
         self.declare_parameter('occupied_possible_threshold', 30)
         self.declare_parameter('free_confident_threshold', 60)
@@ -36,6 +49,8 @@ class ConfidenceMarkerNode(Node):
         self.overlay_alpha = max(0.0, min(1.0, float(self.get_parameter('overlay_alpha').value)))
         self.cell_scale_z = max(0.002, float(self.get_parameter('cell_scale_z').value))
         self.legend_title = str(self.get_parameter('legend_title').value)
+        self.source_occupied_threshold = int(self.get_parameter('source_occupied_threshold').value)
+        self.source_free_threshold = int(self.get_parameter('source_free_threshold').value)
         self.occupied_confident_threshold = max(
             0,
             min(100, int(self.get_parameter('occupied_confident_threshold').value)),
@@ -113,24 +128,36 @@ class ConfidenceMarkerNode(Node):
         ready_source_maps = [self.source_maps.get(topic) for topic in self.source_map_topics]
 
         markers = MarkerArray()
-        markers.markers.append(
-            self.build_cells_marker(self.latest_map, self.latest_confidence, ready_source_maps)
-        )
+        markers.markers.extend(self.build_cells_markers(self.latest_map, self.latest_confidence, ready_source_maps))
         markers.markers.extend(self.build_legend_markers(self.latest_map))
         self.publisher.publish(markers)
 
-    def build_cells_marker(self, map_msg: OccupancyGrid, confidence_msg: OccupancyGrid, source_maps) -> Marker:
-        marker = Marker()
-        marker.header = map_msg.header
-        marker.ns = f'{self.marker_namespace}_cells'
-        marker.id = 0
-        marker.type = Marker.CUBE_LIST
-        marker.action = Marker.ADD
-        marker.pose.orientation.w = 1.0
-        marker.scale.x = map_msg.info.resolution
-        marker.scale.y = map_msg.info.resolution
-        marker.scale.z = self.cell_scale_z
-        marker.lifetime = Duration(sec=0, nanosec=0)
+    def build_cells_markers(self, map_msg: OccupancyGrid, confidence_msg: OccupancyGrid, source_maps) -> list[Marker]:
+        base_marker = Marker()
+        base_marker.header = map_msg.header
+        base_marker.ns = f'{self.marker_namespace}_cells'
+        base_marker.id = 0
+        base_marker.type = Marker.CUBE_LIST
+        base_marker.action = Marker.ADD
+        base_marker.pose.orientation.w = 1.0
+        base_marker.scale.x = map_msg.info.resolution
+        base_marker.scale.y = map_msg.info.resolution
+        base_marker.scale.z = self.cell_scale_z
+        base_marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
+        base_marker.lifetime = Duration(sec=0, nanosec=0)
+
+        dispute_marker = Marker()
+        dispute_marker.header = map_msg.header
+        dispute_marker.ns = f'{self.marker_namespace}_dispute'
+        dispute_marker.id = 1
+        dispute_marker.type = Marker.CUBE_LIST
+        dispute_marker.action = Marker.ADD
+        dispute_marker.pose.orientation.w = 1.0
+        dispute_marker.scale.x = map_msg.info.resolution
+        dispute_marker.scale.y = map_msg.info.resolution
+        dispute_marker.scale.z = self.cell_scale_z
+        dispute_marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
+        dispute_marker.lifetime = Duration(sec=0, nanosec=0)
 
         width = int(map_msg.info.width)
         resolution = float(map_msg.info.resolution)
@@ -142,17 +169,30 @@ class ConfidenceMarkerNode(Node):
             if confidence < 0 and int(occupancy_value) < 0:
                 continue
 
-            source_index, source_value, disputed = self.choose_source(index, occupancy_value, source_maps, map_msg)
+            contributions = self.collect_source_contributions(index, source_maps, map_msg)
+            disputed = self.has_disputed_contribution(contributions)
+            blended_color = self.blend_source_color(contributions)
+            cell_color = self.color_for_blended_cell(int(occupancy_value), confidence, blended_color, disputed)
             col = index % width
             row = index // width
             point = Point()
             point.x = origin_x + ((col + 0.5) * resolution)
             point.y = origin_y + ((row + 0.5) * resolution)
             point.z = 0.01
-            marker.points.append(point)
-            marker.colors.append(self.color_for_cell(int(occupancy_value), confidence, source_index, source_value, disputed))
+            base_marker.points.append(point)
+            base_marker.colors.append(cell_color)
+            if disputed:
+                dispute_point = Point()
+                dispute_point.x = point.x
+                dispute_point.y = point.y
+                dispute_point.z = point.z + (self.cell_scale_z * 0.75)
+                dispute_marker.points.append(dispute_point)
+                dispute_marker.colors.append(self.dispute_overlay_color(confidence))
 
-        return marker
+        markers = [base_marker]
+        if dispute_marker.points:
+            markers.append(dispute_marker)
+        return markers
 
     def build_legend_markers(self, msg: OccupancyGrid):
         markers = []
@@ -182,11 +222,13 @@ class ConfidenceMarkerNode(Node):
         markers.append(title)
 
         legend_entries = [
-            ('Pastel hue: cleared', self.cleared_color()),
-            ('Saturated hue: occupied', self.occupied_color()),
+            ('Robot hue: source robot', self.robot_hue_legend_color()),
+            ('Mixed hue: overlapping robots', self.mixed_hue_legend_color()),
+            ('Light shade: free/cleared', self.cleared_color()),
+            ('Saturated shade: occupied', self.occupied_color()),
             ('Gray: unknown', self.gray_color()),
-            ('Purple: disputed', self.purple_color()),
-            ('Opacity: confidence', self.confidence_color()),
+            ('Purple overlay: disputed', self.dispute_overlay_color(75)),
+            ('Darkness/opacity: confidence', self.confidence_color()),
         ]
 
         for offset, (label_text, color) in enumerate(legend_entries):
@@ -223,8 +265,8 @@ class ConfidenceMarkerNode(Node):
 
         return markers
 
-    def choose_source(self, index: int, occupancy_value: int, source_maps, map_msg: OccupancyGrid):
-        source_values = []
+    def collect_source_contributions(self, index: int, source_maps, map_msg: OccupancyGrid) -> list[SourceContribution]:
+        contributions: list[SourceContribution] = []
         for source_index, source_map in enumerate(source_maps):
             if source_map is None:
                 continue
@@ -233,54 +275,86 @@ class ConfidenceMarkerNode(Node):
             source_value = int(source_map.data[index])
             if source_value < 0:
                 continue
-            source_values.append((source_index, source_value))
+            robot_id = self.source_robot_ids[source_index] if source_index < len(self.source_robot_ids) else f'robot_{source_index + 1}'
+            base_weight = self.source_weights[source_index] if source_index < len(self.source_weights) else 1.0
+            if source_value >= self.source_occupied_threshold:
+                state = 'occupied'
+                value_weight = self._clamp01(source_value / 100.0)
+                value_weight = max(0.1, value_weight)
+            elif source_value <= self.source_free_threshold:
+                state = 'free'
+                value_weight = 1.0
+            else:
+                state = 'known'
+                value_weight = 0.5
 
-        if not source_values:
-            return -1, -1, False
+            contributions.append(
+                SourceContribution(
+                    source_index=source_index,
+                    robot_id=robot_id,
+                    source_value=source_value,
+                    state=state,
+                    weight=max(0.0, base_weight * value_weight),
+                )
+            )
 
-        has_occupied = any(value >= 65 for _source_index, value in source_values)
-        has_free = any(value == 0 for _source_index, value in source_values)
-        disputed = has_occupied and has_free
-        if disputed:
-            return -1, -1, True
+        return contributions
 
-        if occupancy_value == 0:
-            eligible = [item for item in source_values if item[1] == 0]
-        elif occupancy_value >= 65:
-            eligible = [item for item in source_values if item[1] >= 65]
-        else:
-            eligible = list(source_values)
+    def blend_source_color(self, contributions: list[SourceContribution]) -> ColorRGBA:
+        if not contributions:
+            return self.gray_color()
 
-        if not eligible:
-            eligible = list(source_values)
+        total_weight = sum(contribution.weight for contribution in contributions)
+        if total_weight <= 0.0:
+            return self.gray_color()
 
-        source_index, source_value = max(
-            eligible,
-            key=lambda item: (
-                self.source_weights[item[0]] if item[0] < len(self.source_weights) else 1.0,
-                item[1],
-                -item[0],
-            ),
+        sum_r = 0.0
+        sum_g = 0.0
+        sum_b = 0.0
+        for contribution in contributions:
+            color = self.color_for_robot(contribution.robot_id)
+            sum_r += color.r * contribution.weight
+            sum_g += color.g * contribution.weight
+            sum_b += color.b * contribution.weight
+
+        return ColorRGBA(
+            r=self._clamp01(sum_r / total_weight),
+            g=self._clamp01(sum_g / total_weight),
+            b=self._clamp01(sum_b / total_weight),
+            a=1.0,
         )
-        return source_index, source_value, False
 
-    def color_for_cell(self, occupancy: int, confidence: int, source_index: int, source_value: int, disputed: bool) -> ColorRGBA:
-        if disputed:
-            return self.with_confidence(self.purple_color(), confidence, disputed=True)
+    def has_disputed_contribution(self, contributions: list[SourceContribution]) -> bool:
+        has_occupied = any(contribution.state == 'occupied' for contribution in contributions)
+        has_free = any(contribution.state == 'free' for contribution in contributions)
+        return has_occupied and has_free
 
+    def color_for_blended_cell(
+        self,
+        occupancy: int,
+        confidence: int,
+        blended_color: ColorRGBA,
+        disputed: bool,
+    ) -> ColorRGBA:
         if occupancy < 0:
             return self.gray_color()
 
-        robot_id = self.source_robot_ids[source_index] if 0 <= source_index < len(self.source_robot_ids) else 'robot'
-        base_color = self.color_for_robot(robot_id)
+        if occupancy >= self.occupied_confident_threshold:
+            return self.with_confidence(self.mix_with_white(blended_color, 0.04), confidence, occupied=True)
 
-        if occupancy >= 65 or source_value >= 65:
-            return self.with_confidence(base_color, confidence, occupied=True)
+        if occupancy <= self.occupied_possible_threshold:
+            return self.with_confidence(self.mix_with_white(blended_color, 0.52), confidence, occupied=False)
 
-        if occupancy == 0 or source_value == 0:
-            return self.with_confidence(self.mix_with_white(base_color, 0.48), confidence, occupied=False)
+        if disputed:
+            return self.with_confidence(self.mix_with_white(blended_color, 0.24), confidence, disputed=True)
 
-        return self.gray_color()
+        shade = 0.18 + (0.34 * self._clamp01(occupancy / 100.0))
+        return self.with_confidence(self.mix_with_white(blended_color, shade), confidence, occupied=False)
+
+    def dispute_overlay_color(self, confidence: int) -> ColorRGBA:
+        conf = self._clamp01(float(confidence) / 100.0)
+        alpha = min(self.overlay_alpha, 0.18 + (0.42 * conf))
+        return ColorRGBA(r=0.72, g=0.00, b=0.95, a=alpha)
 
     @staticmethod
     def same_geometry(first: OccupancyGrid, second: OccupancyGrid) -> bool:
@@ -331,23 +405,17 @@ class ConfidenceMarkerNode(Node):
         key = sum(ord(char) for char in robot_id)
         return palette[key % len(palette)]
 
-    def with_confidence(
-        self,
-        color: ColorRGBA,
-        confidence: int,
-        occupied: bool = False,
-        disputed: bool = False,
-    ) -> ColorRGBA:
+    def with_confidence(self, color: ColorRGBA, confidence: int, occupied: bool = False, disputed: bool = False) -> ColorRGBA:
         conf = self._clamp01(float(confidence) / 100.0)
-        alpha_base = 0.22 if disputed else (0.24 if occupied else 0.16)
-        alpha = min(self.overlay_alpha, alpha_base + (0.76 * conf))
+        alpha_base = 0.24 if disputed else (0.28 if occupied else 0.20)
+        alpha = min(self.overlay_alpha, alpha_base + (0.72 * conf))
 
         if disputed:
-            brightness = 0.22 + (0.58 * conf)
+            brightness = 0.78 - (0.30 * conf)
         elif occupied:
-            brightness = 0.28 + (0.72 * conf)
+            brightness = 0.84 - (0.34 * conf)
         else:
-            brightness = 0.42 + (0.58 * conf)
+            brightness = 0.88 - (0.26 * conf)
 
         return ColorRGBA(
             r=self._clamp01(color.r * brightness),
@@ -368,9 +436,6 @@ class ConfidenceMarkerNode(Node):
     def gray_color(self) -> ColorRGBA:
         return ColorRGBA(r=0.22, g=0.22, b=0.22, a=self.overlay_alpha)
 
-    def purple_color(self) -> ColorRGBA:
-        return ColorRGBA(r=0.72, g=0.00, b=0.95, a=self.overlay_alpha)
-
     def confidence_color(self) -> ColorRGBA:
         return ColorRGBA(r=1.00, g=1.00, b=1.00, a=self.overlay_alpha)
 
@@ -379,6 +444,20 @@ class ConfidenceMarkerNode(Node):
 
     def cleared_color(self) -> ColorRGBA:
         return ColorRGBA(r=0.20, g=0.70, b=1.00, a=self.overlay_alpha)
+
+    def robot_hue_legend_color(self) -> ColorRGBA:
+        return self.color_for_robot('robot_1')
+
+    def mixed_hue_legend_color(self) -> ColorRGBA:
+        return self.mix_with_white(
+            ColorRGBA(
+                r=(self.color_for_robot('robot_1').r + self.color_for_robot('robot_2').r) / 2.0,
+                g=(self.color_for_robot('robot_1').g + self.color_for_robot('robot_2').g) / 2.0,
+                b=(self.color_for_robot('robot_1').b + self.color_for_robot('robot_2').b) / 2.0,
+                a=self.overlay_alpha,
+            ),
+            0.12,
+        )
 
 
 def main() -> None:

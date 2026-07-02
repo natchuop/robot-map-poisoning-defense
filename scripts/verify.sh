@@ -134,6 +134,30 @@ check_python_syntax() {
         "$REPO_DIR/src/robot_patrol_node/robot_patrol_node/udp_bridge_node.py"
 }
 
+check_portability_warnings() {
+    local patterns=(
+        '/home/nathan'
+        '/Users/nathan'
+        'C:\\Users\\Nathan'
+    )
+    local search_roots=("$REPO_DIR/docs" "$REPO_DIR/scripts" "$REPO_DIR/src" "$REPO_DIR/webots")
+    local found=0
+
+    info "Scanning for obvious hardcoded personal paths"
+    for pattern in "${patterns[@]}"; do
+        if grep -RInF --exclude-dir=build --exclude-dir=install --exclude-dir=log --exclude-dir=.git "$pattern" "${search_roots[@]}" 2>/dev/null; then
+            found=1
+        fi
+    done
+
+    if [ "$found" -eq 0 ]; then
+        green "No obvious hardcoded personal paths found"
+    else
+        printf '\033[33m[WARN]\033[0m Hardcoded personal path patterns were found\n'
+        info "Review the warnings above and prefer repo-relative paths or config/env overrides."
+    fi
+}
+
 wait_for_container_log_pattern() {
     local container_name="$1"
     local pattern="$2"
@@ -384,6 +408,7 @@ run_check "Docker Compose config is valid" check_compose_config
 run_check "Compose service exists" check_service_exists
 run_check "Docker image builds" check_image_builds
 run_check "Python sources compile" check_python_syntax
+check_portability_warnings
 run_check "Core ROS/Nav2/Webots packages are installed" check_package_downloads
 run_check "Core ROS executables are available" check_ros_executables
 check_headless_amcl_stack

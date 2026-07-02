@@ -34,6 +34,8 @@ class MapBuilderNode(Node):
         self.declare_parameter('pose_topic', '/robot_pose')
         self.declare_parameter('map_topic', '/map')
         self.declare_parameter('confidence_map_topic', '')
+        self.declare_parameter('current_observation_map_topic', '')
+        self.declare_parameter('publish_current_observation_map', True)
         self.declare_parameter('map_frame', 'map')
         self.declare_parameter('base_frame', 'base_link')
         self.declare_parameter('laser_frame', 'laser')
@@ -68,6 +70,10 @@ class MapBuilderNode(Node):
         self.pose_topic = self.get_parameter('pose_topic').value
         self.map_topic = self.get_parameter('map_topic').value
         self.confidence_map_topic = str(self.get_parameter('confidence_map_topic').value).strip()
+        self.current_observation_map_topic = str(self.get_parameter('current_observation_map_topic').value).strip()
+        self.publish_current_observation_map_enabled = bool(
+            self.get_parameter('publish_current_observation_map').value
+        )
         self.map_frame = self.get_parameter('map_frame').value
         self.base_frame = self.get_parameter('base_frame').value
         self.laser_frame = self.get_parameter('laser_frame').value
@@ -125,6 +131,7 @@ class MapBuilderNode(Node):
         self.grid = np.full((self.height_cells, self.width_cells), -1, dtype=np.int8)
         self.scores = np.zeros((self.height_cells, self.width_cells), dtype=np.int16)
         self.observed = np.zeros((self.height_cells, self.width_cells), dtype=bool)
+        self.current_observation_grid = None
         self.latest_pose = None
         self.previous_pose_for_velocity = None
         self.previous_pose_time_ns = None
@@ -144,6 +151,13 @@ class MapBuilderNode(Node):
                 self.confidence_map_topic,
                 map_qos,
             )
+        self.current_observation_map_pub = None
+        if self.current_observation_map_topic and self.publish_current_observation_map_enabled:
+            self.current_observation_map_pub = self.create_publisher(
+                OccupancyGrid,
+                self.current_observation_map_topic,
+                map_qos,
+            )
         self.scan_sub = self.create_subscription(
             LaserScan,
             self.scan_topic,
@@ -160,9 +174,11 @@ class MapBuilderNode(Node):
         self.get_logger().info(
             f'Map builder ready: scan={self.scan_topic}, '
             f'pose={self.pose_topic}, map={self.map_topic}, '
-            f'confidence_map={self.confidence_map_topic or "disabled"}'
+            f'confidence_map={self.confidence_map_topic or "disabled"}, '
+            f'current_observation_map={self.current_observation_map_topic or "disabled"}'
         )
         self.publish_current_map()
+        self.publish_blank_current_observation_map()
 
     def pose_callback(self, msg) -> None:
         # Accept geometry_msgs/Pose2D without importing it into the subscription type above.
@@ -193,6 +209,8 @@ class MapBuilderNode(Node):
         self.pose_dirty = False
         if self.should_skip_scan_for_turning():
             return
+
+        self.current_observation_grid = np.full((self.height_cells, self.width_cells), -1, dtype=np.int8)
 
         robot_x, robot_y, robot_theta = self.latest_pose
         laser_theta = normalize_angle(robot_theta + self.laser_yaw)
@@ -334,10 +352,33 @@ class MapBuilderNode(Node):
             confidence_msg.info = msg.info
             confidence_msg.data = self.confidence_grid().reshape(-1).tolist()
             self.confidence_map_pub.publish(confidence_msg)
+        if self.current_observation_map_pub is not None and self.current_observation_grid is not None:
+            current_observation_msg = OccupancyGrid()
+            current_observation_msg.header = msg.header
+            current_observation_msg.info = msg.info
+            current_observation_msg.data = self.current_observation_grid.reshape(-1).tolist()
+            self.current_observation_map_pub.publish(current_observation_msg)
 
     def publish_current_map(self) -> None:
         stamp = self.get_clock().now().to_msg()
         self.publish_map(stamp.sec, stamp.nanosec)
+
+    def publish_blank_current_observation_map(self) -> None:
+        if self.current_observation_map_pub is None:
+            return
+
+        msg = OccupancyGrid()
+        msg.header.frame_id = self.map_frame
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.info.resolution = float(self.resolution)
+        msg.info.width = self.width_cells
+        msg.info.height = self.height_cells
+        msg.info.origin.position.x = float(self.origin_x)
+        msg.info.origin.position.y = float(self.origin_y)
+        msg.info.origin.position.z = 0.0
+        msg.info.origin.orientation.w = 1.0
+        msg.data = [-1] * (self.width_cells * self.height_cells)
+        self.current_observation_map_pub.publish(msg)
 
     def confidence_grid(self):
         confidence = np.full((self.height_cells, self.width_cells), -1, dtype=np.int8)
@@ -397,6 +438,13 @@ class MapBuilderNode(Node):
             mode='constant',
             constant_values=False,
         )
+        if self.current_observation_grid is not None:
+            self.current_observation_grid = np.pad(
+                self.current_observation_grid,
+                ((add_bottom, add_top), (add_left, add_right)),
+                mode='constant',
+                constant_values=-1,
+            )
         self.width_cells += add_left + add_right
         self.height_cells += add_bottom + add_top
         self.origin_x -= add_left * self.resolution
@@ -424,6 +472,15 @@ class MapBuilderNode(Node):
         if 0 <= col < self.width_cells and 0 <= row < self.height_cells:
             self.grid[row, col] = np.int8(value)
 
+    def set_current_observation_cell(self, col: int, row: int, value: int) -> None:
+        if self.current_observation_grid is None:
+            return
+        if 0 <= col < self.width_cells and 0 <= row < self.height_cells:
+            if value == 100:
+                self.current_observation_grid[row, col] = np.int8(100)
+            elif value == 0 and self.current_observation_grid[row, col] != np.int8(100):
+                self.current_observation_grid[row, col] = np.int8(0)
+
     def refresh_cell_from_score(self, col: int, row: int) -> None:
         score = self.scores[row, col]
         if not self.observed[row, col]:
@@ -446,6 +503,7 @@ class MapBuilderNode(Node):
 
     def mark_occupied(self, col: int, row: int) -> None:
         for ncol, nrow in self.neighbor_cells(col, row, self.occupied_radius_cells):
+            self.set_current_observation_cell(ncol, nrow, 100)
             if self.occupancy_mode == 'direct':
                 self.observed[nrow, ncol] = True
                 self.set_cell(ncol, nrow, 100)
@@ -453,6 +511,7 @@ class MapBuilderNode(Node):
             self.adjust_score(ncol, nrow, self.hit_score_increment)
 
     def set_free_cell(self, col: int, row: int) -> None:
+        self.set_current_observation_cell(col, row, 0)
         if self.occupancy_mode == 'direct':
             self.observed[row, col] = True
             self.set_cell(col, row, 0)
