@@ -106,6 +106,9 @@ Also try running this next script to make sure the latest additions are working 
 bash scripts/runTestFakeObstacle.sh
 ```
 
+<p align="center"><strong>runTestFakeObstacle.sh Tutorial Video</strong></p>
+<video controls src="media/FakeObstacleTutorial.mp4" width="800"></video>
+
 This script launches the interactive fake-obstacle demo again, with 2 RViz windows by default. The shared mapper now uses a smooth LiDAR range falloff, so very distant hits and clears contribute less confidence than nearby ones. If you want to switch to a headless smoke-test run, override `RMPD_FAKE_OBSTACLE_INJECTOR_MODE=manual`, `RMPD_QUICK_TEST_RVIZ=false`, and `RMPD_QUICK_TEST_HOLD_OPEN=false` before running it.
 
 Once you try out all of these commands, your setup should be complete.
