@@ -150,9 +150,9 @@ class CheckpointPatrolNode(Node):
             self.route = list(world_route)
             self.visible_route = list(world_route)
             if self.map_id == 'simple_corridor':
-                self.loop = False
+                self.loop = True
             if self.map_id == 'two_route':
-                self.loop = False
+                self.loop = True
 
         self.client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.robot_pose_subscription = self.create_subscription(
@@ -337,10 +337,19 @@ class CheckpointPatrolNode(Node):
         if next_index >= len(self.route):
             if not self.loop:
                 return None
-            next_index = 1
+            next_index = self.loop_restart_index()
         if next_index < 0 or next_index >= len(self.route):
             return None
         return self.route[next_index]
+
+    def loop_restart_index(self):
+        if len(self.route) <= 1:
+            return 0
+        if len(self.route) == 2:
+            return 0
+        if self.route[0] == self.route[-1]:
+            return 1
+        return 0
 
     def start_when_ready(self):
         if self.started:
@@ -364,7 +373,7 @@ class CheckpointPatrolNode(Node):
             if not self.loop:
                 self.get_logger().info('Checkpoint route finished.')
                 return
-            self.current_index = 1
+            self.current_index = self.loop_restart_index()
 
         checkpoint_name = self.route[self.current_index]
         self.send_checkpoint(checkpoint_name)

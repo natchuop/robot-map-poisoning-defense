@@ -179,6 +179,7 @@ with `small_maze` and `random_sandbox` as later optional stress tests.
 - `testRvizMap` uses `webots/robot_controllers/patrol_robot/patrol_robot.py`, the Nav2-capable checkpoint patrol controller.
 - `simpleCorridor` and `twoRoute` use a mixed setup: `robot_1` runs `patrol_robot` and `robot_2` runs `user_controlled_robot`, and both robots accept `F` to inject a fake obstacle in front of the robot.
 - `patrol_robot` has a built-in checkpoint autopilot fallback so the patrol bot still moves if the ROS route stack is late or absent.
+- `simpleCorridor` and `twoRoute` now use shared looping patrol logic, so the route repeats back and forth between checkpoints instead of ending after one pass.
 - Robot behavior should stay in shared controller code whenever possible so the same controller can be reused across worlds; world files should only change map-specific details like spawn locations, route geometry, robot ids, and per-world config values for RViz, Nav2, or fake-obstacle parameters.
 - The saved Webots project files (`.wbproj`) are part of the world setup too; they control UI layout such as whether the console is docked or floating.
 - `office`, `testBuildingMapForRobot`, `confusingMaze`, and `sandbox` use `webots/robot_controllers/user_controlled_robot/user_controlled_robot.py`.

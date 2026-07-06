@@ -112,12 +112,22 @@ def checkpoint_sets_for_map(map_id):
 
 def patrol_route_for_map(map_id):
     if map_id == 'simple_corridor':
-        return ['A', 'B'], False
+        return ['A', 'B'], True
 
     if map_id == 'two_route':
-        return ['A', 'B'], False
+        return ['A', 'B'], True
 
     return ['A', 'B', 'C', 'D', 'A'], True
+
+
+def loop_restart_index(route):
+    if len(route) <= 1:
+        return 0
+    if len(route) == 2:
+        return 0
+    if route[0] == route[-1]:
+        return 1
+    return 0
 
 
 def fake_obstacle_keys(trigger_key):
@@ -221,7 +231,7 @@ def patrol_autopilot_command(robot_x, robot_y, robot_heading, checkpoints, route
     if route_index >= len(route):
         if not loop:
             return 0.0, 0.0, route_index, None, False
-        route_index = 1 if len(route) > 1 else 0
+        route_index = loop_restart_index(route)
 
     checkpoint_name = route[route_index]
     checkpoint = checkpoints.get(checkpoint_name)
@@ -236,7 +246,7 @@ def patrol_autopilot_command(robot_x, robot_y, robot_heading, checkpoints, route
         if next_index >= len(route):
             if not loop:
                 return 0.0, 0.0, next_index, checkpoint_name, True
-            next_index = 1 if len(route) > 1 else 0
+            next_index = loop_restart_index(route)
         return 0.0, 0.0, next_index, checkpoint_name, True
 
     desired_heading = math.atan2(delta_y, delta_x)

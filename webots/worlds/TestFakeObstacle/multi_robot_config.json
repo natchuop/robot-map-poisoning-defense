@@ -1,0 +1,48 @@
+{
+  "robots": [
+    {
+      "robot_id": "robot_1",
+      "spawn_x": 2.0,
+      "spawn_y": 2.0,
+      "spawn_yaw": 0.0,
+      "control_scheme": "wasd",
+      "compromised": true,
+      "listen_port": 5005,
+      "rviz_config": "multi_robot_robot_1_view.rviz",
+      "map_builder": {
+        "clear_on_max_range": false,
+        "ray_end_trim_m": 0.12,
+        "max_mapping_angular_speed_rad_s": 0.45,
+        "angular_settle_time_s": 0.20
+      },
+      "trust": {
+        "robot_2": {
+          "trust": 0.80,
+          "trust_confidence": 1.00
+        }
+      }
+    },
+    {
+      "robot_id": "robot_2",
+      "spawn_x": -2.0,
+      "spawn_y": -2.0,
+      "spawn_yaw": 1.5708,
+      "control_scheme": "arrows",
+      "compromised": true,
+      "listen_port": 5006,
+      "rviz_config": "multi_robot_robot_2_view.rviz",
+      "map_builder": {
+        "clear_on_max_range": false,
+        "ray_end_trim_m": 0.12,
+        "max_mapping_angular_speed_rad_s": 0.45,
+        "angular_settle_time_s": 0.20
+      },
+      "trust": {
+        "robot_1": {
+          "trust": 0.20,
+          "trust_confidence": 1.00
+        }
+      }
+    }
+  ]
+}
