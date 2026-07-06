@@ -236,7 +236,7 @@ Combines local maps and shared map updates into a robot-specific shared view.
 
 The robot's own current observation is applied last for cells that are known in `/<robot>/current_observation_map`, and only claims contradicted by that observation should be removed.
 The `/<robot>/current_observation_map` now uses a smooth LiDAR confidence falloff: `-1` for unobserved cells, values near `0` for confident free cells, values near `100` for confident occupied cells, and midrange values for distant or ambiguous beams.
-Default tuning now uses a near range of `2.5 m`, a far range of `8.0 m`, a minimum observation quality of `0.15`, and a capped free-clearing distance of `6.0 m`.
+Default tuning now uses a near range of `1.25 m`, a far range of `4.0 m`, a minimum observation quality of `0.15`, and a capped free-clearing distance of `3.0 m`.
 In-place turning does not suppress scan updates; the 360-degree LiDAR continues to publish observations while the robot rotates.
 
 It should support:

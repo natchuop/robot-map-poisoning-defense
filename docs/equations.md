@@ -44,10 +44,10 @@ s(t) = t^2 * (3 - 2t)
 Recommended defaults:
 
 ```text
-r_near = 2.5 m
-r_far = 8.0 m
+r_near = 1.25 m
+r_far = 4.0 m
 q_min = 0.15
-max_free_clear_range = 6.0 m
+max_free_clear_range = 3.0 m
 ```
 
 In code, the observation strength is scaled by range quality:
