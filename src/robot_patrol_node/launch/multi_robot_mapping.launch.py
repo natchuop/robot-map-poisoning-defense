@@ -363,6 +363,26 @@ def _fake_obstacle_injector_node(robot: dict, all_robot_ids: list[str]) -> Node:
     )
 
 
+def _checkpoint_metrics_node(robot: dict, map_id: str) -> Node:
+    robot_id = robot['robot_id']
+    metrics_dir = os.getenv('RMPD_CHECKPOINT_METRICS_DIR', '/tmp/rmpd_checkpoint_metrics').strip()
+    output_csv = str(Path(metrics_dir).joinpath(f'{robot_id}_{map_id or "map"}_metrics.csv'))
+    return Node(
+        package='robot_patrol_node',
+        executable='checkpoint_metrics',
+        name=f'{robot_id}_checkpoint_metrics',
+        output='screen',
+        parameters=[{
+            'robot_id': robot_id,
+            'map_id': map_id,
+            'pose_topic': _robot_topic(robot_id, 'robot_pose'),
+            'arrival_radius_m': env_float('RMPD_CHECKPOINT_METRICS_RADIUS_M', 0.40),
+            'output_csv': output_csv,
+            'reset_csv_on_start': env_bool('RMPD_CHECKPOINT_METRICS_RESET', True),
+        }],
+    )
+
+
 def _rviz_node(robot: dict) -> ExecuteProcess:
     return ExecuteProcess(
         cmd=['rviz2', '-d', _resolve_rviz_config(robot['rviz_config'])],
@@ -374,6 +394,8 @@ def _launch_setup(context, *args, **kwargs):
     robots = _load_configured_robots()
     all_robot_ids = [robot['robot_id'] for robot in robots]
     start_rviz = env_bool('RMPD_START_RVIZ', False)
+    start_checkpoint_metrics = env_bool('RMPD_START_CHECKPOINT_METRICS', True)
+    map_id = os.getenv('RMPD_MAP_ID', '').strip().lower()
     static_map_yaml = LaunchConfiguration('static_map_yaml').perform(context).strip()
 
     nodes = []
@@ -426,6 +448,8 @@ def _launch_setup(context, *args, **kwargs):
         nodes.append(_belief_node(robot, all_robot_ids))
         nodes.append(_confidence_marker_node(robot, all_robot_ids))
         nodes.append(_fake_obstacle_injector_node(robot, all_robot_ids))
+        if start_checkpoint_metrics:
+            nodes.append(_checkpoint_metrics_node(robot, map_id))
         if start_rviz:
             nodes.append(_rviz_node(robot))
 

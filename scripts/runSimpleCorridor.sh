@@ -14,6 +14,7 @@ trap cleanup EXIT
 cp "$SOURCE_WORLD" "$SANDBOX_WORLD"
 export RMPD_WEBOTS_WORLD="$SANDBOX_WORLD"
 export RMPD_TEST_MODE="multi_mapping"
+export RMPD_MAP_ID="simple_corridor"
 export RMPD_MULTI_ROBOT_CONFIG="$REPO_DIR/webots/worlds/simpleCorridor/multi_robot_config.json"
 export RMPD_RVIZ_CONFIG_FILES="${RMPD_RVIZ_CONFIG_FILES:-multi_robot_robot_1_view.rviz,multi_robot_robot_2_view.rviz}"
 export RMPD_RVIZ_WINDOW_COUNT="${RMPD_RVIZ_WINDOW_COUNT:-2}"

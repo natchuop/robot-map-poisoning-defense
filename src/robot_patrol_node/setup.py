@@ -49,6 +49,7 @@ setup(
             'pose_to_odom = robot_patrol_node.pose_to_odom_node:main',
             'udp_bridge = robot_patrol_node.udp_bridge_node:main',
             'checkpoint_patrol = robot_patrol_node.checkpoint_patrol_node:main',
+            'checkpoint_metrics = robot_patrol_node.checkpoint_metrics_node:main',
             'navigation_diagnostics = robot_patrol_node.navigation_diagnostics_node:main',
             'fake_obstacle_injector = robot_patrol_node.fake_obstacle_injector_node:main',
         ],
