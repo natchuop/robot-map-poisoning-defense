@@ -19,6 +19,7 @@ def generate_launch_description():
     initial_pose_use_odom = LaunchConfiguration('initial_pose_use_odom')
     use_sim_time = LaunchConfiguration('use_sim_time')
     start_checkpoint_patrol = LaunchConfiguration('start_checkpoint_patrol')
+    start_checkpoint_metrics = LaunchConfiguration('start_checkpoint_metrics')
     start_navigation_diagnostics = LaunchConfiguration('start_navigation_diagnostics')
     start_live_mapping = LaunchConfiguration('start_live_mapping')
     live_map_width_m = LaunchConfiguration('live_map_width_m')
@@ -26,6 +27,9 @@ def generate_launch_description():
     live_map_origin_x = LaunchConfiguration('live_map_origin_x')
     live_map_origin_y = LaunchConfiguration('live_map_origin_y')
     map_id = LaunchConfiguration('map_id')
+    checkpoint_metrics_output_csv = LaunchConfiguration('checkpoint_metrics_output_csv')
+    checkpoint_metrics_radius_m = LaunchConfiguration('checkpoint_metrics_radius_m')
+    checkpoint_metrics_reset = LaunchConfiguration('checkpoint_metrics_reset')
 
     pkg_share = FindPackageShare('robot_patrol_node').find('robot_patrol_node')
 
@@ -42,6 +46,7 @@ def generate_launch_description():
         DeclareLaunchArgument('initial_pose_use_odom', default_value='true'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('start_checkpoint_patrol', default_value='true'),
+        DeclareLaunchArgument('start_checkpoint_metrics', default_value='true'),
         DeclareLaunchArgument('start_navigation_diagnostics', default_value='true'),
         DeclareLaunchArgument('start_live_mapping', default_value='true'),
         DeclareLaunchArgument('live_map_width_m', default_value='8.0'),
@@ -49,6 +54,9 @@ def generate_launch_description():
         DeclareLaunchArgument('live_map_origin_x', default_value='nan'),
         DeclareLaunchArgument('live_map_origin_y', default_value='nan'),
         DeclareLaunchArgument('map_id', default_value=''),
+        DeclareLaunchArgument('checkpoint_metrics_output_csv', default_value=''),
+        DeclareLaunchArgument('checkpoint_metrics_radius_m', default_value='0.40'),
+        DeclareLaunchArgument('checkpoint_metrics_reset', default_value='true'),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(amcl_launch),
@@ -131,6 +139,22 @@ def generate_launch_description():
             parameters=[{
                 'frame_id': 'map',
                 'map_id': map_id,
+            }],
+        ),
+
+        Node(
+            package='robot_patrol_node',
+            executable='checkpoint_metrics',
+            name='checkpoint_metrics',
+            output='screen',
+            condition=IfCondition(start_checkpoint_metrics),
+            parameters=[{
+                'robot_id': 'robot_1',
+                'map_id': map_id,
+                'pose_topic': '/robot_pose',
+                'arrival_radius_m': checkpoint_metrics_radius_m,
+                'output_csv': checkpoint_metrics_output_csv,
+                'reset_csv_on_start': checkpoint_metrics_reset,
             }],
         ),
 
