@@ -1,4 +1,4 @@
-# Robot Map Poisoning Defense
+﻿# Robot Map Poisoning Defense
 
 ROS 2 + Webots simulation for studying decentralized defenses against robot-to-robot map poisoning.
 
@@ -98,13 +98,43 @@ Once verification passes, run the main smoke test:
 bash scripts/quick_test.sh
 ```
 
-That launches Webots, ROS 2, RViz, and the AMCL/Nav2 checkpoint patrol demo together. You should have Webots open up automatically with a robot driving by itself along a predetermined route. A live RViz Window should also pop up and start recording everything that the robot's lidar sensor is sensing. Press `Ctrl-C` in the terminal (not Webots) to close everything.
+That launches Webots, ROS 2, RViz, and the AMCL/Nav2 checkpoint patrol demo together. You should have Webots open automatically with a robot driving by itself along a predetermined route. A live RViz window should also pop up and start recording what the robot's lidar sensor is sensing. Press `Ctrl-C` in the terminal, not in Webots, to close everything.
 
-Also try running this next script to make sure the latest additions are working properly.
+## Map Accuracy Evaluator
+
+The map accuracy evaluator compares each robot's final shared occupancy map against the clean ground-truth map. The shared live map is the primary evaluation target. The confidence map is only used as a secondary diagnostic to help explain behavior around suspicious or false cells.
+
+### Fake-obstacle demo
+
+`runTestFakeObstacle.sh` enables the evaluator by default and writes CSVs under `results/map_accuracy/`.
 
 ```bash
-bash scripts/runTestFakeObstacle.sh
+# Fake-obstacle demo with evaluator enabled by default
+./scripts/runTestFakeObstacle.sh
+
+# Fake-obstacle demo with evaluator disabled
+RMPD_ENABLE_MAP_ACCURACY_EVALUATOR=false ./scripts/runTestFakeObstacle.sh
 ```
+
+Expected outputs:
+
+- `results/map_accuracy/raw/map_accuracy_timeseries.csv`: periodic time-series rows for whole-map metrics and attack-region metrics.
+- `results/map_accuracy/processed/summary_by_trial.csv`: final summary rows written at the end of each trial.
+
+### Quick test
+
+`quick_test.sh` keeps the evaluator opt-in so the broader smoke test stays lighter. Enable it with `RMPD_ENABLE_MAP_ACCURACY_EVALUATOR=true`.
+
+```bash
+# Quick test with evaluator enabled
+RMPD_ENABLE_MAP_ACCURACY_EVALUATOR=true ./scripts/quick_test.sh
+```
+
+If you want a faster smoke test, leave the variable unset or set it to `false`.
+
+### Output location
+
+The evaluator always writes to `results/map_accuracy/` unless you override `RMPD_MAP_ACCURACY_RESULTS_DIR`. The time-series CSV tracks metrics over time, while the summary CSV captures the final per-trial values.
 
 <p align="center"><strong>runTestFakeObstacle.sh Tutorial Video</strong></p>
 
@@ -115,6 +145,7 @@ Link to Video if it does not show up: [FakeObstacleTutorial.mp4](media/FakeObsta
 This script launches the interactive fake-obstacle demo again, with 2 RViz windows by default. The shared mapper now uses a smooth LiDAR range falloff, so very distant hits and clears contribute less confidence than nearby ones. If you want to switch to a headless smoke-test run, override `RMPD_FAKE_OBSTACLE_INJECTOR_MODE=manual`, `RMPD_QUICK_TEST_RVIZ=false`, and `RMPD_QUICK_TEST_HOLD_OPEN=false` before running it.
 
 Once you try out all of these commands, your setup should be complete.
+
 
 ## Other Scripts Found in the Repository
 
@@ -191,3 +222,5 @@ with `small_maze` and `random_sandbox` as later optional stress tests.
 - `runTestFakeObstacle.sh` starts `webots/worlds/TestFakeObstacle/TestFakeObstacle.wbt`, generates a static map from that world, and launches the two-robot shared-mapping stack with the claim-based fake-obstacle injector enabled.
 - The Docker bridge listens on TCP and UDP port `5005`, publishes `/robot_pose`, `/scan`, and `/odom`, and forwards `/cmd_vel` plus checkpoint feedback topics between ROS and Webots.
 - The docs' longer-term goal is to extend that bridge and map flow with MATE-style trust distributions, optional trust propagation, claim verification, map-cell confidence, and quarantine logic.
+
+

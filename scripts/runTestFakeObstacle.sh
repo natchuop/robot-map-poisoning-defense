@@ -3,6 +3,8 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Enable the map accuracy evaluator by default for the fake-obstacle demo.
+# Set RMPD_ENABLE_MAP_ACCURACY_EVALUATOR=false to skip it.
 export RMPD_TEST_MODE="multi_mapping"
 export RMPD_WEBOTS_WORLD="$REPO_DIR/webots/worlds/TestFakeObstacle/TestFakeObstacle.wbt"
 export RMPD_RVIZ_CONFIG_FILES="${RMPD_RVIZ_CONFIG_FILES:-multi_robot_robot_1_view.rviz,multi_robot_robot_2_view.rviz}"
@@ -10,6 +12,11 @@ export RMPD_RVIZ_WINDOW_COUNT="${RMPD_RVIZ_WINDOW_COUNT:-2}"
 export RMPD_START_CHECKPOINT_PATROL="false"
 export RMPD_START_NAVIGATION_DIAGNOSTICS="false"
 export RMPD_START_LIVE_MAPPING="true"
+export RMPD_ENABLE_MAP_ACCURACY_EVALUATOR="${RMPD_ENABLE_MAP_ACCURACY_EVALUATOR:-true}"
+export RMPD_MAP_ACCURACY_RESULTS_DIR="${RMPD_MAP_ACCURACY_RESULTS_DIR:-results/map_accuracy}"
+export RMPD_MAP_ACCURACY_EVALUATOR_START_DELAY_SEC="${RMPD_MAP_ACCURACY_EVALUATOR_START_DELAY_SEC:-15}"
+export RMPD_MAP_ACCURACY_LOG_PERIOD_SEC="${RMPD_MAP_ACCURACY_LOG_PERIOD_SEC:-2.0}"
+export RMPD_MAP_ACCURACY_TRIAL_ID="${RMPD_MAP_ACCURACY_TRIAL_ID:-fake_obstacle}"
 export RMPD_ROBOT_1_COMPROMISED="${RMPD_ROBOT_1_COMPROMISED:-true}"
 export RMPD_ROBOT_2_COMPROMISED="${RMPD_ROBOT_2_COMPROMISED:-true}"
 export RMPD_ROBOT_1_TRUST_WEIGHT="${RMPD_ROBOT_1_TRUST_WEIGHT:-1.0}"

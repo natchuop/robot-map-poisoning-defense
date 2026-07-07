@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction, TimerAction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -321,6 +321,42 @@ def _confidence_marker_node(robot: dict, all_robot_ids: list[str]) -> Node:
     )
 
 
+def _map_accuracy_evaluator_node(robots: list[dict], all_robot_ids: list[str]) -> Node:
+    robot_names = ','.join(robot['robot_id'] for robot in robots)
+    output_directory = os.getenv('RMPD_MAP_ACCURACY_RESULTS_DIR', 'results/map_accuracy').strip() or 'results/map_accuracy'
+    trial_id = os.getenv('RMPD_MAP_ACCURACY_TRIAL_ID', 'fake_obstacle').strip() or 'fake_obstacle'
+    evaluation_period_sec = env_float('RMPD_MAP_ACCURACY_LOG_PERIOD_SEC', 2.0)
+    publish_overlay = env_bool('RMPD_MAP_ACCURACY_PUBLISH_OVERLAY', True)
+
+    return Node(
+        package='robot_patrol_node',
+        executable='map_accuracy_evaluator',
+        name='map_accuracy_evaluator',
+        output='screen',
+        parameters=[{
+            'yaml_config_file': _package_share_path('config', 'map_accuracy_evaluator.yaml'),
+            'robot_names': robot_names,
+            'trial_id': trial_id,
+            'fusion_mode': 'log_odds',
+            'map_name': 'shared_map',
+            'ground_truth_topic': '/map',
+            'shared_map_template': '/{robot}/shared_live_map',
+            'confidence_map_template': '/{robot}/shared_confidence_map',
+            'overlay_topic_template': '/{robot}/map_accuracy_overlay',
+            'occupied_threshold': 65,
+            'free_threshold': 25,
+            'unknown_value': -1,
+            'evaluation_period_sec': evaluation_period_sec,
+            'output_directory': output_directory,
+            'publish_overlay': publish_overlay,
+            'timeseries_filename': 'raw/map_accuracy_timeseries.csv',
+            'summary_filename': 'processed/summary_by_trial.csv',
+            'write_timeseries': True,
+            'write_final_summary': True,
+        }],
+    )
+
+
 def _fake_obstacle_injector_node(robot: dict, all_robot_ids: list[str]) -> Node:
     robot_id = robot['robot_id']
     fake_obstacle = robot.get('fake_obstacle', {})
@@ -374,6 +410,8 @@ def _launch_setup(context, *args, **kwargs):
     robots = _load_configured_robots()
     all_robot_ids = [robot['robot_id'] for robot in robots]
     start_rviz = env_bool('RMPD_START_RVIZ', False)
+    start_map_accuracy_evaluator = env_bool('RMPD_ENABLE_MAP_ACCURACY_EVALUATOR', False)
+    map_accuracy_evaluator_delay_sec = max(0.0, env_float('RMPD_MAP_ACCURACY_EVALUATOR_START_DELAY_SEC', 15.0))
     static_map_yaml = LaunchConfiguration('static_map_yaml').perform(context).strip()
 
     nodes = []
@@ -429,6 +467,13 @@ def _launch_setup(context, *args, **kwargs):
         if start_rviz:
             nodes.append(_rviz_node(robot))
 
+    if start_map_accuracy_evaluator:
+        evaluator_node = _map_accuracy_evaluator_node(robots, all_robot_ids)
+        if map_accuracy_evaluator_delay_sec > 0.0:
+            nodes.append(TimerAction(period=map_accuracy_evaluator_delay_sec, actions=[evaluator_node]))
+        else:
+            nodes.append(evaluator_node)
+
     return nodes
 
 
@@ -443,3 +488,7 @@ def generate_launch_description():
             OpaqueFunction(function=_launch_setup),
         ]
     )
+
+
+
+

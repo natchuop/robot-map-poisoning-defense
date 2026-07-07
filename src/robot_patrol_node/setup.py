@@ -1,4 +1,4 @@
-from setuptools import find_packages, setup
+﻿from setuptools import find_packages, setup
 
 package_name = 'robot_patrol_node'
 
@@ -12,7 +12,6 @@ setup(
             ['resource/' + package_name],
         ),
         ('share/' + package_name, ['package.xml']),
-
         ('share/' + package_name + '/launch', ['launch/amcl_stack.launch.py']),
         ('share/' + package_name + '/launch', ['launch/map_builder.launch.py']),
         ('share/' + package_name + '/launch', ['launch/mapping_stack.launch.py']),
@@ -21,7 +20,6 @@ setup(
         ('share/' + package_name + '/launch', ['launch/nav2_stack.launch.py']),
         ('share/' + package_name + '/launch', ['launch/nav2_with_amcl.launch.py']),
         ('share/' + package_name + '/launch', ['launch/fake_obstacle_injector.launch.py']),
-
         ('share/' + package_name + '/config', ['config/amcl.rviz']),
         ('share/' + package_name + '/config', ['config/observer_bot_amcl.rviz']),
         ('share/' + package_name + '/config', ['config/default.rviz']),
@@ -32,6 +30,7 @@ setup(
         ('share/' + package_name + '/config', ['config/multi_robot_shared_map.rviz']),
         ('share/' + package_name + '/config', ['config/multi_robot_robot_1_view.rviz']),
         ('share/' + package_name + '/config', ['config/multi_robot_robot_2_view.rviz']),
+        ('share/' + package_name + '/config', ['config/map_accuracy_evaluator.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -51,6 +50,7 @@ setup(
             'checkpoint_patrol = robot_patrol_node.checkpoint_patrol_node:main',
             'navigation_diagnostics = robot_patrol_node.navigation_diagnostics_node:main',
             'fake_obstacle_injector = robot_patrol_node.fake_obstacle_injector_node:main',
+            'map_accuracy_evaluator = robot_patrol_node.map_accuracy_evaluator_node:main',
         ],
     },
     extras_require={
