@@ -293,7 +293,7 @@ TurtleBot3Burger {
   rotation -0.0021 -1 -2.22e-06 0.00937
   name "observer_bot"
   controller "user_controlled_robot"
-  customData "{\"robot_id\":\"robot_2\",\"bridge_port\":5006,\"key_mode\":\"wasd\",\"map_id\":\"two_route\",\"fake_obstacle_trigger_key\":\"F\",\"fake_obstacle_mode\":\"front\"}"
+  customData "{\"robot_id\":\"robot_2\",\"bridge_port\":5006,\"key_mode\":\"wasd\",\"map_id\":\"two_route\",\"fake_obstacle_trigger_key\":\"F\",\"fake_obstacle_mode\":\"sequence\",\"fake_obstacle_sequence_source\":\"observer_bot_sequence\",\"fake_obstacle_sequence_interval_sec\":6.0,\"fake_obstacle_sequence_start_delay_sec\":5.0,\"fake_obstacle_sequence_repeat\":false,\"fake_obstacle_sequence\":[{\"x\":3.1,\"y\":-0.111},{\"x\":3.1,\"y\":0.089},{\"x\":3.1,\"y\":0.289},{\"x\":3.1,\"y\":0.489},{\"x\":3.1,\"y\":0.689},{\"x\":3.1,\"y\":0.889},{\"x\":3.1,\"y\":1.089},{\"x\":3.1,\"y\":1.289},{\"x\":3.1,\"y\":1.489},{\"x\":3.1,\"y\":1.689},{\"x\":3.1,\"y\":1.889},{\"x\":3.1,\"y\":2.089},{\"x\":3.1,\"y\":2.289},{\"x\":3.1,\"y\":2.41}]}"
   extensionSlot [
     GPS {
     }

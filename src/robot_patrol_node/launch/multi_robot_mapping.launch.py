@@ -325,6 +325,11 @@ def _map_accuracy_evaluator_node(robots: list[dict], all_robot_ids: list[str]) -
     robot_names = ','.join(robot['robot_id'] for robot in robots)
     output_directory = os.getenv('RMPD_MAP_ACCURACY_RESULTS_DIR', 'results/map_accuracy').strip() or 'results/map_accuracy'
     trial_id = os.getenv('RMPD_MAP_ACCURACY_TRIAL_ID', 'fake_obstacle').strip() or 'fake_obstacle'
+    yaml_config_file = os.getenv('RMPD_MAP_ACCURACY_YAML_CONFIG_FILE', '').strip()
+    if not yaml_config_file:
+        yaml_config_file = _package_share_path('config', 'map_accuracy_evaluator.yaml')
+    elif not os.path.isabs(yaml_config_file):
+        yaml_config_file = _package_share_path('config', yaml_config_file)
     evaluation_period_sec = env_float('RMPD_MAP_ACCURACY_LOG_PERIOD_SEC', 2.0)
     publish_overlay = env_bool('RMPD_MAP_ACCURACY_PUBLISH_OVERLAY', True)
 
@@ -334,7 +339,7 @@ def _map_accuracy_evaluator_node(robots: list[dict], all_robot_ids: list[str]) -
         name='map_accuracy_evaluator',
         output='screen',
         parameters=[{
-            'yaml_config_file': _package_share_path('config', 'map_accuracy_evaluator.yaml'),
+            'yaml_config_file': yaml_config_file,
             'robot_names': robot_names,
             'trial_id': trial_id,
             'fusion_mode': 'log_odds',

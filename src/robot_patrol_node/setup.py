@@ -31,6 +31,7 @@ setup(
         ('share/' + package_name + '/config', ['config/multi_robot_robot_1_view.rviz']),
         ('share/' + package_name + '/config', ['config/multi_robot_robot_2_view.rviz']),
         ('share/' + package_name + '/config', ['config/map_accuracy_evaluator.yaml']),
+        ('share/' + package_name + '/config', ['config/map_accuracy_evaluator_two_route.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

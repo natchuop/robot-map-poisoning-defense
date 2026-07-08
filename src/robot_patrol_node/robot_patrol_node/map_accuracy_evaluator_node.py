@@ -455,7 +455,6 @@ class MapAccuracyEvaluatorNode(Node):
                 for robot_id, state in self.robot_states.items()
                 if state.latest_metrics is not None and state.latest_geometry_match
             }
-            self.write_final_summary_rows()
 
     def _confidence_array(self, confidence_map: OccupancyGrid | None, geometry: MapGeometry) -> np.ndarray | None:
         if confidence_map is None:
@@ -601,7 +600,6 @@ class MapAccuracyEvaluatorNode(Node):
         if not self._last_summary_rows:
             return
 
-        rows: list[dict[str, object]] = []
         for robot_id, snapshot in self._last_summary_rows.items():
             geometry = snapshot['geometry']
             metrics = snapshot['metrics']
@@ -610,7 +608,7 @@ class MapAccuracyEvaluatorNode(Node):
                 continue
             row = self._base_row(time.time(), robot_id, geometry, metrics, state, scope='final')
             row['status'] = 'final'
-            rows.append(row)
+            self._append_row(self.summary_path, row)
             regions = snapshot['regions']
             for region_name, region_result in regions.items():
                 region_row = self._base_row(
@@ -624,16 +622,7 @@ class MapAccuracyEvaluatorNode(Node):
                 region_row.update(region_result.to_row())
                 region_row['attack_region_name'] = region_name
                 region_row['status'] = 'final'
-                rows.append(region_row)
-
-        if not rows:
-            return
-
-        with self.summary_path.open('w', newline='', encoding='utf-8') as handle:
-            writer = csv.DictWriter(handle, fieldnames=self.FIELDNAMES)
-            writer.writeheader()
-            for row in rows:
-                writer.writerow({field: row.get(field, '') for field in self.FIELDNAMES})
+                self._append_row(self.summary_path, region_row)
 
     def destroy_node(self) -> None:
         if self._destroyed:

@@ -1,0 +1,29 @@
+map_accuracy_evaluator:
+  ros__parameters:
+    robots:
+      - robot_1
+      - robot_2
+    trial_id: fake_obstacle
+    fusion_mode: log_odds
+    map_name: shared_map
+    ground_truth_map_topic: /map
+    shared_map_template: /{robot}/shared_live_map
+    confidence_map_template: /{robot}/shared_confidence_map
+    overlay_topic_template: /{robot}/map_accuracy_overlay
+    occupied_threshold: 65
+    free_threshold: 25
+    unknown_value: -1
+    log_period_sec: 2.0
+    output_dir: results/map_accuracy
+    timeseries_filename: raw/map_accuracy_timeseries.csv
+    summary_filename: processed/summary_by_trial.csv
+    write_timeseries: true
+    write_final_summary: true
+    attack_regions:
+      - name: fake_obstacle_sequence_vertical
+        type: rect
+        frame_id: map
+        min_x: 3.0
+        max_x: 3.2
+        min_y: -0.2
+        max_y: 2.5

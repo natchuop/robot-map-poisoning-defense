@@ -19,6 +19,11 @@ FAKE_OBSTACLE_Y = float(os.environ.get('WEBOTS_FAKE_OBSTACLE_Y', '-0.8'))
 FAKE_OBSTACLE_TRIGGER_KEY = os.environ.get('WEBOTS_FAKE_OBSTACLE_TRIGGER_KEY', 'f').strip() or 'f'
 FAKE_OBSTACLE_SOURCE = os.environ.get('WEBOTS_FAKE_OBSTACLE_SOURCE', 'keyboard_front').strip() or 'keyboard_front'
 FAKE_OBSTACLE_FRAME_ID = os.environ.get('WEBOTS_FAKE_OBSTACLE_FRAME_ID', 'map').strip() or 'map'
+FAKE_OBSTACLE_SEQUENCE = os.environ.get('WEBOTS_FAKE_OBSTACLE_SEQUENCE', '').strip()
+FAKE_OBSTACLE_SEQUENCE_INTERVAL_SEC = float(os.environ.get('WEBOTS_FAKE_OBSTACLE_SEQUENCE_INTERVAL_SEC', '6.0'))
+FAKE_OBSTACLE_SEQUENCE_START_DELAY_SEC = float(os.environ.get('WEBOTS_FAKE_OBSTACLE_SEQUENCE_START_DELAY_SEC', '5.0'))
+FAKE_OBSTACLE_SEQUENCE_REPEAT = os.environ.get('WEBOTS_FAKE_OBSTACLE_SEQUENCE_REPEAT', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
+FAKE_OBSTACLE_SEQUENCE_SOURCE = os.environ.get('WEBOTS_FAKE_OBSTACLE_SEQUENCE_SOURCE', 'automatic_sequence').strip() or 'automatic_sequence'
 BRIDGE_PROTOCOL = os.environ.get('WEBOTS_BRIDGE_PROTOCOL', 'tcp').strip().lower()
 BRIDGE_TARGETS = [
     target.strip()
@@ -65,6 +70,11 @@ def load_robot_config(robot):
         'fake_obstacle_trigger_key': FAKE_OBSTACLE_TRIGGER_KEY,
         'fake_obstacle_source': FAKE_OBSTACLE_SOURCE,
         'fake_obstacle_frame_id': FAKE_OBSTACLE_FRAME_ID,
+        'fake_obstacle_sequence': FAKE_OBSTACLE_SEQUENCE,
+        'fake_obstacle_sequence_interval_sec': FAKE_OBSTACLE_SEQUENCE_INTERVAL_SEC,
+        'fake_obstacle_sequence_start_delay_sec': FAKE_OBSTACLE_SEQUENCE_START_DELAY_SEC,
+        'fake_obstacle_sequence_repeat': FAKE_OBSTACLE_SEQUENCE_REPEAT,
+        'fake_obstacle_sequence_source': FAKE_OBSTACLE_SEQUENCE_SOURCE,
     }
 
     config['robot_id'] = robot.getName() or config['robot_id']
@@ -112,8 +122,57 @@ def load_robot_config(robot):
                 config['fake_obstacle_source'] = str(loaded['fake_obstacle_source']).strip()
             if str(loaded.get('fake_obstacle_frame_id', '')).strip():
                 config['fake_obstacle_frame_id'] = str(loaded['fake_obstacle_frame_id']).strip()
+            if loaded.get('fake_obstacle_sequence') is not None:
+                config['fake_obstacle_sequence'] = loaded['fake_obstacle_sequence']
+            if loaded.get('fake_obstacle_sequence_interval_sec') is not None:
+                config['fake_obstacle_sequence_interval_sec'] = float(loaded['fake_obstacle_sequence_interval_sec'])
+            if loaded.get('fake_obstacle_sequence_start_delay_sec') is not None:
+                config['fake_obstacle_sequence_start_delay_sec'] = float(loaded['fake_obstacle_sequence_start_delay_sec'])
+            if loaded.get('fake_obstacle_sequence_repeat') is not None:
+                config['fake_obstacle_sequence_repeat'] = bool(loaded['fake_obstacle_sequence_repeat'])
+            if str(loaded.get('fake_obstacle_sequence_source', '')).strip():
+                config['fake_obstacle_sequence_source'] = str(loaded['fake_obstacle_sequence_source']).strip()
 
     return config
+
+
+def normalize_fake_obstacle_sequence(raw_value):
+    if raw_value is None:
+        return []
+
+    if isinstance(raw_value, str):
+        raw_value = raw_value.strip()
+        if not raw_value:
+            return []
+        try:
+            raw_value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            return []
+
+    if isinstance(raw_value, dict):
+        raw_value = raw_value.get('points', raw_value.get('sequence', []))
+
+    if not isinstance(raw_value, (list, tuple)):
+        return []
+
+    points = []
+    for item in raw_value:
+        x_value = None
+        y_value = None
+        if isinstance(item, dict):
+            x_value = item.get('x')
+            y_value = item.get('y')
+        elif isinstance(item, (list, tuple)) and len(item) >= 2:
+            x_value, y_value = item[0], item[1]
+
+        if x_value is None or y_value is None:
+            continue
+        try:
+            points.append((float(x_value), float(y_value)))
+        except (TypeError, ValueError):
+            continue
+
+    return points
 
 
 def control_keys_for_mode(key_mode):
@@ -152,10 +211,23 @@ def fake_obstacle_point_in_front(robot_x, robot_y, robot_heading, distance_m):
     )
 
 
-def build_fake_obstacle_click(robot_config, robot_pose=None):
+def build_fake_obstacle_click(robot_config, robot_pose=None, obstacle_point=None):
     mode = str(robot_config.get('fake_obstacle_mode', FAKE_OBSTACLE_MODE)).strip().lower() or 'front'
     frame_id = str(robot_config.get('fake_obstacle_frame_id', FAKE_OBSTACLE_FRAME_ID)).strip() or 'map'
     source = str(robot_config.get('fake_obstacle_source', FAKE_OBSTACLE_SOURCE)).strip() or FAKE_OBSTACLE_SOURCE
+
+    if obstacle_point is not None:
+        obstacle_x, obstacle_y = obstacle_point
+        source = str(robot_config.get('fake_obstacle_sequence_source', FAKE_OBSTACLE_SEQUENCE_SOURCE)).strip() or FAKE_OBSTACLE_SEQUENCE_SOURCE
+        return {
+            'clicked_point': {
+                'x': float(obstacle_x),
+                'y': float(obstacle_y),
+                'z': 0.0,
+                'frame_id': frame_id,
+                'source': source,
+            }
+        }
 
     if mode != 'fixed_point' and robot_pose is not None:
         robot_x, robot_y, robot_heading = robot_pose
@@ -399,6 +471,13 @@ def main():
         sender = BridgeSender(bridge_targets, bridge_port)
         counter = 0
         previous_pressed_keys = set()
+        fake_obstacle_sequence = normalize_fake_obstacle_sequence(robot_config.get('fake_obstacle_sequence'))
+        fake_obstacle_sequence_mode = str(robot_config.get('fake_obstacle_mode', FAKE_OBSTACLE_MODE)).strip().lower() == 'sequence'
+        fake_obstacle_sequence_interval_sec = max(0.1, float(robot_config.get('fake_obstacle_sequence_interval_sec', FAKE_OBSTACLE_SEQUENCE_INTERVAL_SEC)))
+        fake_obstacle_sequence_start_delay_sec = max(0.0, float(robot_config.get('fake_obstacle_sequence_start_delay_sec', FAKE_OBSTACLE_SEQUENCE_START_DELAY_SEC)))
+        fake_obstacle_sequence_repeat = bool(robot_config.get('fake_obstacle_sequence_repeat', FAKE_OBSTACLE_SEQUENCE_REPEAT))
+        fake_obstacle_sequence_index = 0
+        fake_obstacle_sequence_next_time = fake_obstacle_sequence_start_delay_sec if fake_obstacle_sequence_mode and fake_obstacle_sequence else None
 
         print(
             f'ROS bridge targets {", ".join(f"tcp://{target}:{bridge_port}" for target in bridge_targets)}',
@@ -412,6 +491,14 @@ def main():
             f'front={robot_config["fake_obstacle_forward_m"]:.2f}m)',
             flush=True,
         )
+        if fake_obstacle_sequence_mode:
+            print(
+                f'fake obstacle sequence ready: {len(fake_obstacle_sequence)} points '
+                f'interval={fake_obstacle_sequence_interval_sec:.2f}s '
+                f'start_delay={fake_obstacle_sequence_start_delay_sec:.2f}s '
+                f'repeat={fake_obstacle_sequence_repeat}',
+                flush=True,
+            )
         print(
             f'user_controlled_robot wheel speed cap {max_wheel_speed:.2f} rad/s '
             f'(drive={drive_speed:.2f}, turn={turn_speed:.2f})',
@@ -459,7 +546,7 @@ def main():
             robot_heading = planar_heading_from_imu(imu, rpy)
 
             new_pressed_keys = pressed_keys - previous_pressed_keys
-            if new_pressed_keys.intersection(fake_obstacle_keys(robot_config["fake_obstacle_trigger_key"])):
+            if not fake_obstacle_sequence_mode and new_pressed_keys.intersection(fake_obstacle_keys(robot_config["fake_obstacle_trigger_key"])):
                 payload = json.dumps(
                     build_fake_obstacle_click(robot_config, (robot_x, robot_y, robot_heading)),
                     separators=(',', ':'),
@@ -470,6 +557,33 @@ def main():
                         flush=True,
                     )
             previous_pressed_keys = pressed_keys
+
+            if fake_obstacle_sequence_mode and fake_obstacle_sequence and fake_obstacle_sequence_next_time is not None:
+                sim_time = float(robot.getTime())
+                if sim_time >= fake_obstacle_sequence_next_time:
+                    obstacle_x, obstacle_y = fake_obstacle_sequence[fake_obstacle_sequence_index]
+                    payload = json.dumps(
+                        build_fake_obstacle_click(
+                            robot_config,
+                            obstacle_point=(obstacle_x, obstacle_y),
+                        ),
+                        separators=(',', ':'),
+                    ).encode('utf-8')
+                    if sender.send(payload):
+                        print(
+                            f'fake obstacle sequence sent point {fake_obstacle_sequence_index + 1}/{len(fake_obstacle_sequence)} '
+                            f'at x={obstacle_x:.3f} y={obstacle_y:.3f}',
+                            flush=True,
+                        )
+                        fake_obstacle_sequence_index += 1
+                        if fake_obstacle_sequence_index >= len(fake_obstacle_sequence):
+                            if fake_obstacle_sequence_repeat:
+                                fake_obstacle_sequence_index = 0
+                                fake_obstacle_sequence_next_time = sim_time + fake_obstacle_sequence_interval_sec
+                            else:
+                                fake_obstacle_sequence_next_time = None
+                        else:
+                            fake_obstacle_sequence_next_time = sim_time + fake_obstacle_sequence_interval_sec
 
             if LOG_INTERVAL_STEPS > 0 and counter % LOG_INTERVAL_STEPS == 0:
                 print(
