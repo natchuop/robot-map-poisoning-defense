@@ -18,6 +18,9 @@ def generate_launch_description():
     initial_pose_yaw = LaunchConfiguration('initial_pose_yaw')
     initial_pose_use_odom = LaunchConfiguration('initial_pose_use_odom')
     use_sim_time = LaunchConfiguration('use_sim_time')
+    start_udp_bridge = LaunchConfiguration('start_udp_bridge')
+    start_map_server = LaunchConfiguration('start_map_server')
+    start_lifecycle_manager = LaunchConfiguration('start_lifecycle_manager')
     start_checkpoint_patrol = LaunchConfiguration('start_checkpoint_patrol')
     start_checkpoint_metrics = LaunchConfiguration('start_checkpoint_metrics')
     start_navigation_diagnostics = LaunchConfiguration('start_navigation_diagnostics')
@@ -27,12 +30,24 @@ def generate_launch_description():
     live_map_origin_x = LaunchConfiguration('live_map_origin_x')
     live_map_origin_y = LaunchConfiguration('live_map_origin_y')
     map_id = LaunchConfiguration('map_id')
+    pose_topic = LaunchConfiguration('pose_topic')
+    scan_topic = LaunchConfiguration('scan_topic')
+    odom_topic = LaunchConfiguration('odom_topic')
+    cmd_vel_topic = LaunchConfiguration('cmd_vel_topic')
+    amcl_pose_topic = LaunchConfiguration('amcl_pose_topic')
+    initial_pose_topic = LaunchConfiguration('initial_pose_topic')
+    active_checkpoint_topic = LaunchConfiguration('active_checkpoint_topic')
+    webots_checkpoint_event_topic = LaunchConfiguration('webots_checkpoint_event_topic')
+    checkpoint_contact_topic = LaunchConfiguration('checkpoint_contact_topic')
+    map_frame = LaunchConfiguration('map_frame')
+    odom_frame = LaunchConfiguration('odom_frame')
+    base_frame = LaunchConfiguration('base_frame')
+    scan_frame = LaunchConfiguration('scan_frame')
     checkpoint_metrics_output_csv = LaunchConfiguration('checkpoint_metrics_output_csv')
     checkpoint_metrics_radius_m = LaunchConfiguration('checkpoint_metrics_radius_m')
     checkpoint_metrics_reset = LaunchConfiguration('checkpoint_metrics_reset')
 
     pkg_share = FindPackageShare('robot_patrol_node').find('robot_patrol_node')
-
     amcl_launch = str(Path(pkg_share) / 'launch' / 'amcl_stack.launch.py')
     nav2_launch = str(Path(pkg_share) / 'launch' / 'nav2_stack.launch.py')
 
@@ -45,6 +60,9 @@ def generate_launch_description():
         DeclareLaunchArgument('initial_pose_yaw', default_value='0.0'),
         DeclareLaunchArgument('initial_pose_use_odom', default_value='true'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
+        DeclareLaunchArgument('start_udp_bridge', default_value='true'),
+        DeclareLaunchArgument('start_map_server', default_value='true'),
+        DeclareLaunchArgument('start_lifecycle_manager', default_value='true'),
         DeclareLaunchArgument('start_checkpoint_patrol', default_value='true'),
         DeclareLaunchArgument('start_checkpoint_metrics', default_value='true'),
         DeclareLaunchArgument('start_navigation_diagnostics', default_value='true'),
@@ -54,6 +72,19 @@ def generate_launch_description():
         DeclareLaunchArgument('live_map_origin_x', default_value='nan'),
         DeclareLaunchArgument('live_map_origin_y', default_value='nan'),
         DeclareLaunchArgument('map_id', default_value=''),
+        DeclareLaunchArgument('pose_topic', default_value='/robot_pose'),
+        DeclareLaunchArgument('scan_topic', default_value='/scan'),
+        DeclareLaunchArgument('odom_topic', default_value='/odom'),
+        DeclareLaunchArgument('cmd_vel_topic', default_value='/cmd_vel'),
+        DeclareLaunchArgument('amcl_pose_topic', default_value='/amcl_pose'),
+        DeclareLaunchArgument('initial_pose_topic', default_value='/initialpose'),
+        DeclareLaunchArgument('active_checkpoint_topic', default_value='/active_checkpoint'),
+        DeclareLaunchArgument('webots_checkpoint_event_topic', default_value='/webots_checkpoint_event'),
+        DeclareLaunchArgument('checkpoint_contact_topic', default_value='/webots_checkpoint_contact'),
+        DeclareLaunchArgument('map_frame', default_value='map'),
+        DeclareLaunchArgument('odom_frame', default_value='odom'),
+        DeclareLaunchArgument('base_frame', default_value='base_link'),
+        DeclareLaunchArgument('scan_frame', default_value='laser'),
         DeclareLaunchArgument('checkpoint_metrics_output_csv', default_value=''),
         DeclareLaunchArgument('checkpoint_metrics_radius_m', default_value='0.40'),
         DeclareLaunchArgument('checkpoint_metrics_reset', default_value='true'),
@@ -63,12 +94,22 @@ def generate_launch_description():
             launch_arguments={
                 'listen_host': listen_host,
                 'listen_port': listen_port,
+                'pose_topic': pose_topic,
+                'scan_topic': scan_topic,
+                'odom_topic': odom_topic,
                 'map_yaml': map_yaml,
+                'map_frame': map_frame,
+                'odom_frame': odom_frame,
+                'base_frame': base_frame,
                 'initial_pose_x': initial_pose_x,
                 'initial_pose_y': initial_pose_y,
                 'initial_pose_yaw': initial_pose_yaw,
                 'initial_pose_use_odom': initial_pose_use_odom,
                 'use_sim_time': use_sim_time,
+                'amcl_pose_topic': amcl_pose_topic,
+                'start_udp_bridge': start_udp_bridge,
+                'start_map_server': start_map_server,
+                'start_lifecycle_manager': start_lifecycle_manager,
             }.items(),
         ),
 
@@ -76,6 +117,10 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(nav2_launch),
             launch_arguments={
                 'use_sim_time': use_sim_time,
+                'scan_topic': scan_topic,
+                'cmd_vel_topic': cmd_vel_topic,
+                'robot_base_frame': base_frame,
+                'odom_frame_id': odom_frame,
             }.items(),
         ),
 
@@ -85,7 +130,7 @@ def generate_launch_description():
             output='screen',
             condition=IfCondition(start_live_mapping),
             parameters=[{
-                'input_topic': '/amcl_pose',
+                'input_topic': amcl_pose_topic,
                 'output_topic': '/localized_pose',
             }],
         ),
@@ -97,8 +142,8 @@ def generate_launch_description():
             output='screen',
             condition=IfCondition(start_live_mapping),
             parameters=[{
-                'scan_topic': '/scan',
-                'pose_topic': '/robot_pose',
+                'scan_topic': scan_topic,
+                'pose_topic': pose_topic,
                 'map_topic': '/live_map',
                 'map_frame': 'map',
                 'publish_tf': False,
@@ -137,8 +182,15 @@ def generate_launch_description():
             output='screen',
             condition=IfCondition(start_checkpoint_patrol),
             parameters=[{
-                'frame_id': 'map',
+                'frame_id': map_frame,
                 'map_id': map_id,
+                'robot_pose_topic': pose_topic,
+                'amcl_pose_topic': amcl_pose_topic,
+                'scan_topic': scan_topic,
+                'cmd_vel_topic': cmd_vel_topic,
+                'active_checkpoint_topic': active_checkpoint_topic,
+                'webots_checkpoint_event_topic': webots_checkpoint_event_topic,
+                'checkpoint_contact_topic': checkpoint_contact_topic,
             }],
         ),
 
@@ -151,7 +203,7 @@ def generate_launch_description():
             parameters=[{
                 'robot_id': 'robot_1',
                 'map_id': map_id,
-                'pose_topic': '/robot_pose',
+                'pose_topic': pose_topic,
                 'arrival_radius_m': checkpoint_metrics_radius_m,
                 'output_csv': checkpoint_metrics_output_csv,
                 'reset_csv_on_start': checkpoint_metrics_reset,

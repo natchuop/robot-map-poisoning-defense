@@ -2,7 +2,7 @@
   "robots": [
     {
       "robot_id": "robot_1",
-      "spawn_x": -4.0,
+      "spawn_x": -4.5,
       "spawn_y": 0.0,
       "spawn_yaw": 0.0,
       "control_scheme": "wasd",

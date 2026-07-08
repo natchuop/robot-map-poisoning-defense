@@ -111,7 +111,7 @@ DEF RIGHT_OUTER Solid {
   }
 }
 DEF CENTER_DIVIDER Solid {
-  translation 0 -0.4 0.25
+  translation 2.225 -0.4 0.25
   children [
     Shape {
       appearance Appearance {
@@ -122,13 +122,13 @@ DEF CENTER_DIVIDER Solid {
         }
       }
       geometry Box {
-        size 8.9 0.18 0.5
+        size 4.45 0.18 0.5
       }
     }
   ]
   name "center_divider"
   boundingObject Box {
-    size 8.9 0.18 0.5
+    size 4.45 0.18 0.5
   }
 }
 DEF LOWER_BOTTOM_LEFT Solid {

@@ -6,9 +6,11 @@ from pathlib import Path
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription, OpaqueFunction
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -142,6 +144,12 @@ def _robot_topic(robot_id: str, suffix: str) -> str:
     return f'/{robot_id}/{suffix}'
 
 
+def _robot_frame(robot_id: str, frame_name: str, patrol_enabled: bool) -> str:
+    if patrol_enabled and robot_id == 'robot_1':
+        return frame_name
+    return f'{robot_id}/{frame_name}'
+
+
 def _robot_map_builder_config(robot: dict) -> dict:
     defaults = {
         'occupancy_mode': 'scored',
@@ -182,7 +190,7 @@ def _resolve_rviz_config(config_name: str) -> str:
     return _package_share_path('config', config_name)
 
 
-def _bridge_node(robot: dict) -> Node:
+def _bridge_node(robot: dict, patrol_enabled: bool) -> Node:
     robot_id = robot['robot_id']
     return Node(
         package='robot_patrol_node',
@@ -199,16 +207,16 @@ def _bridge_node(robot: dict) -> Node:
             'checkpoint_event_topic': _robot_topic(robot_id, 'webots_checkpoint_event'),
             'active_checkpoint_topic': _robot_topic(robot_id, 'active_checkpoint'),
             'clicked_point_topic': _robot_topic(robot_id, 'clicked_point'),
-            'scan_frame': f'{robot_id}/laser',
+            'scan_frame': _robot_frame(robot_id, 'laser', patrol_enabled),
             'odom_topic': _robot_topic(robot_id, 'odom'),
-            'odom_frame': f'{robot_id}/odom',
-            'base_frame': f'{robot_id}/base_link',
-            'publish_odom': False,
+            'odom_frame': _robot_frame(robot_id, 'odom', patrol_enabled),
+            'base_frame': _robot_frame(robot_id, 'base_link', patrol_enabled),
+            'publish_odom': patrol_enabled,
         }],
     )
 
 
-def _map_builder_node(robot: dict, live_map_width_m: float, live_map_height_m: float, live_map_origin_x: float, live_map_origin_y: float) -> Node:
+def _map_builder_node(robot: dict, live_map_width_m: float, live_map_height_m: float, live_map_origin_x: float, live_map_origin_y: float, patrol_enabled: bool) -> Node:
     robot_id = robot['robot_id']
     map_builder_config = _robot_map_builder_config(robot)
     return Node(
@@ -225,8 +233,8 @@ def _map_builder_node(robot: dict, live_map_width_m: float, live_map_height_m: f
             'publish_current_observation_map': True,
             'current_observation_max_age_sec': env_float('RMPD_CURRENT_OBSERVATION_MAX_AGE_SEC', 0.0),
             'map_frame': 'map',
-            'base_frame': f'{robot_id}/base_link',
-            'laser_frame': f'{robot_id}/laser',
+            'base_frame': _robot_frame(robot_id, 'base_link', patrol_enabled),
+            'laser_frame': _robot_frame(robot_id, 'laser', patrol_enabled),
             'publish_tf': True,
             'map_width_m': live_map_width_m,
             'map_height_m': live_map_height_m,
@@ -390,11 +398,56 @@ def _rviz_node(robot: dict) -> ExecuteProcess:
     )
 
 
+def _patrol_navigation_include() -> IncludeLaunchDescription:
+    pkg_share = FindPackageShare('robot_patrol_node').find('robot_patrol_node')
+    launch_path = str(Path(pkg_share) / 'launch' / 'nav2_with_amcl.launch.py')
+    map_yaml = os.getenv('RMPD_AMCL_MAP_YAML', '').strip() or os.getenv('RMPD_STATIC_MAP_YAML', '').strip()
+    return IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(launch_path),
+        launch_arguments={
+            'listen_host': '0.0.0.0',
+            'listen_port': os.getenv('RMPD_BRIDGE_PORT', '5005'),
+            'map_yaml': map_yaml,
+            'initial_pose_x': os.getenv('RMPD_AMCL_INITIAL_POSE_X', '-4.5').strip(),
+            'initial_pose_y': os.getenv('RMPD_AMCL_INITIAL_POSE_Y', '0.0').strip(),
+            'initial_pose_yaw': os.getenv('RMPD_AMCL_INITIAL_POSE_YAW', '0.0').strip(),
+            'initial_pose_use_odom': os.getenv('RMPD_AMCL_INITIAL_POSE_USE_ODOM', 'true').strip(),
+            'start_udp_bridge': 'false',
+            'start_map_server': 'false',
+            'start_lifecycle_manager': 'true',
+            'use_sim_time': 'false',
+            'start_checkpoint_patrol': 'true',
+            'start_checkpoint_metrics': 'false',
+            'start_navigation_diagnostics': os.getenv('RMPD_START_NAVIGATION_DIAGNOSTICS', 'true').strip(),
+            'start_live_mapping': 'false',
+            'live_map_width_m': os.getenv('RMPD_LIVE_MAP_WIDTH_M', '10.0').strip(),
+            'live_map_height_m': os.getenv('RMPD_LIVE_MAP_HEIGHT_M', '10.0').strip(),
+            'live_map_origin_x': os.getenv('RMPD_LIVE_MAP_ORIGIN_X', '-4.0').strip(),
+            'live_map_origin_y': os.getenv('RMPD_LIVE_MAP_ORIGIN_Y', '-4.0').strip(),
+            'map_id': os.getenv('RMPD_MAP_ID', '').strip(),
+            'pose_topic': '/robot_1/robot_pose',
+            'scan_topic': '/robot_1/scan',
+            'odom_topic': '/robot_1/odom',
+            'cmd_vel_topic': '/robot_1/cmd_vel',
+            'amcl_pose_topic': '/robot_1/amcl_pose',
+            'initial_pose_topic': '/initialpose',
+            'active_checkpoint_topic': '/robot_1/active_checkpoint',
+            'webots_checkpoint_event_topic': '/robot_1/webots_checkpoint_event',
+            'checkpoint_contact_topic': '/robot_1/webots_checkpoint_contact',
+            'map_frame': 'map',
+            'odom_frame': 'odom',
+            'base_frame': 'base_link',
+            'scan_frame': 'laser',
+        }.items(),
+    )
+
+
 def _launch_setup(context, *args, **kwargs):
     robots = _load_configured_robots()
     all_robot_ids = [robot['robot_id'] for robot in robots]
     start_rviz = env_bool('RMPD_START_RVIZ', False)
     start_checkpoint_metrics = env_bool('RMPD_START_CHECKPOINT_METRICS', True)
+    start_checkpoint_patrol = env_bool('RMPD_START_CHECKPOINT_PATROL', False)
     map_id = os.getenv('RMPD_MAP_ID', '').strip().lower()
     static_map_yaml = LaunchConfiguration('static_map_yaml').perform(context).strip()
 
@@ -435,7 +488,8 @@ def _launch_setup(context, *args, **kwargs):
     live_map_origin_y = LaunchConfiguration('live_map_origin_y')
 
     for robot in robots:
-        nodes.append(_bridge_node(robot))
+        patrol_frame_mode = start_checkpoint_patrol and robot['robot_id'] == 'robot_1'
+        nodes.append(_bridge_node(robot, patrol_frame_mode))
         nodes.append(
             _map_builder_node(
                 robot,
@@ -443,6 +497,7 @@ def _launch_setup(context, *args, **kwargs):
                 live_map_height_m,
                 live_map_origin_x,
                 live_map_origin_y,
+                patrol_frame_mode,
             )
         )
         nodes.append(_belief_node(robot, all_robot_ids))
@@ -452,6 +507,9 @@ def _launch_setup(context, *args, **kwargs):
             nodes.append(_checkpoint_metrics_node(robot, map_id))
         if start_rviz:
             nodes.append(_rviz_node(robot))
+
+    if start_checkpoint_patrol:
+        nodes.append(_patrol_navigation_include())
 
     return nodes
 

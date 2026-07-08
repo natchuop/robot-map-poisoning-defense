@@ -2,7 +2,8 @@ import os
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 
 
@@ -25,7 +26,7 @@ def _secondary_bridge_topic_prefix() -> str:
     return prefix.strip('/') or 'observer_bot'
 
 
-def _secondary_bridge_node() -> Node:
+def _secondary_bridge_node(start_udp_bridge: LaunchConfiguration) -> Node:
     topic_prefix = _secondary_bridge_topic_prefix()
     listen_port = _secondary_bridge_port()
     return Node(
@@ -33,6 +34,7 @@ def _secondary_bridge_node() -> Node:
         executable='udp_bridge',
         name=f'{topic_prefix}_bridge',
         output='screen',
+        condition=IfCondition(start_udp_bridge),
         parameters=[{
             'listen_host': '0.0.0.0',
             'listen_port': listen_port,
@@ -100,6 +102,7 @@ def generate_launch_description():
     pose_topic = LaunchConfiguration('pose_topic')
     scan_topic = LaunchConfiguration('scan_topic')
     odom_topic = LaunchConfiguration('odom_topic')
+    amcl_pose_topic = LaunchConfiguration('amcl_pose_topic')
     map_yaml = LaunchConfiguration('map_yaml')
     map_frame = LaunchConfiguration('map_frame')
     odom_frame = LaunchConfiguration('odom_frame')
@@ -109,6 +112,9 @@ def generate_launch_description():
     initial_pose_yaw = LaunchConfiguration('initial_pose_yaw')
     initial_pose_use_odom = LaunchConfiguration('initial_pose_use_odom')
     use_sim_time = LaunchConfiguration('use_sim_time')
+    start_udp_bridge = LaunchConfiguration('start_udp_bridge')
+    start_map_server = LaunchConfiguration('start_map_server')
+    start_lifecycle_manager = LaunchConfiguration('start_lifecycle_manager')
     bridge_publish_hz = LaunchConfiguration('bridge_publish_hz')
 
     actions = [
@@ -117,6 +123,7 @@ def generate_launch_description():
         DeclareLaunchArgument('pose_topic', default_value='/robot_pose'),
         DeclareLaunchArgument('scan_topic', default_value='/scan'),
         DeclareLaunchArgument('odom_topic', default_value='/odom'),
+        DeclareLaunchArgument('amcl_pose_topic', default_value='/amcl_pose'),
         DeclareLaunchArgument('map_yaml', default_value=''),
         DeclareLaunchArgument('map_frame', default_value='map'),
         DeclareLaunchArgument('odom_frame', default_value='odom'),
@@ -126,18 +133,32 @@ def generate_launch_description():
         DeclareLaunchArgument('initial_pose_yaw', default_value='0.0'),
         DeclareLaunchArgument('initial_pose_use_odom', default_value='true'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
+        DeclareLaunchArgument('start_udp_bridge', default_value='true'),
+        DeclareLaunchArgument('start_map_server', default_value='true'),
+        DeclareLaunchArgument('start_lifecycle_manager', default_value='true'),
         DeclareLaunchArgument('bridge_publish_hz', default_value='25.0'),
 
         Node(
             package='robot_patrol_node',
             executable='udp_bridge',
             output='screen',
+            condition=IfCondition(start_udp_bridge),
             parameters=[{
                 'listen_host': listen_host,
                 'listen_port': listen_port,
                 'scan_frame': 'laser',
                 'max_publish_hz': bridge_publish_hz,
+                'publish_odom': True,
+                'pose_topic': pose_topic,
+                'scan_topic': scan_topic,
+                'cmd_vel_topic': '/cmd_vel',
+                'checkpoint_contact_topic': '/webots_checkpoint_contact',
+                'checkpoint_event_topic': '/webots_checkpoint_event',
+                'active_checkpoint_topic': '/active_checkpoint',
                 'clicked_point_topic': '/clicked_point',
+                'odom_topic': odom_topic,
+                'odom_frame': odom_frame,
+                'base_frame': base_frame,
             }],
         ),
 
@@ -180,6 +201,7 @@ def generate_launch_description():
             executable='map_server',
             name='map_server',
             output='screen',
+            condition=IfCondition(start_map_server),
             parameters=[{
                 'use_sim_time': use_sim_time,
                 'yaml_filename': map_yaml,
@@ -203,6 +225,10 @@ def generate_launch_description():
                 'transform_tolerance': 1.0,
                 'set_initial_pose': False,
             }],
+            remappings=[
+                ('/amcl_pose', amcl_pose_topic),
+                ('amcl_pose', amcl_pose_topic),
+            ],
         ),
 
         Node(
@@ -210,6 +236,15 @@ def generate_launch_description():
             executable='lifecycle_manager',
             name='lifecycle_manager_localization',
             output='screen',
+            condition=IfCondition(
+                PythonExpression([
+                    "'",
+                    start_lifecycle_manager,
+                    "' == 'true' and '",
+                    start_map_server,
+                    "' == 'true'",
+                ])
+            ),
             parameters=[{
                 'use_sim_time': use_sim_time,
                 'autostart': True,
@@ -236,7 +271,7 @@ def generate_launch_description():
 
     if _secondary_bridge_enabled():
         topic_prefix = _secondary_bridge_topic_prefix()
-        actions.insert(1, _secondary_bridge_node())
+        actions.insert(1, _secondary_bridge_node(start_udp_bridge))
         actions.insert(
             2,
             Node(

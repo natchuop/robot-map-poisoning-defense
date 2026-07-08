@@ -10,6 +10,10 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     params_file = LaunchConfiguration('params_file')
+    scan_topic = LaunchConfiguration('scan_topic')
+    cmd_vel_topic = LaunchConfiguration('cmd_vel_topic')
+    robot_base_frame = LaunchConfiguration('robot_base_frame')
+    odom_frame_id = LaunchConfiguration('odom_frame_id')
 
     pkg_share = FindPackageShare('robot_patrol_node').find('robot_patrol_node')
     nav2_bt_share = FindPackageShare('nav2_bt_navigator').find('nav2_bt_navigator')
@@ -26,6 +30,10 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('params_file', default_value=default_params_file),
+        DeclareLaunchArgument('scan_topic', default_value='/scan'),
+        DeclareLaunchArgument('cmd_vel_topic', default_value='/cmd_vel'),
+        DeclareLaunchArgument('robot_base_frame', default_value='base_link'),
+        DeclareLaunchArgument('odom_frame_id', default_value='odom'),
 
         Node(
             package='nav2_controller',
@@ -37,6 +45,12 @@ def generate_launch_description():
                 'default_nav_to_pose_bt_xml': default_nav_to_pose_bt_xml,
                 'default_nav_through_poses_bt_xml': default_nav_through_poses_bt_xml,
             }],
+            remappings=[
+                ('/scan', scan_topic),
+                ('scan', scan_topic),
+                ('/cmd_vel', cmd_vel_topic),
+                ('cmd_vel', cmd_vel_topic),
+            ],
         ),
 
         Node(
@@ -61,6 +75,10 @@ def generate_launch_description():
                 'default_nav_to_pose_bt_xml': default_nav_to_pose_bt_xml,
                 'default_nav_through_poses_bt_xml': default_nav_through_poses_bt_xml,
             }],
+            remappings=[
+                ('/cmd_vel', cmd_vel_topic),
+                ('cmd_vel', cmd_vel_topic),
+            ],
         ),
 
         Node(

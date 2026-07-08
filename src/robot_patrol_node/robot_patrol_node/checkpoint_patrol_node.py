@@ -30,23 +30,22 @@ DEFAULT_CHECKPOINTS = {
 }
 
 HELPER_TARGETS = {}
+LOOP_ROUTE_WORLDS = {'simple_corridor', 'two_route'}
+
+SIMPLE_CORRIDOR_CHECKPOINTS = {
+    'A': Checkpoint(-4.50, 0.00),
+    'B': Checkpoint(4.50, 0.00),
+}
+
+TWO_ROUTE_CHECKPOINTS = {
+    'A': Checkpoint(-4.50, 1.00),
+    'B': Checkpoint(4.50, 1.00),
+}
 
 DEFAULT_ROUTE = ['A', 'B', 'C', 'D', 'A']
 WORLD_ROUTES = {
-    'simple_corridor': (
-        {
-            'A': Checkpoint(-4.50, 0.00),
-            'B': Checkpoint(4.50, 0.00),
-        },
-        ['A', 'B'],
-    ),
-    'two_route': (
-        {
-            'A': Checkpoint(-4.50, 1.00),
-            'B': Checkpoint(4.50, 1.00),
-        },
-        ['A', 'B'],
-    ),
+    'simple_corridor': (SIMPLE_CORRIDOR_CHECKPOINTS, ['A', 'B']),
+    'two_route': (TWO_ROUTE_CHECKPOINTS, ['A', 'B']),
 }
 
 
@@ -80,6 +79,13 @@ class CheckpointPatrolNode(Node):
         self.declare_parameter('departure_assist_backoff_linear_x', -0.06)
         self.declare_parameter('departure_assist_turn_speed', 0.8)
         self.declare_parameter('map_id', '')
+        self.declare_parameter('robot_pose_topic', '/robot_pose')
+        self.declare_parameter('amcl_pose_topic', '/amcl_pose')
+        self.declare_parameter('scan_topic', '/scan')
+        self.declare_parameter('cmd_vel_topic', '/cmd_vel')
+        self.declare_parameter('active_checkpoint_topic', '/active_checkpoint')
+        self.declare_parameter('webots_checkpoint_event_topic', '/webots_checkpoint_event')
+        self.declare_parameter('checkpoint_contact_topic', '/webots_checkpoint_contact')
 
         self.loop = bool(self.get_parameter('loop').value)
         self.frame_id = str(self.get_parameter('frame_id').value)
@@ -141,6 +147,19 @@ class CheckpointPatrolNode(Node):
             self.get_parameter('departure_assist_turn_speed').value
         )
         self.map_id = str(self.get_parameter('map_id').value).strip().lower()
+        self.robot_pose_topic = str(self.get_parameter('robot_pose_topic').value).strip()
+        self.amcl_pose_topic = str(self.get_parameter('amcl_pose_topic').value).strip()
+        self.scan_topic = str(self.get_parameter('scan_topic').value).strip()
+        self.cmd_vel_topic = str(self.get_parameter('cmd_vel_topic').value).strip()
+        self.active_checkpoint_topic = str(
+            self.get_parameter('active_checkpoint_topic').value
+        ).strip()
+        self.webots_checkpoint_event_topic = str(
+            self.get_parameter('webots_checkpoint_event_topic').value
+        ).strip()
+        self.checkpoint_contact_topic = str(
+            self.get_parameter('checkpoint_contact_topic').value
+        ).strip()
         self.checkpoints = dict(DEFAULT_CHECKPOINTS)
         self.route = list(DEFAULT_ROUTE)
         self.visible_route = list(DEFAULT_ROUTE)
@@ -149,40 +168,42 @@ class CheckpointPatrolNode(Node):
             self.checkpoints = dict(world_checkpoints)
             self.route = list(world_route)
             self.visible_route = list(world_route)
-            if self.map_id == 'simple_corridor':
-                self.loop = True
-            if self.map_id == 'two_route':
+            if self.map_id in LOOP_ROUTE_WORLDS:
                 self.loop = True
 
         self.client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.robot_pose_subscription = self.create_subscription(
             Pose2D,
-            '/robot_pose',
+            self.robot_pose_topic,
             self.robot_pose_callback,
             10,
         )
         self.amcl_subscription = self.create_subscription(
             PoseWithCovarianceStamped,
-            '/amcl_pose',
+            self.amcl_pose_topic,
             self.amcl_pose_callback,
             10,
         )
         self.scan_subscription = self.create_subscription(
             LaserScan,
-            '/scan',
+            self.scan_topic,
             self.scan_callback,
             10,
         )
-        self.active_checkpoint_pub = self.create_publisher(String, '/active_checkpoint', 10)
-        self.webots_checkpoint_event_pub = self.create_publisher(
+        self.active_checkpoint_pub = self.create_publisher(
             String,
-            '/webots_checkpoint_event',
+            self.active_checkpoint_topic,
             10,
         )
-        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.webots_checkpoint_event_pub = self.create_publisher(
+            String,
+            self.webots_checkpoint_event_topic,
+            10,
+        )
+        self.cmd_vel_pub = self.create_publisher(Twist, self.cmd_vel_topic, 10)
         self.checkpoint_contact_subscription = self.create_subscription(
             String,
-            '/webots_checkpoint_contact',
+            self.checkpoint_contact_topic,
             self.checkpoint_contact_callback,
             10,
         )
@@ -418,13 +439,13 @@ class CheckpointPatrolNode(Node):
             distance_text = f'{distance[0]:.2f} m from {distance[1]}'
 
         if (
-            self.map_id == 'simple_corridor'
+            self.map_id in LOOP_ROUTE_WORLDS
             and checkpoint_name == 'A'
             and distance is not None
             and distance[0] <= self.goal_reached_radius
         ):
             self.get_logger().info(
-                'Simple corridor start checkpoint already reached; advancing directly to B.'
+                'Start checkpoint already reached; advancing directly to the next route checkpoint.'
             )
             self.complete_active_checkpoint(
                 f'already within start radius: {distance[0]:.2f} m using {distance[1]}'
@@ -752,7 +773,7 @@ class CheckpointPatrolNode(Node):
         if (
             checkpoint_name not in HELPER_TARGETS
             and next_checkpoint_name is not None
-            and self.map_id != 'simple_corridor'
+            and self.map_id not in {'simple_corridor', 'two_route'}
         ):
             self.start_departure_assist(checkpoint_name, next_checkpoint_name)
         else:
@@ -809,7 +830,7 @@ class CheckpointPatrolNode(Node):
         self.departure_timer = self.create_timer(0.1, self.departure_recovery_tick)
 
     def should_run_retry_recovery(self):
-        if self.map_id == 'simple_corridor':
+        if self.map_id in LOOP_ROUTE_WORLDS:
             return False
         if self.retry_recovery_duration_sec <= 0.0:
             return False
