@@ -11,8 +11,8 @@ WorldInfo {
   basicTimeStep 64
 }
 Viewpoint {
-  orientation -0.3851506922453098 -0.517684086375244 0.763977834087343 4.738899889404241
-  position -1.5 2.5 0.6
+  orientation -0.4303937528926308 -0.2193086854214111 0.8755940371940237 3.8410937625257437
+  position 6.274514558446751 5.802600898646034 11.300431955440686
   followType "None"
 }
 TexturedBackground {
@@ -24,7 +24,7 @@ RectangleArena {
   wallHeight 0.7
 }
 DEF H1 Solid {
-  translation -2 2.4 0.14
+  translation -1.92 2.4 0.14
   children [
     Shape {
       appearance PBRAppearance {
@@ -41,7 +41,7 @@ DEF H1 Solid {
   }
 }
 DEF H2 Solid {
-  translation 0.4 2.4 0.14
+  translation 0.07 2.4 0.14
   children [
     Shape {
       appearance PBRAppearance {
@@ -94,7 +94,7 @@ DEF V2 Solid {
   }
 }
 DEF H4 Solid {
-  translation -1.6 0.8 0.14
+  translation -1.48 0.8 0.14
   children [
     Shape {
       appearance PBRAppearance {
@@ -129,7 +129,7 @@ DEF V3 Solid {
   }
 }
 DEF V4 Solid {
-  translation 0 0 0.14
+  translation 0.210001 -0.15 0.14
   rotation 0 0 1 1.5708
   children [
     Shape {
@@ -147,7 +147,7 @@ DEF V4 Solid {
   }
 }
 DEF H6 Solid {
-  translation -1.6 -0.8 0.14
+  translation -1.69 -0.8 0.14
   children [
     Shape {
       appearance PBRAppearance {
@@ -182,7 +182,7 @@ DEF V6 Solid {
   }
 }
 DEF H8 Solid {
-  translation -2 -2.4 0.14
+  translation -2 -2.48 0.14
   children [
     Shape {
       appearance PBRAppearance {
@@ -437,8 +437,28 @@ DEF OBS4_9 Solid {
   }
 }
 DEF ROBOT_1 TurtleBot3Burger {
-  translation 2.0 2.0 0.0
-  rotation 0 0 1 0
+  hidden position_0_0 2.6345540145519115e-11
+  hidden position_0_1 2.8529428687988e-11
+  hidden position_0_2 3.837717830307693e-06
+  hidden position2_0_2 0.000887785110429672
+  hidden position3_0_2 -1.2594527770269739e-06
+  hidden linearVelocity_0 -4.3620474436381095e-14 -7.09628717844795e-16 -3.099954409119753e-14
+  hidden angularVelocity_0 1.3035462284892497e-14 -9.033084819548493e-13 1.68230872539093e-16
+  hidden position_3_0 263.1577599999993
+  hidden position_3_1 436.316159999999
+  hidden rotation_4 -0.8779572066786112 -0.3385190551320659 -0.3385202985842706 1.7005914454812665
+  hidden translation_5 -0.08896609855705812 -0.009999999999999998 -0.01642907102623786
+  hidden rotation_5 0.12948006439898627 -0.7011530864582051 -0.7011556619420306 3.3991190688326363
+  hidden rotation_10 0 -1 0 1.5707959999736545
+  hidden linearVelocity_10 -2.9823160963216115e-14 1.2705362266321167e-14 2.824477885866477e-20
+  hidden angularVelocity_10 -1.519491623416003e-14 -9.040836094827973e-13 -2.068649691546754e-17
+  hidden linearVelocity_11 -2.9814561653673926e-14 -1.0316253896006861e-14 -2.4931834203670856e-15
+  hidden angularVelocity_11 -5.702234672051181e-14 -9.036046354050534e-13 -1.0056918164474394e-16
+  hidden rotation_12 0.004322125669310219 0.9999896560243832 -0.001416712368348899 0.0008877942960720675
+  hidden linearVelocity_12 -2.977799550561935e-15 -1.0604708976466519e-16 3.1298231777552774e-13
+  hidden angularVelocity_12 2.6511771996957283e-14 -7.444498751671062e-13 8.24027959464398e-32
+  translation 1.9999999967144724 1.9999999995049798 -0.0004935078559721029
+  rotation -0.002096615039132039 -0.9999978020524944 9.77536864859061e-06 0.009367550974396385
   name "robot_1"
   controller "user_controlled_robot"
   customData "{\"robot_id\":\"robot_1\",\"bridge_port\":5005,\"key_mode\":\"wasd\",\"fake_obstacle_trigger_key\":\"F\",\"fake_obstacle_mode\":\"front\"}"
@@ -452,8 +472,29 @@ DEF ROBOT_1 TurtleBot3Burger {
   ]
 }
 DEF ROBOT_2 TurtleBot3Burger {
-  translation -2.0 -2.0 0.0
-  rotation 0 0 1 1.5708
+  hidden position_0_0 1.322720367564669e-08
+  hidden position_0_1 6.205295969047501e-09
+  hidden position_0_2 -0.1578707055490642
+  hidden position2_0_2 0.0004853280066568585
+  hidden position3_0_2 5.1529653268665034e-05
+  hidden linearVelocity_0 -1.2220121998929109e-15 4.6046526144222495e-14 3.0999544091197534e-14
+  hidden angularVelocity_0 -9.250456850815777e-13 -8.276302804101705e-15 -2.9464445943716153e-16
+  hidden position_3_0 263.1577599999993
+  hidden position_3_1 436.316159999999
+  hidden rotation_4 -0.8779572066786112 -0.3385190551320659 -0.3385202985842706 1.7005914454812665
+  hidden translation_5 -0.08896609855705812 -0.009999999999999998 -0.01642907102623786
+  hidden rotation_5 0.12948006439898627 -0.7011530864582051 -0.7011556619420306 3.3991190688326363
+  hidden rotation_10 0 -1 0 1.5707959867727963
+  hidden linearVelocity_10 -3.01068438269641e-14 3.0505029856708036e-14 1.8700621964759318e-15
+  hidden angularVelocity_10 -9.248317333475731e-13 -8.462713572905123e-14 1.6656370933124497e-15
+  hidden rotation_11 -0.7071047833782477 7.219225496335682e-15 -0.7071087789892031 3.141588
+  hidden linearVelocity_11 2.586460377838233e-14 3.05475088699882e-14 -4.990094884547385e-16
+  hidden angularVelocity_11 -9.255744914107448e-13 -3.896941699260202e-14 4.699911740668601e-16
+  hidden rotation_12 -0.9999952114367973 0.0030935746724960874 8.306154929551501e-05 0.15787144588574978
+  hidden linearVelocity_12 -8.217037845120179e-16 2.9960981633780636e-15 -1.110916397529412e-13
+  hidden angularVelocity_12 -7.490242176862665e-13 -2.054259436640733e-13 -3.3730154879481014e-29
+  translation -1.9999998276433868 -2.0000092878378215 -0.0004935078559721098
+  rotation 0.00467387658913604 -0.0046934972398329595 0.9999780627400228 1.5708224486332938
   name "robot_2"
   controller "user_controlled_robot"
   customData "{\"robot_id\":\"robot_2\",\"bridge_port\":5006,\"key_mode\":\"arrows\",\"fake_obstacle_trigger_key\":\"G\",\"fake_obstacle_mode\":\"front\"}"

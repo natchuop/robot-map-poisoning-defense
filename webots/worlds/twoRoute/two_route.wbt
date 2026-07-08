@@ -9,8 +9,8 @@ WorldInfo {
   basicTimeStep 64
 }
 Viewpoint {
-  orientation -0.45303724724572697 0.5625106313060105 0.6916205912751062 1.722493214208641
-  position -2.0871121409851368 -7.0892312305851135 14.780432953054447
+  orientation -0.5537025944601854 -0.5436028525050245 0.6308005830977489 4.2505697440520525
+  position 0.01350138048963559 3.5831438464689738 19.222026523277062
 }
 Background {
   skyColor [
@@ -25,6 +25,27 @@ RectangleArena {
   floorSize 12.8 5.8
   floorTileSize 1 1
   wallHeight 0.5
+}
+DEF LOWER_DETOUR_RIGHT Solid {
+  translation 4.08 -0.73 0.25
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.44 0.3 0.18
+          shininess 0.15
+          specularColor 0.1 0.1 0.1
+        }
+      }
+      geometry Box {
+        size 0.18 1.75 0.5
+      }
+    }
+  ]
+  name "lower_detour_right(1)"
+  boundingObject Box {
+    size 0.18 1.65 0.5
+  }
 }
 DEF TOP_OUTER Solid {
   translation 0 2.65 0.25
@@ -110,29 +131,8 @@ DEF RIGHT_OUTER Solid {
     size 0.15 5.45 0.5
   }
 }
-DEF CENTER_DIVIDER Solid {
-  translation 2.225 -0.4 0.25
-  children [
-    Shape {
-      appearance Appearance {
-        material Material {
-          diffuseColor 0.44 0.3 0.18
-          shininess 0.15
-          specularColor 0.1 0.1 0.1
-        }
-      }
-      geometry Box {
-        size 4.45 0.18 0.5
-      }
-    }
-  ]
-  name "center_divider"
-  boundingObject Box {
-    size 4.45 0.18 0.5
-  }
-}
 DEF LOWER_BOTTOM_LEFT Solid {
-  translation -2.25 -1.95 0.25
+  translation 0.04 0.2 0.25
   children [
     Shape {
       appearance Appearance {
@@ -143,7 +143,7 @@ DEF LOWER_BOTTOM_LEFT Solid {
         }
       }
       geometry Box {
-        size 4.5 0.15 0.5
+        size 8.25 0.15 0.5
       }
     }
   ]
@@ -152,8 +152,8 @@ DEF LOWER_BOTTOM_LEFT Solid {
     size 4.5 0.15 0.5
   }
 }
-DEF LOWER_BOTTOM_RIGHT Solid {
-  translation 2.25 -1.95 0.25
+DEF LOWER_BOTTOM_LEFT Solid {
+  translation 0.04 -1.55 0.25
   children [
     Shape {
       appearance Appearance {
@@ -164,38 +164,17 @@ DEF LOWER_BOTTOM_RIGHT Solid {
         }
       }
       geometry Box {
-        size 4.5 0.15 0.5
+        size 8.25 0.15 0.5
       }
     }
   ]
-  name "lower_bottom_right"
+  name "lower_bottom_left(1)"
   boundingObject Box {
     size 4.5 0.15 0.5
   }
 }
-DEF LOWER_DETOUR_LEFT Solid {
-  translation 4.4 -1.2 0.25
-  children [
-    Shape {
-      appearance Appearance {
-        material Material {
-          diffuseColor 0.44 0.3 0.18
-          shininess 0.15
-          specularColor 0.1 0.1 0.1
-        }
-      }
-      geometry Box {
-        size 0.18 1.65 0.5
-      }
-    }
-  ]
-  name "lower_detour_left"
-  boundingObject Box {
-    size 0.18 1.65 0.5
-  }
-}
 DEF LOWER_DETOUR_RIGHT Solid {
-  translation -4.4 -1.1 0.25
+  translation -4 -0.73 0.25
   children [
     Shape {
       appearance Appearance {
@@ -206,7 +185,7 @@ DEF LOWER_DETOUR_RIGHT Solid {
         }
       }
       geometry Box {
-        size 0.18 1.65 0.5
+        size 0.18 1.75 0.5
       }
     }
   ]
@@ -252,31 +231,21 @@ Solid {
   locked TRUE
 }
 TurtleBot3Burger {
-  hidden position_0_0 -0.012847324039052912
-  hidden position_0_1 -0.012847324038971953
-  hidden position_0_2 5.6284457187494065e-05
-  hidden position2_0_2 0.005082337227555843
-  hidden position3_0_2 -0.01872445428289508
-  hidden linearVelocity_0 -1.6037774723763746e-17 -1.7985931732426216e-17 0
-  hidden angularVelocity_0 -4.3923874419873736e-17 -1.1758539223042645e-15 8.313798457598014e-17
-  hidden position_3_0 9200.757760000299
-  hidden position_3_1 18311.516160000596
-  hidden rotation_4 -0.34810922940112227 0.6628788487799935 0.6628812836744357 2.471616136150355
-  hidden translation_5 -0.07713183461185136 -0.01 -0.03386456663978345
-  hidden rotation_5 -0.29649456672356383 0.6753101589663054 0.6753126395235834 2.565119243780714
-  hidden translation_10 0 -0.08 0.033
-  hidden rotation_10 0 -1 0 1.5836433240390526
-  hidden linearVelocity_10 3.030485844591593e-18 -4.027591770110459e-17 -1.2444775664287678e-17
-  hidden angularVelocity_10 -3.619873885916475e-16 -4.945671002926497e-16 5.582979201653268e-17
-  hidden translation_11 0 0.08 0.033
-  hidden rotation_11 -0.702547995865451 -1.4946441213679663e-08 -0.7116363632540417 3.1415880000960112
-  hidden linearVelocity_11 -1.3603382131364507e-17 6.777430596721345e-18 -5.8615469869076385e-18
-  hidden angularVelocity_11 -3.261341153789155e-16 1.0071429072239087e-16 5.988772303918008e-17
-  hidden translation_12 -0.081 0 0.004
-  hidden rotation_12 0.00044844635680979717 0.2619704584224694 -0.9650757886351654 0.0194018658068392
-  hidden linearVelocity_12 -2.8567779786491232e-15 -5.3194961064324146e-17 0
-  translation -4.5 1.0 0.034296815881618585
-  rotation 0 0 1 0
+  hidden position_0_0 266.4809063293683
+  hidden position_0_1 266.54404440799016
+  hidden position_0_2 12.462240589753616
+  hidden position2_0_2 63.62516099102372
+  hidden position3_0_2 1520.666645986556
+  hidden position_3_0 10792.87296000036
+  hidden position_3_1 21393.909760000708
+  hidden rotation_4 -0.5509528737116038 -0.590105233302422 -0.5901074008839575 2.134446779663966
+  hidden translation_5 -0.0025754711999565194 -0.009999999999999998 0.01517597767836372
+  hidden rotation_5 0.9723869389337801 0.1650203637962126 0.16502096995096838 4.684387498730725
+  hidden rotation_10 0 0.9999999999999999 0 1.016327427825649
+  hidden rotation_11 -0.857847589431748 2.2569344411713504e-06 0.5139041868880282 3.1415915218275936
+  hidden rotation_12 -0.05552002423169724 0.9925439614831416 0.10850811689760088 0.8036410488560642
+  translation -4.49965 1.00049 -0.00216301
+  rotation -0.07012742139094752 0.9915611520261111 0.1090349786156158 0.022373560105977994
   controller "patrol_robot"
   customData "two_route"
   extensionSlot [
@@ -289,8 +258,29 @@ TurtleBot3Burger {
   ]
 }
 TurtleBot3Burger {
-  translation -1.45e-06 -0.95 -0.000448
-  rotation -0.0021 -1 -2.22e-06 0.00937
+  hidden position_0_0 -1.140604777646052e-07
+  hidden position_0_1 7.822124638224409e-07
+  hidden position_0_2 0.1410169329314801
+  hidden position2_0_2 0.24771688202594247
+  hidden position3_0_2 -6.188168012320313
+  hidden linearVelocity_0 7.705516515328834e-07 -6.283055349954134e-07 2.396382462805851e-06
+  hidden angularVelocity_0 1.2763524473216853e-05 1.5837347350331462e-05 1.9417850000291477e-07
+  hidden position_3_0 1575.8233600000096
+  hidden position_3_1 3014.2668800000147
+  hidden rotation_4 0.6976398558288168 0.5066047503271138 0.5066066111936858 4.359869642416207
+  hidden translation_5 -0.05019264474963853 -0.01 0.045808533375380274
+  hidden rotation_5 -0.5422359958669014 -0.594128576814999 -0.5941307591751276 2.1478700763608907
+  hidden rotation_10 0 -1 0 1.5707961141371147
+  hidden linearVelocity_10 5.208327443200153e-07 -5.305774113776425e-07 8.651328277218092e-07
+  hidden angularVelocity_10 1.2759553568437918e-05 1.5837388673032104e-05 1.9444132930842798e-07
+  hidden rotation_11 -0.7071050577163491 9.099496639238916e-13 -0.7071085046525453 3.141588
+  hidden linearVelocity_11 5.243746533981858e-07 -3.1177205844187675e-07 2.868804040826912e-06
+  hidden angularVelocity_11 1.2767597805667122e-05 1.5837300782295925e-05 1.9441962293429298e-07
+  hidden rotation_12 -0.4971339706928767 -0.7867535300828951 -0.3658916480124097 5.977515342770896
+  hidden linearVelocity_12 6.521685586763066e-08 -6.90797683887154e-08 3.1704065608997974e-06
+  hidden angularVelocity_12 1.7269942168322733e-05 1.6304214032237868e-05 0.009654664861689491
+  translation -0.01697892888354508 -0.6713785641781959 -0.0004939815131660488
+  rotation -0.005258085904207921 -0.548088964911336 -0.8364035145042399 0.01709856915916708
   name "observer_bot"
   controller "user_controlled_robot"
   customData "{\"robot_id\":\"robot_2\",\"bridge_port\":5006,\"key_mode\":\"wasd\",\"map_id\":\"two_route\",\"fake_obstacle_trigger_key\":\"F\",\"fake_obstacle_mode\":\"front\"}"
