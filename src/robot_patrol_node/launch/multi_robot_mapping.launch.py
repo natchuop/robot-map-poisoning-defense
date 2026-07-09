@@ -374,7 +374,8 @@ def _fake_obstacle_injector_node(robot: dict, all_robot_ids: list[str]) -> Node:
 def _checkpoint_metrics_node(robot: dict, map_id: str) -> Node:
     robot_id = robot['robot_id']
     metrics_dir = os.getenv('RMPD_CHECKPOINT_METRICS_DIR', '/tmp/rmpd_checkpoint_metrics').strip()
-    output_csv = str(Path(metrics_dir).joinpath(f'{robot_id}_{map_id or "map"}_metrics.csv'))
+    run_name = os.getenv('RMPD_CHECKPOINT_METRICS_RUN_NAME', '').strip() or map_id or 'map'
+    output_csv = str(Path(metrics_dir).joinpath(run_name, f'{robot_id}_metrics.csv'))
     return Node(
         package='robot_patrol_node',
         executable='checkpoint_metrics',

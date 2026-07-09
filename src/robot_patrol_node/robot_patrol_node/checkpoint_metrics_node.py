@@ -30,6 +30,12 @@ WORLD_CHECKPOINTS = {
         'C': (-0.416565, -1.35783),
         'D': (-2.63149, -0.778393),
     },
+    'turtlebot3_burger': {
+        'A': (-1.49882, 1.84407),
+        'B': (1.5267, -0.221987),
+        'C': (-0.416565, -1.35783),
+        'D': (-2.63149, -0.778393),
+    },
     'simple_corridor': {
         'A': (-4.50, 0.00),
         'B': (4.50, 0.00),
@@ -64,7 +70,8 @@ class CheckpointMetricsNode(Node):
 
         output_csv = str(self.get_parameter('output_csv').value).strip()
         if not output_csv:
-            output_csv = f'/tmp/rmpd_checkpoint_metrics/{self.robot_id}_{self.map_id or "map"}_metrics.csv'
+            map_folder = self.map_id or 'map'
+            output_csv = f'/tmp/rmpd_checkpoint_metrics/{map_folder}/{self.robot_id}_metrics.csv'
         self.output_csv = Path(output_csv)
 
         self.checkpoints = WORLD_CHECKPOINTS.get(self.map_id, {})
